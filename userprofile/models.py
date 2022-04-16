@@ -10,18 +10,15 @@ DEFAULT_AVATAR_DIR = 'avatar/'
 DEFAULT_AVATAR_URL = os.path.join(DEFAULT_AVATAR_DIR, 'default.png')
 
 class UserProfile(TimeStampedModel):
-    owner = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        primary_key=True,
+    owner = models.OneToOneField(settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, primary_key=True,
     )
 
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     description = models.TextField()
 
-    avatar = models.ImageField(
-        upload_to=path_and_rename_avatar,
+    avatar = models.ImageField( upload_to=path_and_rename_avatar,
         default=DEFAULT_AVATAR_URL
     )
 
