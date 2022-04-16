@@ -1,12 +1,8 @@
 from django.contrib.auth.models import Group
-
-from rest_framework import viewsets
 from rest_framework import permissions
-
-from rest_framework import mixins
 from rest_framework import generics
 
-from .serializers import UserSerializer, GroupSerializer
+from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
 from .models import User
 
 class UserList(generics.ListCreateAPIView):
@@ -16,7 +12,7 @@ class UserList(generics.ListCreateAPIView):
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
 
 class GroupList(generics.ListCreateAPIView):
