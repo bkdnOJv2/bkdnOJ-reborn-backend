@@ -41,6 +41,14 @@ class SelfProfileDetail(generics.RetrieveUpdateDestroyAPIView):
             serializer.save()
             return Response(self.serialize(request, profile).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def patch(self, request, *args, **kwargs):
+        profile = self.get_object(request.user.id)
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(self.serialize(request, profile).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, *args, **kwargs):
         profile = self.get_object(request.user.id)
