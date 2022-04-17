@@ -13,6 +13,11 @@ class UserDetailSerializer(UserSerializer):
         model = User
         fields = ['url', 'username', 'email', 'groups']
 
+class UserMoreDetailSerializer(UserSerializer):
+    class Meta:
+        model = User
+        fields = ['url', 'username', 'email', 'groups', 'is_staff', 'is_superuser']
+
 class GroupSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Group

@@ -1,12 +1,12 @@
 from django.contrib.auth.models import Group
 from rest_framework import serializers
 
-from usergroup.serializers import UserSerializer
+from usergroup.serializers import UserMoreDetailSerializer
 
 from .models import UserProfile
 
 class UserProfileSerializer(serializers.HyperlinkedModelSerializer):
-    owner = UserSerializer(read_only=True)
+    owner = UserMoreDetailSerializer(read_only=True)
 
     class Meta:
         model = UserProfile
