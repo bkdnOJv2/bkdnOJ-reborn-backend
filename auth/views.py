@@ -3,7 +3,7 @@ from os import access
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
-from rest_framework import generics, status
+from rest_framework import generics, status, views
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenVerifyView
 from rest_framework_simplejwt.serializers import TokenVerifySerializer
@@ -43,9 +43,13 @@ class MyTokenVerifyView(TokenVerifyView):
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
-
 from helpers.permissions import IsNotAuthenticated
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (IsNotAuthenticated,)
     serializer_class = RegisterSerializer
+
+class SignOutView(views.APIView):
+    def get(self, request, format=None):
+        # TODO: Invalidate token
+        return Response(status=status.HTTP_204_NO_CONTENT);
