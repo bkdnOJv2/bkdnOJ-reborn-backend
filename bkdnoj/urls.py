@@ -18,6 +18,8 @@ urlpatterns = [
     path('', include('usergroup.urls')),
     # UserProfile
     path('', include('userprofile.urls')),
+    # Organization
+    path('', include('organization.urls')),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)

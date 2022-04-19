@@ -3,11 +3,8 @@ from django.conf import settings
 from django.db import models
 from django_extensions.db.models import TimeStampedModel
 
-from helpers.fileupload import path_and_rename_avatar
-
-import os
-DEFAULT_AVATAR_DIR = 'avatar/'
-DEFAULT_AVATAR_URL = os.path.join(DEFAULT_AVATAR_DIR, 'default.png')
+from helpers.fileupload import \
+    path_and_rename_avatar, DEFAULT_AVATAR_URL
 
 class UserProfile(TimeStampedModel):
     owner = models.OneToOneField(settings.AUTH_USER_MODEL, 

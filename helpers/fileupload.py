@@ -31,4 +31,15 @@ class PathAndRename(object):
             filename = '{}.{}'.format(uuid4().hex, ext)
         return os.path.join(self.path, filename)
 
-path_and_rename_avatar = PathAndRename("/avatars")
+import os
+DEFAULT_IMAGE_URL = 'default.png'
+
+DEFAULT_AVATAR_DIR = 'avatar/'
+DEFAULT_AVATAR_URL = os.path.join(DEFAULT_AVATAR_DIR, 'default.png')
+
+path_and_rename_avatar = PathAndRename(DEFAULT_AVATAR_DIR)
+
+DEFAULT_ORG_AVATAR_DIR = 'org_avatar/'
+DEFAULT_ORG_AVATAR_URL = os.path.join(DEFAULT_ORG_AVATAR_DIR, 'default.png')
+
+path_and_rename_org_avatar = PathAndRename(DEFAULT_ORG_AVATAR_DIR)
