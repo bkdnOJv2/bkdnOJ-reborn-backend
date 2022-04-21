@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'usergroup',
     'userprofile',
     'organization',
+    'problem',
 ]
 
 MIDDLEWARE = [

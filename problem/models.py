@@ -1,9 +1,9 @@
 from django.utils.translation import gettext_lazy as _
 
 from django.db import models
-from django.contrib.auth import get_model_user
-User = get_model_user()
-from django_extension.db.models import TimeStampedModel
+from django.contrib.auth import get_user_model
+User = get_user_model()
+from django_extensions.db.models import TimeStampedModel
 
 from organization.models import Organization
 from runtime.models import Language
