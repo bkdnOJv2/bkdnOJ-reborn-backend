@@ -34,4 +34,4 @@ class UserProfile(TimeStampedModel):
         self.save()
 
     def __str__(self):
-        return "{}'s profile".format(self.owner.username)
+        return f"u[{self.owner.username}]'s profile"
