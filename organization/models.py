@@ -30,7 +30,7 @@ class Organization(TimeStampedModel):
 
     def __str__(self):
         return f'{self.shortname}'
-    
+
 
 class OrgMembership(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -43,11 +43,11 @@ class OrgMembership(TimeStampedModel):
 
     role = models.CharField(max_length=8,
         choices=MembershipType.choices, default=MembershipType.MEMBER)
-    
+
     @property
     def role_label(self) -> MembershipType:
         return self.MembershipType(self.role).label
-    
+
     ranking = models.BigIntegerField(default=0)
 
     class Meta:
@@ -56,4 +56,4 @@ class OrgMembership(TimeStampedModel):
     admin_list = ('__str__', 'user', 'org', 'role', 'ranking')
 
     def __str__(self):
-        return f'{self.user.username}-from-{self.org.shortname}'
+        return f'u[{self.user.username}]-org[{self.org.shortname}]'

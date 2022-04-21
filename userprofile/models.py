@@ -6,8 +6,10 @@ from django_extensions.db.models import TimeStampedModel
 from helpers.fileupload import \
     path_and_rename_avatar, DEFAULT_AVATAR_URL
 
+from organization.models import OrgMembership
+
 class UserProfile(TimeStampedModel):
-    owner = models.OneToOneField(settings.AUTH_USER_MODEL, 
+    owner = models.OneToOneField(settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE, primary_key=True,
     )
 
@@ -19,8 +21,12 @@ class UserProfile(TimeStampedModel):
         default=DEFAULT_AVATAR_URL
     )
 
-    # orgs
-    # 
+    global_ranking = models.BigIntegerField(default=0)
+
+    @property
+    def member_of_orgs(self):
+        member_of_orgs = OrgMembership.objects.filter(user=self.owner)
+        return member_of_orgs
 
     def set_image_to_default(self):
         self.avatar.delete(save=False) # delete old image file
