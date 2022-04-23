@@ -7,7 +7,8 @@ import zlib
 from django.conf import settings
 from django.utils import timezone
 
-from judge import event_poster as event
+# from judge import event_poster as event # TODO
+event = None
 
 logger = logging.getLogger('runtime.judgeapi')
 size_pack = struct.Struct('!I')

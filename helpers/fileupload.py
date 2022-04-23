@@ -43,3 +43,9 @@ DEFAULT_ORG_AVATAR_DIR = 'org_avatar/'
 DEFAULT_ORG_AVATAR_URL = os.path.join(DEFAULT_ORG_AVATAR_DIR, 'default.png')
 
 path_and_rename_org_avatar = PathAndRename(DEFAULT_ORG_AVATAR_DIR)
+
+# ====
+DEFAULT_TEST_DATA_DIR = 'problems/test_data'
+DEFAULT_TEST_DATA_URL = os.path.join(DEFAULT_ORG_AVATAR_DIR, 'default.zip')
+
+path_and_rename_test_zip = PathAndRename(DEFAULT_TEST_DATA_DIR)

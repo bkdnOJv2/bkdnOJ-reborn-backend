@@ -1,16 +1,25 @@
 from django.utils.translation import gettext_lazy as _
+# from bkdnoj import settings
+import bkdnoj
 
 from django.db import models
 from django.contrib.auth import get_user_model
 User = get_user_model()
+
+from django.core.validators import MinValueValidator, MaxValueValidator
+
 from django_extensions.db.models import TimeStampedModel
 
 from organization.models import Organization
+from helpers.fileupload import path_and_rename_test_zip
+
 from runtime.models import Language
 
 class Problem(TimeStampedModel):
   # -------------- Problem General Info
-  shortname = models.SlugField(max_length=128, primary_key=True,
+  shortname = models.SlugField(
+    max_length=128,
+    null=False, blank=False, unique=True, db_index=True,
     help_text=_("This field is used to separate different problems from each other, "
               "similar to `problem code'. Only letters [A-Z], numbers [0-9], "
               "underscores (_) or hyphens (-) allowed. Max length is 128 characters. "
@@ -19,49 +28,59 @@ class Problem(TimeStampedModel):
   )
   title = models.CharField(max_length=256,
     help_text=_("Title for problem"),
+    blank=True, default="",
   )
   content = models.TextField(
     help_text=_("Problem's statement"),
+    blank=True, default="",
   )
 
   source = models.CharField(max_length=2048,
     help_text=_("Sources of the problem. For example: "
                 "Codeforces Div.2 Round #123 - Problem D."
     ),
+    blank=True, default=""
   )
   time_limit = models.FloatField(default=1.0,
     help_text=_("The time limit for this problem, in seconds. "
                 "Fractional seconds (e.g. 1.5) are supported."
     ),
-    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
-                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)]
+    validators=[MinValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
+                MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)]
   )
   memory_limit = models.PositiveIntegerField(default=256*1024,
     help_text=_("The memory limit for this problem, in kilobytes "
                 "(e.g. 64mb = 65536 kilobytes)."
     ),
-    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT),
-                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT)]
+    validators=[MinValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT),
+                MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT)]
   )
 
   # -------------- Problem Judging Info
-  allowed_language = models.ManyToMany(Language,
-    help_text=_('List of allowed submission languages.')
+  allowed_language = models.ManyToManyField(Language,
+    help_text=_('List of allowed submission languages.'),
+    blank=True, default=[],
   )
 
   # -------------- Privacy
-  authors = models.ManyToMany(User,
+  authors = models.ManyToManyField(User,
+    related_name="authored_problem_set",
     help_text=_("These users may view, edit the problem, and will be listed as Authors "
               "on the Problem Detail page."
     ),
+    blank=True, default=[],
   )
-  collaborators = models.ManyToMany(User,
+  collaborators = models.ManyToManyField(User,
+    related_name="collaborated_problem_set",
     help_text=_("These users may view, edit the problem, but won't be listed as Authors "
               "on the Problem Detail page."
     ),
+    blank=True, default=[],
   )
-  reviewers = models.ManyToMany(User,
+  reviewers = models.ManyToManyField(User,
+    related_name="reviewed_problem_set",
     help_text=_("These users may only view and make submissions to the problem"),
+    blank=True, default=[],
   )
 
   is_published = models.BooleanField(null=False, default=False,
@@ -75,7 +94,10 @@ class Problem(TimeStampedModel):
               "organizations may see and submit to the problem. "
     ),
   )
-  shared_orgs = models.ManyToManyField(Organization)
+  shared_orgs = models.ManyToManyField(
+    Organization,
+    blank=True, default=[],
+  )
 
   class SubmissionVisibilityType(models.TextChoices):
     DEFAULT = 'DEFAULT', _('Follow default setting.'),
@@ -107,3 +129,38 @@ class Problem(TimeStampedModel):
   # -------------- Methods
   def __str__(self):
     return f'prob[{self.shortname}]'
+
+class ProblemTestDataProfile(TimeStampedModel):
+  problem = models.OneToOneField(Problem,
+    primary_key=True,
+    on_delete=models.CASCADE,
+  )
+  uploader = models.ForeignKey(User, null=True, 
+    on_delete=models.SET_NULL,
+  )
+  zip_url = models.FileField(
+    upload_to=path_and_rename_test_zip,
+    null=True, blank=True
+  )
+
+class ProblemTestCase(models.Model):
+  test_profile = models.ForeignKey(ProblemTestDataProfile,
+    null=False,
+    on_delete=models.CASCADE,
+  )
+  rel_input_file_url = models.CharField(max_length=500,
+    null=False
+  )
+  rel_answer_file_url = models.CharField(max_length=500,
+    null=False
+  )
+  order = models.IntegerField()
+  points = models.FloatField(default=0.0)
+
+  def swap_order(self, test_case):
+    self.order, test_case.order = test_case.order, self.order
+
+  def save(self, *args, **kwargs):
+    if self.order == None:
+      self.order = self.id
+    super(ProblemTestCase, self).save(*args, **kwargs)

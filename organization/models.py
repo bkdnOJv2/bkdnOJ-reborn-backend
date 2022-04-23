@@ -1,4 +1,5 @@
 from django.db import models
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.models import TimeStampedModel
 from django.contrib.auth import get_user_model
@@ -8,8 +9,11 @@ from helpers.fileupload import \
     path_and_rename_org_avatar, DEFAULT_ORG_AVATAR_URL
 
 class Organization(TimeStampedModel):
-    shortname = models.SlugField(primary_key=True,
-        db_index=True, max_length=256)
+    shortname = models.SlugField(
+        max_length=256,
+        # null=False, blank=False, unique=True, db_index=True, 
+        primary_key=True,
+    )
     name = models.CharField(max_length=256, null=False, blank=False)
     description = models.TextField(null=False, blank=False)
 
@@ -28,6 +32,10 @@ class Organization(TimeStampedModel):
 
     def __str__(self):
         return f'{self.shortname}'
+    
+    def get_absolute_url(self):
+        return reverse("organization-detail", 
+            kwargs={"shortname": self.shortname})
 
 
 class OrgMembership(TimeStampedModel):

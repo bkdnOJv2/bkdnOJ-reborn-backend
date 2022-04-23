@@ -10,6 +10,8 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
+from django_extensions.db.models import TimeStampedModel
+
 from .judgeapi import disconnect_judge
 
 __all__ = ['Language', 'RuntimeVersion', 'Judge']
@@ -171,7 +173,7 @@ class Judge(TimeStampedModel):
     verbose_name='Last connected IP', blank=True, null=True
   )
   problems = models.ManyToManyField(
-    'Problem', verbose_name=_('problems'), related_name='judges'
+    'problem.Problem', verbose_name=_('problems'), related_name='judges'
   )
   runtimes = models.ManyToManyField(
     Language, verbose_name=_('judges'), related_name='judges'

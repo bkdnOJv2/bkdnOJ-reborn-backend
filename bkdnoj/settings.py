@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'userprofile',
     'organization',
     'problem',
+    'runtime', # DMOJ
 ]
 
 MIDDLEWARE = [

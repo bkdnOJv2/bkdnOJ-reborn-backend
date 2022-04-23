@@ -7,7 +7,7 @@ from .models import OrgMembership, Organization
 class OrganizationSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Organization
-        fields = ('url', 'name', 'description')
+        fields = ('url', 'shortname', 'name', 'description')
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
@@ -27,7 +27,7 @@ class OrganizationDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Organization
-        fields = ('url', 'name', 'description', 'memberships')
+        fields = ('url', 'shortname', 'name', 'description', 'memberships')
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
