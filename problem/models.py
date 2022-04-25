@@ -97,6 +97,7 @@ class Problem(TimeStampedModel):
   shared_orgs = models.ManyToManyField(
     Organization,
     blank=True, default=[],
+    related_name="shared_orgs",
   )
 
   class SubmissionVisibilityType(models.TextChoices):
@@ -127,6 +128,8 @@ class Problem(TimeStampedModel):
   # -------------- TODO: Problem TestCase Info
 
   # -------------- Methods
+
+
   def __str__(self):
     return f'prob[{self.shortname}]'
 
@@ -134,6 +137,8 @@ class ProblemTestDataProfile(TimeStampedModel):
   problem = models.OneToOneField(Problem,
     primary_key=True,
     on_delete=models.CASCADE,
+    to_field='shortname',
+    related_name='test_profile',
   )
   uploader = models.ForeignKey(User, null=True, 
     on_delete=models.SET_NULL,
