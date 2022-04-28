@@ -33,7 +33,9 @@ INSTALLED_APPS = [
     'userprofile',
     'organization',
     'problem',
-    'runtime', # DMOJ
+    'judger',
+    'submission',
+    'compete', # 'contest' is a Python module already
 ]
 
 MIDDLEWARE = [
@@ -165,3 +167,18 @@ BKDNOJ_PROBLEM_MIN_TIME_LIMIT=0.1 # 0.1 second = 100 milliseconds
 
 BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT=1024*1024 # 1024*1024 kB = 1024 MB = 1GB
 BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT=64*1024 # 64*1024 KB = 64 MB
+
+#
+EVENT_DAEMON_USE = False
+EVENT_DAEMON_POST = 'ws://localhost:9997/'
+EVENT_DAEMON_GET = 'ws://localhost:9996/'
+EVENT_DAEMON_POLL = '/channels/'
+EVENT_DAEMON_KEY = None
+EVENT_DAEMON_AMQP_EXCHANGE = 'bkdnoj-events'
+EVENT_DAEMON_SUBMISSION_KEY = '6Sdmkx^%pk@GsifDfXcwX*Y7LRF%RGT8vmFpSxFBT$fwS7trc8raWfN#CSfQuKApx&$B#Gh2L7p%W!Ww'
+
+# -- Judger Bridge
+BRIDGED_JUDGE_ADDRESS = [('localhost', 9999)]
+BRIDGED_JUDGE_PROXIES = None
+BRIDGED_DJANGO_ADDRESS = [('localhost', 9998)]
+BRIDGED_DJANGO_CONNECT = None

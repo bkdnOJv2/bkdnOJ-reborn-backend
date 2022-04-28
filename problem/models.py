@@ -2,18 +2,22 @@ from django.utils.translation import gettext_lazy as _
 # from bkdnoj import settings
 import bkdnoj
 
+
 from django.db import models
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
+from django.utils.functional import cached_property
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 from django_extensions.db.models import TimeStampedModel
 
 from organization.models import Organization
 from helpers.fileupload import path_and_rename_test_zip
+from submission.models import SubmissionSourceAccess
 
-from runtime.models import Language
+from judger.models import Language
+
 
 class Problem(TimeStampedModel):
   # -------------- Problem General Info
@@ -100,15 +104,8 @@ class Problem(TimeStampedModel):
     related_name="shared_orgs",
   )
 
-  class SubmissionVisibilityType(models.TextChoices):
-    DEFAULT = 'DEFAULT', _('Follow default setting.'),
-    ALWAYS = 'ALWAYS', _('Always visible'),
-    SOLVED = 'SOLVED', _('Visible if problem solved'),
-    ONLY_OWN = 'ONLY_OWN', _('Only own submissions'),
-    HIDDEN = 'HIDDEN', _('Submissions will never be shown'),
-
   submission_visibility_mode = models.CharField(max_length=16,
-    choices=SubmissionVisibilityType.choices, default=SubmissionVisibilityType.DEFAULT,
+    choices=SubmissionSourceAccess.choices, default=SubmissionSourceAccess.FOLLOW,
     help_text=_("Determine if users can view submissions for this problem. This is for "
                 "public problems only. For problems within certain contests, please set "
                 "the contest's own submission visibility setting."
@@ -148,7 +145,11 @@ class ProblemTestDataProfile(TimeStampedModel):
     null=True, blank=True
   )
 
+
 class ProblemTestCase(models.Model):
+  """
+    Model for each test case of a problem
+  """
   test_profile = models.ForeignKey(ProblemTestDataProfile,
     null=False,
     on_delete=models.CASCADE,
@@ -169,3 +170,139 @@ class ProblemTestCase(models.Model):
     if self.order == None:
       self.order = self.id
     super(ProblemTestCase, self).save(*args, **kwargs)
+
+
+
+class Language(models.Model):
+  """
+  Model of Programming Language, for each problem
+  """
+  key = models.CharField(max_length=6, verbose_name=_('short identifier'),
+    help_text=_('The identifier for this language; the same as its executor id for judges.'),
+    unique=True
+  )
+  name = models.CharField(max_length=20, verbose_name=_('long name'),
+    help_text=_('Longer name for the language, e.g. "Python 2" or "C++11".')
+  )
+  short_name = models.CharField(max_length=10, verbose_name=_('short name'),
+    help_text=_('More readable, but short, name to display publicly; e.g. "PY2" or '
+                '"C++11". If left blank, it will default to the '
+                'short identifier.'
+    ),
+    null=True, blank=True
+  )
+
+  common_name = models.CharField(max_length=10, verbose_name=_('common name'),
+    help_text=_('Common name for the language. For example, the common name for C++03, '
+                'C++11, and C++14 would be "C++"')
+  )
+  ace = models.CharField(max_length=20, verbose_name=_('ace mode name'),
+    help_text=_('Language ID for Ace.js editor highlighting, appended to "mode-" to determine '
+                'the Ace JavaScript file to use, e.g., "python".')
+  )
+  pygments = models.CharField(max_length=20, verbose_name=_('pygments name'),
+    help_text=_('Language ID for Pygments highlighting in source windows.')
+  )
+  template = models.TextField(verbose_name=_('code template'),
+    help_text=_('Code template to display in submission editor.'),
+    blank=True,
+  )
+  info = models.CharField(max_length=50, verbose_name=_('runtime info override'), blank=True,
+    help_text=_("Do not set this unless you know what you're doing! It will override the "
+                "usually more specific, judge-provided runtime info!"),
+  )
+  description = models.TextField(verbose_name=_('language description'),
+    help_text=_("Use this field to inform users of quirks with your environment, "
+                "additional restrictions, etc."),
+    blank=True
+  )
+  extension = models.CharField(max_length=10, verbose_name=_('extension'),
+    help_text=_('The extension of source files, e.g., "py" or "cpp".')
+  )
+
+  def runtime_versions(self):
+    runtimes = OrderedDict()
+    # There be dragons here if two judges specify different priorities
+    for runtime in self.runtimeversion_set.all():
+      id = runtime.name
+      if id not in runtimes:
+        runtimes[id] = set()
+      if not runtime.version:  # empty str == error determining version on judge side
+        continue
+      runtimes[id].add(runtime.version)
+
+    lang_versions = []
+    for id, version_list in runtimes.items():
+      lang_versions.append((id, sorted(version_list, key=lambda a: tuple(map(int, a.split('.'))))))
+    return lang_versions
+
+  @classmethod
+  def get_common_name_map(cls):
+    result = cache.get('lang:cn_map')
+    if result is not None:
+      return result
+    result = defaultdict(set)
+    for id, cn in Language.objects.values_list('id', 'common_name'):
+      result[cn].add(id)
+    result = {id: cns for id, cns in result.items() if len(cns) > 1}
+    cache.set('lang:cn_map', result, 86400)
+    return result
+
+  @cached_property
+  def short_display_name(self):
+    return self.short_name or self.key
+
+  def __str__(self):
+    return self.name
+
+  @cached_property
+  def display_name(self):
+    if self.info:
+      return '%s (%s)' % (self.name, self.info)
+    else:
+      return self.name
+
+  @classmethod
+  def get_python3(cls):
+    # We really need a default language, and this app is in Python 3
+    return Language.objects.get_or_create(key='PY3', defaults={'name': 'Python 3'})[0]
+
+  def get_absolute_url(self):
+    return reverse('runtime_list') + '#' + self.key
+
+  @classmethod
+  def get_default_language(cls):
+    try:
+      return Language.objects.get(key=settings.DEFAULT_USER_LANGUAGE)
+    except Language.DoesNotExist:
+      return cls.get_python3()
+
+  @classmethod
+  def get_default_language_pk(cls):
+    return cls.get_default_language().pk
+
+  class Meta:
+    ordering = ['key']
+    verbose_name = _('language')
+    verbose_name_plural = _('languages')
+
+class LanguageLimit(models.Model):
+    problem = models.ForeignKey(Problem, verbose_name=_('problem'), 
+      related_name='language_limits', on_delete=models.CASCADE)
+    
+    language = models.ForeignKey(Language, 
+      verbose_name=_('language'), on_delete=models.CASCADE)
+
+    time_limit = models.FloatField(verbose_name=_('time limit'),
+      validators=[MinValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
+                  MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)]
+    )
+    memory_limit = models.IntegerField(verbose_name=_('memory limit'),
+      validators=[MinValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT),
+                  MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT)]
+    )
+
+    class Meta:
+        unique_together = ('problem', 'language')
+        verbose_name = _('language-specific resource limit')
+        verbose_name_plural = _('language-specific resource limits')

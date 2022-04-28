@@ -22,6 +22,8 @@ urlpatterns = [
     path('', include('organization.urls')),
     # Organization
     path('', include('problem.urls')),
+    # Judge
+    path('', include('judger.restful.urls'))
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)
