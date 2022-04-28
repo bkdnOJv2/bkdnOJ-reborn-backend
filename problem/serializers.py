@@ -16,7 +16,7 @@ class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
         }
 
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
-    shared_orgs = serializers.SlugRelatedField(
+    organizations = serializers.SlugRelatedField(
         queryset=Organization.objects.all(), many=True, slug_field="shortname"
     )
     authors = serializers.SlugRelatedField(
@@ -35,11 +35,11 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             'url',
             'shortname', 'title', 'content',
             'source', 'time_limit', 'memory_limit',
-            'allowed_language', 
+            'allowed_languages', 
             'authors', 'collaborators', 'reviewers',
 
             'is_published',
-            'is_privated_to_orgs', 'shared_orgs',
+            'is_privated_to_orgs', 'organizations',
 
             'submission_visibility_mode',
         ]

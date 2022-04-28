@@ -3,7 +3,8 @@ from django.urls import path, include
 from rest_framework.urlpatterns import format_suffix_patterns
 
 from .views import ProblemListView, ProblemDetailView, \
-    ProblemTestDataProfileListView, ProblemTestDataProfileDetailView
+    ProblemTestDataProfileListView, ProblemTestDataProfileDetailView, \
+    ProblemSubmitView
 
 urlpatterns = [
     path('problem/', 
@@ -13,6 +14,10 @@ urlpatterns = [
     path('problem/<str:shortname>/', 
         ProblemDetailView.as_view(), 
         name='problem-detail',
+    ),
+    path('problem/<str:shortname>/submit', 
+        ProblemSubmitView.as_view(), 
+        name='problem-submit',
     ),
     path('problem-test-profile/', 
         ProblemTestDataProfileListView.as_view(), 
