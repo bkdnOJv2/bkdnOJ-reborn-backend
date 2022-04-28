@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from judge.models import Judge
+from judger.models import Judge
 
 
 class Command(BaseCommand):

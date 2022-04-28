@@ -22,7 +22,8 @@ json_log = logging.getLogger('judge.json.bridge')
 
 UPDATE_RATE_LIMIT = 5
 UPDATE_RATE_TIME = 0.5
-SubmissionData = namedtuple('SubmissionData', 'time memory short_circuit pretests_only contest_no attempt_no user_id')
+SubmissionData = namedtuple('SubmissionData',
+  'time memory short_circuit pretests_only contest_no attempt_no user_id')
 
 
 def _ensure_connection():
@@ -112,8 +113,18 @@ class JudgeHandler(ZlibPacketHandler):
         judge = self.judge = Judge.objects.get(name=self.name)
         judge.start_time = timezone.now()
         judge.online = True
-        judge.problems.set(Problem.objects.filter(code__in=list(self.problems.keys())))
-        judge.runtimes.set(Language.objects.filter(key__in=list(self.executors.keys())))
+        try:
+            # bkdnOJ uses shortname instead of code
+            judge.problems.set(
+                Problem.objects.filter(shortname__in=list(self.problems.keys()))
+            )
+        except django.core.exceptions.FieldError:
+            # Fallback to dmoj code
+            judge.problems.set(
+                Problem.objects.filter(code__in=list(self.problems.keys())))
+        
+        judge.runtimes.set(
+            Language.objects.filter(key__in=list(self.executors.keys())))
 
         # Delete now in case we somehow crashed and left some over from the last connection
         RuntimeVersion.objects.filter(judge=judge).delete()
@@ -316,7 +327,15 @@ class JudgeHandler(ZlibPacketHandler):
         if not self.working:
             self.judges.update_problems(self)
 
-        self.judge.problems.set(Problem.objects.filter(code__in=list(self.problems.keys())))
+        try:
+            # BKDNOJ uses 'shortname' for problem keys
+            self.judge.problems.set(
+                Problem.objects.filter(shortname__in=list(self.problems.keys())))
+        except django.core.exceptions.FieldError:
+            # Fallback to DMOJ style
+            self.judge.problems.set(
+                Problem.objects.filter(code__in=list(self.problems.keys())))
+
         json_log.info(self._make_json_log(action='update-problems', count=len(self.problems)))
 
     def on_grading_begin(self, packet):

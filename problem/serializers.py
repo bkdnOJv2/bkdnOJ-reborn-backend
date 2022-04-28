@@ -6,6 +6,15 @@ from organization.models import Organization
 
 from .models import Problem, ProblemTestDataProfile
 
+class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Problem 
+        fields = ['url', 'shortname']
+        lookup_field = 'shortname'
+        extra_kwargs = {
+            'url': {'lookup_field': 'shortname'}
+        }
+
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     shared_orgs = serializers.SlugRelatedField(
         queryset=Organization.objects.all(), many=True, slug_field="shortname"
@@ -23,6 +32,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Problem 
         fields = [
+            'url',
             'shortname', 'title', 'content',
             'source', 'time_limit', 'memory_limit',
             'allowed_language', 
