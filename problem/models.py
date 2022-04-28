@@ -4,6 +4,7 @@ import bkdnoj
 
 
 from django.db import models
+from django.urls import reverse
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
@@ -61,7 +62,7 @@ class Problem(TimeStampedModel):
   )
 
   # -------------- Problem Judging Info
-  allowed_language = models.ManyToManyField(Language,
+  allowed_languages = models.ManyToManyField(Language,
     help_text=_('List of allowed submission languages.'),
     blank=True, default=[],
   )
@@ -93,15 +94,15 @@ class Problem(TimeStampedModel):
               "option was True, this problem is public (anyone can see and submit)."
     ),
   )
+  published_at = models.DateTimeField(null=True)
+
   is_privated_to_orgs = models.BooleanField(null=False, default=False,
     help_text=_("If this option was True, and problem is published, only added "
               "organizations may see and submit to the problem. "
     ),
   )
-  shared_orgs = models.ManyToManyField(
-    Organization,
-    blank=True, default=[],
-    related_name="shared_orgs",
+  organizations = models.ManyToManyField(
+    Organization, blank=True, default=[],
   )
 
   submission_visibility_mode = models.CharField(max_length=16,
@@ -125,7 +126,37 @@ class Problem(TimeStampedModel):
   # -------------- TODO: Problem TestCase Info
 
   # -------------- Methods
+  def __init__(self, *args, **kwargs):
+    super(Problem, self).__init__(*args, **kwargs)
+    self.__original_shortname = self.shortname
 
+  def languages_list(self):
+    return self.allowed_languages. \
+      values_list('common_name', flat=True).distinct().order_by('common_name')
+  
+  def is_editor(self, user):
+    raise NotImplemented
+  
+  def is_editable_by(self, user):
+    raise NotImplemented
+  
+  def is_accessible_by(self, user):
+    raise NotImplemented
+
+  @classmethod
+  def get_visible_problems(cls, user):
+    raise NotImplemented
+  
+  @classmethod
+  def get_public_problems(cls):
+    raise NotImplemented
+
+  @classmethod
+  def get_editable_problems(cls, user):
+    raise NotImplemented
+
+  def get_absolute_url(self):
+    return reverse('problem_detail', args=(self.shortname,))
 
   def __str__(self):
     return f'prob[{self.shortname}]'
