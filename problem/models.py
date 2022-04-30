@@ -44,14 +44,14 @@ class Problem(TimeStampedModel):
     help_text=_("Sources of the problem. For example: "
                 "Codeforces Div.2 Round #123 - Problem D."
     ),
-    blank=True, default=""
+    blank=True, default="",
   )
   time_limit = models.FloatField(default=1.0,
     help_text=_("The time limit for this problem, in seconds. "
                 "Fractional seconds (e.g. 1.5) are supported."
     ),
     validators=[MinValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
-                MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)]
+                MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)],
   )
   memory_limit = models.PositiveIntegerField(default=256*1024,
     help_text=_("The memory limit for this problem, in kilobytes "
@@ -173,7 +173,7 @@ class ProblemTestDataProfile(TimeStampedModel):
   )
   zip_url = models.FileField(
     upload_to=path_and_rename_test_zip,
-    null=True, blank=True
+    null=True, blank=True,
   )
 
 

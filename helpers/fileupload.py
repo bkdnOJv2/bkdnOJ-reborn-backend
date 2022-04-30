@@ -20,15 +20,20 @@ from django.utils.deconstruct import deconstructible
 
 @deconstructible
 class PathAndRename(object):
-    def __init__(self, sub_path):
+    def __init__(self, sub_path, create_subfolder_for_pk=False):
         self.path = sub_path
+        self.create_subfolder_for_pk = create_subfolder_for_pk
 
     def __call__(self, instance, filename):
         ext = filename.split('.')[-1]
+        base_filename = uuid4().hex
         if instance.pk:
-            filename = '{}.{}'.format(instance.pk, ext)
-        else:
-            filename = '{}.{}'.format(uuid4().hex, ext)
+            base_filename = str(instance.pk)
+        
+        filename = '{}.{}'.format(base_filename, ext)
+
+        if self.create_subfolder_for_pk:
+            return os.path.join(self.path, base_filename, filename)
         return os.path.join(self.path, filename)
 
 import os
@@ -48,4 +53,4 @@ path_and_rename_org_avatar = PathAndRename(DEFAULT_ORG_AVATAR_DIR)
 DEFAULT_TEST_DATA_DIR = 'problems/test_data'
 DEFAULT_TEST_DATA_URL = os.path.join(DEFAULT_ORG_AVATAR_DIR, 'default.zip')
 
-path_and_rename_test_zip = PathAndRename(DEFAULT_TEST_DATA_DIR)
+path_and_rename_test_zip = PathAndRename(DEFAULT_TEST_DATA_DIR, True)

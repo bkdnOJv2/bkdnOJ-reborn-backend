@@ -19,6 +19,10 @@ urlpatterns = [
         ProblemSubmitView.as_view(), 
         name='problem-submit',
     ),
+    path('problem/<str:problem>/secret/', 
+        ProblemTestDataProfileDetailView.as_view(), 
+        name='problem-test-profile-detail',
+    ),
 
     path('problem-test-profile/', 
         ProblemTestDataProfileListView.as_view(), 
