@@ -224,7 +224,7 @@ class Submission(models.Model):
             return self.contest_object.key
 
     def __str__(self):
-        return 'Submission %d of %s by %s' % (self.id, self.problem, self.user.user.username)
+        return 'Submission %d of %s by %s' % (self.id, self.problem, self.user.owner.username)
 
     def get_absolute_url(self):
         return reverse('submission_status', args=(self.id,))

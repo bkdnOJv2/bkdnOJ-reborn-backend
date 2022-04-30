@@ -98,7 +98,7 @@ class Language(models.Model):
         return Language.objects.get_or_create(key='PY3', defaults={'name': 'Python 3'})[0]
 
     def get_absolute_url(self):
-        return reverse('runtime_list') + '#' + self.key
+        return reverse('language-list') + '#' + self.key
 
     @classmethod
     def get_default_language(cls):
