@@ -4,7 +4,7 @@ User = get_user_model()
 
 from organization.models import Organization
 
-from .models import Problem, ProblemTestDataProfile
+from .models import Problem, ProblemTestProfile
 
 class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -51,7 +51,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 
 class ProblemTestDataProfileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProblemTestDataProfile
+        model = ProblemTestProfile
         fields = '__all__'
         read_only_fields = ('problem',)
         lookup_field = 'problem'

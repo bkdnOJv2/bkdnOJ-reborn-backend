@@ -4,7 +4,7 @@ from rest_framework.urlpatterns import format_suffix_patterns
 
 from .views import ProblemListView, ProblemDetailView, \
     ProblemTestDataProfileListView, ProblemTestDataProfileDetailView, \
-    ProblemSubmitView
+    ProblemSubmitView, problem_data_file
 
 urlpatterns = [
     path('problem/', 
@@ -19,18 +19,21 @@ urlpatterns = [
         ProblemSubmitView.as_view(), 
         name='problem-submit',
     ),
-    path('problem/<str:problem>/secret/', 
+    path('problem/<str:problem>/data/', 
         ProblemTestDataProfileDetailView.as_view(), 
-        name='problem-test-profile-detail',
+        name='problem-data-detail',
+    ),
+    path('problem/test_data/<str:shortname>/<path:path>', 
+        problem_data_file, name='problem_data_file'
     ),
 
-    path('problem-test-profile/', 
+    path('problem-data/', 
         ProblemTestDataProfileListView.as_view(), 
-        name='problem-test-profile-list',
+        name='problem-data-list',
     ),
-    path('problem-test-profile/<str:problem>/', 
+    path('problem-data/<str:problem>/', 
         ProblemTestDataProfileDetailView.as_view(), 
-        name='problem-test-profile-detail',
+        name='problem-data-detail',
     ),
 ]
 

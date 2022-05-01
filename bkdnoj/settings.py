@@ -165,7 +165,7 @@ LOGGING = {
 }
 
 # --------- Site settings
-BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'problems/data')
+BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'test_data')
 
 BKDNOJ_PROBLEM_MAX_TIME_LIMIT=20.0 # 20 seconds
 BKDNOJ_PROBLEM_MIN_TIME_LIMIT=0.1 # 0.1 second = 100 milliseconds
