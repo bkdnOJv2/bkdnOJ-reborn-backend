@@ -1,7 +1,7 @@
 from rest_framework import views, permissions, generics, viewsets, response, status
 
-from .serializers import ProblemSerializer, ProblemTestDataProfileSerializer
-from .models import Problem, ProblemTestProfile
+from problem.serializers import ProblemSerializer, ProblemTestProfileSerializer
+from problem.models import Problem, ProblemTestProfile
 
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
@@ -12,44 +12,13 @@ logger = logging.getLogger(__name__)
 
 import json
 
-# Create your views here.
-class ProblemListView(generics.ListCreateAPIView):
-    queryset = Problem.objects.all()
-    serializer_class = ProblemSerializer
-    permission_classes = []
-
-class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Problem.objects.all()
-    serializer_class = ProblemSerializer #ProblemDetailSerializer
-    permission_classes = []
-    lookup_field = 'shortname'
-
-class ProblemSubmitView(generics.CreateAPIView):
-    queryset = Problem.objects.all()
-    serializer_class = SubmissionSubmitSerializer
-    lookup_field = 'shortname'
-    permission_classes = []
-    
-    def create(self, request, *args, **kwargs):
-        prob = self.get_object()
-
-        sub = SubmissionSubmitSerializer(data=request.data)
-        if not sub.is_valid():
-            return response.Response(sub.errors, status=status.HTTP_400_BAD_REQUEST)
-        sub_obj = sub.save(problem=prob, user=request.user.profile)
-
-        return response.Response(
-            SubmissionURLSerializer(sub_obj, context={'request':request}).data,
-            status=status.HTTP_200_OK
-        )
-
-class ProblemTestDataProfileListView(generics.ListAPIView):
+class ProblemTestProfileListView(generics.ListAPIView):
     queryset = ProblemTestProfile.objects.all()
-    serializer_class = ProblemTestDataProfileSerializer
+    serializer_class = ProblemTestProfileSerializer
 
-class ProblemTestDataProfileDetailView(generics.RetrieveUpdateAPIView):
+class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
     queryset = ProblemTestProfile.objects.all()
-    serializer_class = ProblemTestDataProfileSerializer
+    serializer_class = ProblemTestProfileSerializer
     lookup_field = 'problem'
     
 from django.http import Http404, HttpResponse, HttpResponseRedirect

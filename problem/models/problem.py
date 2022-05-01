@@ -160,7 +160,7 @@ class Problem(TimeStampedModel):
     return reverse('problem_detail', args=(self.shortname,))
 
   def __str__(self):
-    return f'prob[{self.shortname}]'
+    return f'{self.shortname}'
 
 # class Language(models.Model):
 #   """

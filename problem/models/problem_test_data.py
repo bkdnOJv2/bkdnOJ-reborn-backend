@@ -21,6 +21,9 @@ from judger.models import Language
 from helpers.problem_data import ProblemDataStorage
 problem_data_storage = ProblemDataStorage()
 
+import logging
+logger = logging.getLogger(__name__)
+
 CHECKERS = (
   ('standard', _('Standard')),
   ('floats', _('Floats')),
@@ -76,6 +79,12 @@ class ProblemTestProfile(TimeStampedModel):
     super(ProblemTestProfile, self).__init__(*args, **kwargs)
     self.__original_zipfile = self.zipfile
 
+  def get_absolute_url(self):
+    return reverse('problemtestprofile_detail', args=(self.problem,))
+  
+  def __str__(self):
+    return 'Test Profile of Problem %s' % (self.problem)
+
 class TestCase(models.Model):
   """
     Model for each test case of a problem
@@ -85,8 +94,10 @@ class TestCase(models.Model):
     null=False,
     on_delete=models.CASCADE,
     related_name='cases',
+    db_index=True,
   )
-  order = models.IntegerField(verbose_name=_('case position'))
+  order = models.IntegerField(
+    verbose_name=_('case position'), null=True)
   type = models.CharField(max_length=1, verbose_name=_('case type'),
     choices=(('C', _('Normal case')),
               ('S', _('Batch start')),
@@ -118,6 +129,4 @@ class TestCase(models.Model):
     self.order, test_case.order = test_case.order, self.order
 
   def save(self, *args, **kwargs):
-    if self.order == None:
-      self.order = self.id
-    super(ProblemTestCase, self).save(*args, **kwargs)
+    super(TestCase, self).save(*args, **kwargs)
