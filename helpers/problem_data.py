@@ -73,8 +73,6 @@ class ProblemDataCompiler(object):
         }
       return case.checker
 
-    for file in self.files:
-      logger.info(file)
     for i, case in enumerate(self.cases, 1):
       if case.type == 'C':
         data = {}

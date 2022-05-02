@@ -150,12 +150,6 @@ class Submission(models.Model):
 
     def judge(self, *args, rejudge=False, force_judge=False, rejudge_user=None, **kwargs):
         if force_judge or not self.is_locked:
-            # if rejudge:
-                # with revisions.create_revision(manage_manually=True):
-                #     if rejudge_user:
-                #         revisions.set_user(rejudge_user)
-                #     revisions.set_comment('Rejudged')
-                #     revisions.add_to_revision(self)
             judge_submission(self, *args, rejudge=rejudge, **kwargs)
 
     judge.alters_data = True
@@ -273,24 +267,20 @@ class SubmissionSource(models.Model):
         verbose_name_plural = _('submission sources')
 
 
-# @revisions.register()
 class SubmissionTestCase(models.Model):
     RESULT = SUBMISSION_RESULT
 
-    submission = models.ForeignKey(
-        Submission, verbose_name=_('associated submission'),
-        related_name='test_cases', on_delete=models.CASCADE)
+    submission = models.ForeignKey(Submission, verbose_name=_('associated submission'),
+                                   related_name='test_cases', on_delete=models.CASCADE)
     case = models.IntegerField(verbose_name=_('test case ID'))
-    status = models.CharField(max_length=3, verbose_name=_('status flag'),
-        choices=SUBMISSION_RESULT)
+    status = models.CharField(max_length=3, verbose_name=_('status flag'), choices=SUBMISSION_RESULT)
     time = models.FloatField(verbose_name=_('execution time'), null=True)
     memory = models.FloatField(verbose_name=_('memory usage'), null=True)
     points = models.FloatField(verbose_name=_('points granted'), null=True)
     total = models.FloatField(verbose_name=_('points possible'), null=True)
     batch = models.IntegerField(verbose_name=_('batch number'), null=True)
     feedback = models.CharField(max_length=50, verbose_name=_('judging feedback'), blank=True)
-    extended_feedback = models.TextField(
-        verbose_name=_('extended judging feedback'), blank=True)
+    extended_feedback = models.TextField(verbose_name=_('extended judging feedback'), blank=True)
     output = models.TextField(verbose_name=_('program output'), blank=True)
 
     @property

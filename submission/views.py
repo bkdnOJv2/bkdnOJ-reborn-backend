@@ -14,11 +14,3 @@ class SubmissionDetailView(generics.RetrieveUpdateAPIView):
     queryset = Submission.objects.all()
     serializer_class = SubmissionDetailSerializer
     permission_classes = []
-
-    # def retrieve(self, request, *args, **kwargs):
-    #     sub_obj = self.get_object()
-    #     sub_ser = SubmissionSerializer(sub_obj)
-
-    #     return Response({
-
-    #     }, status=HTTP_200_OK)

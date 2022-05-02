@@ -1,6 +1,3 @@
-import organization
-from organization.models import *
-org = Organization.objects.first().memberships
-
-for x in org:
-    print(x.user, x.get_role())
+from submission.models import Submission
+sub = Submission.objects.get(id=18)
+sub.judge(force_judge=True)

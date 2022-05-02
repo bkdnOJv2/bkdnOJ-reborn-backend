@@ -2,7 +2,7 @@ from django.utils.translation import gettext_lazy as _
 # from bkdnoj import settings
 import bkdnoj
 
-
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -112,6 +112,14 @@ class Problem(TimeStampedModel):
                 "the contest's own submission visibility setting."
     ),
   )
+
+  points = models.FloatField(verbose_name=_('points'),
+    help_text=_('Points awarded for problem completion. '
+                "Points are displayed with a 'p' suffix if partial."),
+    default=100,
+    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS)],
+  )
+  short_circuit = models.BooleanField(verbose_name=_('short circuit'), default=False)
 
   # -------------- TODO: Problem Statistics Info
   solved_count = models.PositiveIntegerField(default=0,

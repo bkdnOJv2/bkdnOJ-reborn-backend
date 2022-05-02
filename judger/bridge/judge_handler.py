@@ -190,11 +190,17 @@ class JudgeHandler(ZlibPacketHandler):
         _ensure_connection()
 
         try:
-            pid, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
+            # ppk, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
+            #     Submission.objects.filter(id=submission)
+            #               .values_list('problem__shortname', 'problem__time_limit', 'problem__memory_limit',
+            #                            'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__owner__id',
+            #                            'contest__participation__virtual', 'contest__participation__id')).get()
+
+            ppk, time, memory, short_circuit, lid, is_pretested, sub_date, uid = (
                 Submission.objects.filter(id=submission)
-                          .values_list('problem__id', 'problem__time_limit', 'problem__memory_limit',
-                                       'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__id',
-                                       'contest__participation__virtual', 'contest__participation__id')).get()
+                          .values_list('problem__shortname', 'problem__time_limit', 'problem__memory_limit',
+                                       'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__owner__id')).get()
+
         except Submission.DoesNotExist:
             logger.error('Submission vanished: %s', submission)
             json_log.error(self._make_json_log(
@@ -203,12 +209,18 @@ class JudgeHandler(ZlibPacketHandler):
             ))
             return
 
-        attempt_no = Submission.objects.filter(problem__id=pid, contest__participation__id=part_id, user__id=uid,
-                                               date__lt=sub_date).exclude(status__in=('CE', 'IE')).count() + 1
+        # attempt_no = Submission.objects.filter(
+        #     problem__shortname=ppk, contest__participation__id=part_id, user__id=uid,
+        #     date__lt=sub_date).exclude(status__in=('CE', 'IE')).count() + 1
+        attempt_no = Submission.objects.filter(
+            problem__shortname=ppk, user__owner__id=uid,
+            date__lt=sub_date).exclude(status__in=('CE', 'IE')).count() + 1
 
         try:
-            time, memory = (LanguageLimit.objects.filter(problem__id=pid, language__id=lid)
-                            .values_list('time_limit', 'memory_limit').get())
+            time, memory = (
+                LanguageLimit.objects.filter(problem__shortname=ppk, language__id=lid)
+                .values_list('time_limit', 'memory_limit').get()
+            )
         except LanguageLimit.DoesNotExist:
             pass
 
@@ -217,7 +229,7 @@ class JudgeHandler(ZlibPacketHandler):
             memory=memory,
             short_circuit=short_circuit,
             pretests_only=is_pretested,
-            contest_no=part_virtual,
+            contest_no=None, #part_virtual,
             attempt_no=attempt_no,
             user_id=uid,
         )
@@ -417,7 +429,7 @@ class JudgeHandler(ZlibPacketHandler):
             problem=problem.code, finish=True,
         ))
 
-        if problem.is_public and not problem.is_organization_private:
+        if problem.is_published and not problem.is_organization_private:
             submission.user._updating_stats_only = True
             submission.user.calculate_points()
 
@@ -633,12 +645,12 @@ class JudgeHandler(ZlibPacketHandler):
             data = self._submission_cache
         else:
             self._submission_cache = data = Submission.objects.filter(id=id).values(
-                'problem__is_public', 'contest_object_id',
+                'problem__is_published', 'contest_object_id',
                 'user_id', 'problem_id', 'status', 'language__key',
             ).get()
             self._submission_cache_id = id
 
-        if data['problem__is_public']:
+        if data['problem__is_published']:
             event.post('submissions', {
                 'type': 'done-submission' if done else 'update-submission',
                 'state': state, 'id': id,

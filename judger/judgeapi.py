@@ -15,7 +15,7 @@ size_pack = struct.Struct('!I')
 
 
 def _post_update_submission(submission, done=False):
-    if submission.problem.is_public:
+    if submission.problem.is_published:
         event.post('submissions', {'type': 'done-submission' if done else 'update-submission',
                                    'id': submission.id,
                                    'contest': submission.contest_key,
@@ -51,19 +51,21 @@ def judge_request(packet, reply=True):
 
 
 def judge_submission(submission, rejudge=False, batch_rejudge=False, judge_id=None):
-    from .models import ContestSubmission, Submission, SubmissionTestCase
+    # from .models import ContestSubmission, 
+    from submission.models import Submission, SubmissionTestCase
 
     updates = {'time': None, 'memory': None, 'points': None, 'result': None, 'case_points': 0, 'case_total': 0,
                'error': None, 'rejudged_date': timezone.now() if rejudge or batch_rejudge else None, 'status': 'QU'}
-    try:
-        # This is set proactively; it might get unset in judgecallback's on_grading_begin if the problem doesn't
-        # actually have pretests stored on the judge.
-        updates['is_pretested'] = all(ContestSubmission.objects.filter(submission=submission)
-                                      .values_list('problem__contest__run_pretests_only', 'problem__is_pretested')[0])
-    except IndexError:
-        priority = DEFAULT_PRIORITY
-    else:
-        priority = CONTEST_SUBMISSION_PRIORITY
+    # try:
+    #     # This is set proactively; it might get unset in judgecallback's on_grading_begin if the problem doesn't
+    #     # actually have pretests stored on the judge.
+    #     updates['is_pretested'] = all(ContestSubmission.objects.filter(submission=submission)
+    #                                   .values_list('problem__contest__run_pretests_only', 'problem__is_pretested')[0])
+    # except IndexError:
+    #     priority = DEFAULT_PRIORITY
+    # else:
+    #     priority = CONTEST_SUBMISSION_PRIORITY
+    priority = DEFAULT_PRIORITY
 
     # This should prevent double rejudge issues by permitting only the judging of
     # QU (which is the initial state) and D (which is the final state).
@@ -82,7 +84,7 @@ def judge_submission(submission, rejudge=False, batch_rejudge=False, judge_id=No
         response = judge_request({
             'name': 'submission-request',
             'submission-id': submission.id,
-            'problem-id': submission.problem.code,
+            'problem-id': submission.problem.shortname,
             'language': submission.language.key,
             'source': submission.source.source,
             'judge-id': judge_id,

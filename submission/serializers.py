@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Submission, SubmissionSource
+from submission.models import Submission, SubmissionSource, SubmissionTestCase
 
 from userprofile.serializers import UserProfileSerializer
 from problem.serializers import ProblemBriefSerializer
@@ -28,11 +28,17 @@ class SubmissionSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id',)
 
+class SubmissionTestCaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubmissionTestCase
+        fields = '__all__'
+
 class SubmissionDetailSerializer(serializers.ModelSerializer):
     user = UserProfileSerializer(read_only=True)
     problem = ProblemBriefSerializer(read_only=True)
     language = LanguageSerializer(read_only=True)
     source = serializers.CharField(source='source.source')
+    test_cases = SubmissionTestCaseSerializer(many=True)
 
     class Meta:
         model = Submission
@@ -41,6 +47,8 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
             "is_pretested", "locked_after",
             "user", "problem", "language", "source",
             "judged_on", "contest_object",
+
+            'test_cases',
         )
 
 class SubmissionURLSerializer(serializers.HyperlinkedModelSerializer):
