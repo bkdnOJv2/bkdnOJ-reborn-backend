@@ -15,8 +15,7 @@ if os.altsep:
 else:
   def split_path_first(path):
     return path.split(os.sep, 1)
-
-
+  
 class ProblemDataStorage(FileSystemStorage):
   def __init__(self):
     super(ProblemDataStorage, self).__init__(settings.BKDNOJ_PROBLEM_DATA_ROOT)

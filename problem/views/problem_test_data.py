@@ -20,6 +20,49 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
     queryset = ProblemTestProfile.objects.all()
     serializer_class = ProblemTestProfileSerializer
     lookup_field = 'problem'
+
+    def get(self, request, *args, **kwargs):
+        problem = self.kwargs.get('problem')
+        try:
+            problem = Problem.objects.get(shortname=problem)
+        except Problem.DoesNotExist:
+            return response.Response('Cannot find such problem.',
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        probprofile, probprofile_created = ProblemTestProfile.objects.get_or_create(problem=problem)
+        return response.Response(
+            ProblemTestProfileSerializer(probprofile, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
+    def patch(self, *args, **kwargs):
+        return self.put(*args, **kwargs)
+    
+    def put(self, request, problem, *args, **kwargs):
+        FILE_FIELDS = ('zipfile', 'generator')
+        obj = self.get_object()
+
+        for k, v in request.data.items():
+            # k is file key but the file is empty
+            if (k in FILE_FIELDS) and not v:
+                continue
+            if k == 'zipfile' and v:
+                obj.set_zipfile(v)
+                continue
+            if k == 'zipfile_remove' and v == True:
+                if obj.zipfile:
+                    obj.delete_zipfile(save=False)
+                continue
+            if k == 'generator_remove' and v == True:
+                if obj.generator:
+                    obj.generator.delete(save=False)
+                continue
+            setattr(obj, k, v)
+        obj.save()
+        return response.Response(
+            ProblemTestProfileSerializer(obj, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
+    
     
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render

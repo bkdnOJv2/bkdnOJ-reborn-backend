@@ -157,7 +157,11 @@ LOGGING = {
         },
     },
     'loggers': {
-        'django.db.backends': {
+        # 'django.db.backends': {
+        #     'handlers': ['console'],
+        #     'level': 'DEBUG',
+        # },
+        '': {
             'handlers': ['console'],
             'level': 'DEBUG',
         },
@@ -172,6 +176,10 @@ BKDNOJ_PROBLEM_MIN_TIME_LIMIT=0.1 # 0.1 second = 100 milliseconds
 
 BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT=1024*1024 # 1024*1024 kB = 1024 MB = 1GB
 BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT=64*1024 # 64*1024 KB = 64 MB
+
+BKDNOJ_PROBLEM_DATA_IN_FILE_EXT     = ('.in',  '.input',  '.inp', '.i', )
+BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT    = ('.out', '.output', '.ans', '.a', )
+BKDNOJ_PROBLEM_DATA_STATEMENT_EXT   = ('.pdf', )
 
 BKDNOJ_SUBMISSION_LIMIT = 5
 

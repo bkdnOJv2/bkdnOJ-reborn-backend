@@ -5,7 +5,7 @@ import os
 import logging
 logger = logging.getLogger(__name__)
 
-from problem.models import Problem, ProblemTestProfile
+from problem.models import Problem, ProblemTestProfile, TestCase
 
 @receiver(post_save, sender=Problem)
 def create_profile(sender, instance, created, **kwargs):
@@ -14,14 +14,6 @@ def create_profile(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=ProblemTestProfile)
 def delete_test_zip(sender, instance, **kwargs):
-    if instance.zip_url:
+    if instance.zipfile:
         logger.info("ProblemTestProfile pre_delete signal caught, deleting zip file")
-        if os.path.isfile(instance.zip_url.path):
-            os.remove(instance.zip_url.path)
-            logger.info("OK: Deleted")
-        else:
-            logger.info("Zip file doesn't exist")
-
-# @receiver(post_save, sender=ProblemTestDataProfile)
-# def prepare_save(sender, instance, **kwargs):
-#     if instance.zip_url:
+        instance.zipfile.delete(save=False)
