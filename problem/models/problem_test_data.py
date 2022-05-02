@@ -18,7 +18,7 @@ from judger.models import Language
 
 from problem.validators import problem_data_zip_validator
 
-from helpers.problem_data import ProblemDataStorage
+from helpers.problem_data import ProblemDataStorage, ProblemDataCompiler
 problem_data_storage = ProblemDataStorage()
 
 import logging
@@ -105,7 +105,7 @@ class ProblemTestProfile(TimeStampedModel):
     self.save(update_fields=['zipfile'])
 
     testcase_to_be_created = []
-    case_pairs = self.get_valid_pairs_of_cases()
+    case_pairs = self.valid_pairs_of_cases
     for in_file, ans_file in case_pairs:
         testcase_to_be_created.append(
             TestCase(test_profile=self,
@@ -114,15 +114,25 @@ class ProblemTestProfile(TimeStampedModel):
                 output_file=ans_file,
                 checker=self.checker,
                 is_pretest=False,
+                points=1,
             )
         )
     TestCase.objects.bulk_create(testcase_to_be_created)
 
+    ProblemDataCompiler.generate(
+      self.problem, self, self.cases.order_by('order'), self.valid_files
+    )
+
   def delete_zipfile(self, *args, **kwargs):
     self.zipfile.delete(kwargs.get('save', True))
     self.cases.all().delete()
-
-  def get_valid_pairs_of_cases(self):
+  
+  """
+    Return a tuple(in_files, ans_files), in_files and ans_files are
+    both list of valid in/ans files in the archive.
+  """
+  @cached_property
+  def valid_in_ans_files(self):
     in_files = []
     ans_files = []
     try:
@@ -136,10 +146,22 @@ class ProblemTestProfile(TimeStampedModel):
             ans_files.append(file)
         in_files.sort()
         ans_files.sort()
-        return list(zip(in_files, ans_files))
+        return in_files, ans_files
     except BadZipfile:
-      return []
-    return []
+      return [], []
+    return [], []
+  
+  @cached_property
+  def valid_files(self):
+    inf, ansf = self.valid_in_ans_files
+    return inf + ansf
+
+  @cached_property
+  def valid_pairs_of_cases(self):
+    return list(zip(
+      *self.valid_in_ans_files
+    ))
+
   
 
 class TestCase(models.Model):

@@ -56,7 +56,7 @@ class ProblemTestProfileSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = ProblemTestProfile
         fields = '__all__'
-        read_only_fields = ('problem', 'created', 'modified')#'zipfile', 'generator')
+        read_only_fields = ('problem', 'created', 'modified', 'feedback')#'zipfile', 'generator')
         lookup_field = 'problem'
         extra_kwargs = {
             'url': {'lookup_field': 'problem'}

@@ -9,6 +9,9 @@ from django.core.files.storage import FileSystemStorage
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
+import logging
+logger = logging.getLogger(__name__)
+
 if os.altsep:
   def split_path_first(path, repath=re.compile('[%s]' % re.escape(os.sep + os.altsep))):
     return repath.split(path, 1)
@@ -70,6 +73,8 @@ class ProblemDataCompiler(object):
         }
       return case.checker
 
+    for file in self.files:
+      logger.info(file)
     for i, case in enumerate(self.cases, 1):
       if case.type == 'C':
         data = {}
@@ -82,6 +87,7 @@ class ProblemDataCompiler(object):
           data['is_pretest'] = case.is_pretest
 
         if not self.generator:
+
           if case.input_file not in self.files:
             raise ProblemDataError(_('Input file for case %d does not exist: %s') %
                          (i, case.input_file))
@@ -177,7 +183,7 @@ class ProblemDataCompiler(object):
     return init
 
   def compile(self):
-    from judge.models import problem_data_storage
+    from problem.models import problem_data_storage
 
     yml_file = '%s/init.yml' % self.problem.shortname
     try:
