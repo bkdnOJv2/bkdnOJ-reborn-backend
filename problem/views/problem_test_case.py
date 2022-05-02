@@ -38,3 +38,6 @@ class TestCaseListView(generics.ListCreateAPIView):
             status=status.HTTP_201_CREATED,
         )
 
+class TestCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = TestCaseSerializer
+    queryset = TestCase.objects.all()
