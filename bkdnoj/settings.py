@@ -183,7 +183,7 @@ BKDNOJ_PROBLEM_DATA_IN_FILE_EXT     = ('.in',  '.input',  '.inp', '.i', )
 BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT    = ('.out', '.output', '.ans', '.a', )
 BKDNOJ_PROBLEM_DATA_STATEMENT_EXT   = ('.pdf', )
 
-BKDNOJ_SUBMISSION_LIMIT = 5
+BKDNOJ_SUBMISSION_LIMIT = 3
 
 #
 EVENT_DAEMON_USE = False

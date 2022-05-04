@@ -164,10 +164,14 @@ class Judge(models.Model):
     help_text=_('Whether this judge should be blocked from connecting, '
           'even if its key is correct.'))
   online = models.BooleanField(verbose_name=_('judge online status'), default=False)
-  start_time = models.DateTimeField(verbose_name=_('judge start time'), null=True)
-  ping = models.FloatField(verbose_name=_('response time'), null=True)
-  load = models.FloatField(verbose_name=_('system load'), null=True,
-    help_text=_('Load for the last minute, divided by processors to be fair.'))
+  start_time = models.DateTimeField(verbose_name=_('judge start time'), 
+    null=True, default=None)
+  ping = models.FloatField(verbose_name=_('response time'), 
+    null=True, default=None)
+  load = models.FloatField(verbose_name=_('system load'),
+    help_text=_('Load for the last minute, divided by processors to be fair.'),
+    null=True, default=None,
+  )
   description = models.TextField(
     blank=True, verbose_name=_('description'))
   last_ip = models.GenericIPAddressField(

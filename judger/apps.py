@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy
 
 class JudgeAppConfig(AppConfig):
     name = 'judger'
-    verbose_name = gettext_lazy('Online Judge')
+    verbose_name = gettext_lazy('Judge Servers')
 
     def ready(self):
         # WARNING: AS THIS IS NOT A FUNCTIONAL PROGRAMMING LANGUAGE,
