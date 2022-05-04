@@ -147,6 +147,9 @@ class RuntimeVersion(models.Model):
     verbose_name=_('runtime version'), blank=True)
   priority = models.IntegerField(
     verbose_name=_('order in which to display this runtime'), default=0)
+  
+  def __str__(self):
+    return f'{self.name}.{self.version}'
 
 
 class Judge(models.Model):

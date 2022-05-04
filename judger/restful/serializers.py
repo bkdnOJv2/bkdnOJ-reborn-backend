@@ -1,12 +1,13 @@
 from rest_framework import serializers
 from judger.models import Judge, RuntimeVersion, Language
 from problem.serializers import ProblemBriefSerializer
+from problem.models import Problem
 
 class JudgeSerializer(serializers.ModelSerializer):
-    problems = ProblemBriefSerializer(
-        many=True,
-        read_only=True,
+    problems = serializers.SlugRelatedField(
+        queryset=Problem.objects.all(), many=True, slug_field="shortname"
     )
+    runtimes = serializers.StringRelatedField(many=True)
 
     class Meta:
         model = Judge

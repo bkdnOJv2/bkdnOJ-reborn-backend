@@ -8,19 +8,21 @@ User = get_user_model()
 
 from django.utils.functional import cached_property
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.files.base import ContentFile
 
 from django_extensions.db.models import TimeStampedModel
 
 from organization.models import Organization
-from helpers.fileupload import path_and_rename_test_zip
+from helpers.problem_data import problem_directory_pdf
 from submission.models import SubmissionSourceAccess
 from judger.models import Language
 
 from problem.validators import problem_data_zip_validator
 
-from helpers.problem_data import ProblemDataStorage, ProblemDataCompiler
-problem_data_storage = ProblemDataStorage()
+from helpers.problem_data import ProblemDataCompiler, \
+  problem_data_storage, problem_pdf_storage
 
+import zipfile
 import logging
 logger = logging.getLogger(__name__)
 
@@ -36,14 +38,12 @@ CHECKERS = (
 )
 
 from zipfile import BadZipfile, ZipFile
-
 import os
 def _problem_directory_file(shortname, filename):
   return os.path.join(shortname, os.path.basename(filename))
 
 def problem_directory_file(data, filename):
   return _problem_directory_file(data.problem.shortname, filename)
-
 
 class ProblemTestProfile(TimeStampedModel):
   problem = models.OneToOneField(
@@ -78,23 +78,23 @@ class ProblemTestProfile(TimeStampedModel):
     help_text=_('checker arguments as a JSON object'))
 
   _original_zipfile = None
+  _zipfile_changed = False
 
   def __init__(self, *args, **kwargs):
     super(ProblemTestProfile, self).__init__(*args, **kwargs)
     self._original_zipfile = self.zipfile
 
   def __str__(self):
-    return 'ProblemTestProfile of problem %s' % (self.problem)
+    return 'Problem Test Profile for problem %s' % (self.problem)
   
   def get_absolute_url(self):
     return reverse('problemtestprofile_detail', args=(self.problem,))
   
   def save(self, *args, **kwargs):
     return super(ProblemTestProfile, self).save(*args, **kwargs)
-  
+
   def set_zipfile(self, zipf, *args, **kwargs):
     self._original_zipfile.delete(save=False)
-    self.cases.all().delete()
 
     # setting new zipfile, doesnt need to delete old zip
     # because the save() method will be call later and clean this up
@@ -103,30 +103,61 @@ class ProblemTestProfile(TimeStampedModel):
     # save so the zipfile is fully uploaded
     # otherwise the zip will not exist
     self.save(update_fields=['zipfile'])
-
-    testcase_to_be_created = []
-    case_pairs = self.valid_pairs_of_cases
-    for in_file, ans_file in case_pairs:
-        testcase_to_be_created.append(
-            TestCase(test_profile=self,
-                order=len(testcase_to_be_created),
-                input_file=in_file,
-                output_file=ans_file,
-                checker=self.checker,
-                is_pretest=False,
-                points=1,
-            )
-        )
-    TestCase.objects.bulk_create(testcase_to_be_created)
-
-    ProblemDataCompiler.generate(
-      self.problem, self, self.cases.order_by('order'), self.valid_files
-    )
+    self._zipfile_changed = True
+    # statement.pdf
 
   def delete_zipfile(self, *args, **kwargs):
     self.zipfile.delete(kwargs.get('save', True))
     self.cases.all().delete()
   
+  def generate_test_cases(self):
+    if self._zipfile_changed:
+      self.cases.all().delete()
+
+      testcase_to_be_created = []
+      case_pairs = self.valid_pairs_of_cases
+      for in_file, ans_file in case_pairs:
+          testcase_to_be_created.append(
+              TestCase(test_profile=self,
+                  order=len(testcase_to_be_created),
+                  input_file=in_file,
+                  output_file=ans_file,
+                  checker=self.checker,
+                  is_pretest=False,
+                  points=1,
+              )
+          )
+      TestCase.objects.bulk_create(testcase_to_be_created)
+
+      ProblemDataCompiler.generate(
+          self.problem, self, self.cases.order_by('order'), self.valid_files
+      )
+      return True
+    return False
+  
+  def update_pdf_within_zip(self):
+    pdf_file = self.valid_statement_pdf
+    if not pdf_file:
+      return False
+    with zipfile.ZipFile(self.zipfile.path, 'r') as zfile:
+      pdf_data = zfile.read(pdf_file)
+      
+      self.problem.pdf = problem_pdf_storage.save(
+        problem_directory_pdf(self.problem, None),
+        ContentFile(pdf_data)
+      )
+      self.problem.save(update_fields=['pdf'])
+  
+  @cached_property
+  def valid_statement_pdf(self):
+    if self.zipfile:
+      file_list = ZipFile(self.zipfile.path).namelist()
+      for file in file_list:
+        fpath, frel = os.path.split(file)
+        if frel in settings.BKDNOJ_PROBLEM_ACCEPTABLE_STATEMENT_PDF:
+          return file
+    return None
+
   """
     Return a tuple(in_files, ans_files), in_files and ans_files are
     both list of valid in/ans files in the archive.
@@ -161,8 +192,11 @@ class ProblemTestProfile(TimeStampedModel):
     return list(zip(
       *self.valid_in_ans_files
     ))
-
   
+  class Meta:
+    verbose_name = _('Problem Data Profile')
+    verbose_name_plural = _('Problem Data Profiles')
+
 
 class TestCase(models.Model):
   """

@@ -58,8 +58,10 @@ class OrgMembership(TimeStampedModel):
 
     class Meta:
         unique_together = ['user', 'org']
+        verbose_name = _('Organization-User Relationship')
+        verbose_name_plural = _('Organization-User Relationships')
 
     admin_list = ('__str__', 'user', 'org', 'role', 'ranking')
 
     def __str__(self):
-        return f'u[{self.user.username}]-org[{self.org.shortname}]'
+        return f'user[{self.user.username}]-org[{self.org.shortname}]'

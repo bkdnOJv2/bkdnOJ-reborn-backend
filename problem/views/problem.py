@@ -48,6 +48,7 @@ class ProblemSubmitView(generics.CreateAPIView):
             return response.Response(sub.errors, status=status.HTTP_400_BAD_REQUEST)
         
         sub_obj = sub.save(problem=prob, user=request.user.profile)
+        sub_obj.judge()
         return response.Response(
             SubmissionURLSerializer(sub_obj, context={'request':request}).data,
             status=status.HTTP_200_OK,

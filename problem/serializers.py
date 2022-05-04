@@ -36,7 +36,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
         model = Problem 
         fields = [
             'url',
-            'shortname', 'title', 'content',
+            'shortname', 'title', 'content', 'pdf',
             'source', 'time_limit', 'memory_limit',
             'allowed_languages', 
             'authors', 'collaborators', 'reviewers',
@@ -50,7 +50,6 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
         }
-
 
 class ProblemTestProfileSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

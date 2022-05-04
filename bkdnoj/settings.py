@@ -14,7 +14,7 @@ SECRET_KEY = 'django-insecure-1e*ebas&7e@j+m8!iwp6ttoi+u_sffgqdv1yw9niq=xyh@90-&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['1509.ddns.net']
 
 # Application definition
 
@@ -169,7 +169,10 @@ LOGGING = {
 }
 
 # --------- Site settings
-BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'test_data')
+BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'problem_data')
+BKDNOJ_PROBLEM_PDF_ROOT=os.path.join(MEDIA_ROOT, 'problem_pdf')
+BKDNOJ_PROBLEM_ACCEPTABLE_STATEMENT_PDF = set(['statement.pdf', 'problem.pdf', 'prob.pdf'])
+BKDNOJ_PROBLEM_STATEMENT_PDF_FILENAME = 'problem.pdf'
 
 BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS = 0.0
 
@@ -181,7 +184,6 @@ BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT=64*1024 # 64*1024 KB = 64 MB
 
 BKDNOJ_PROBLEM_DATA_IN_FILE_EXT     = ('.in',  '.input',  '.inp', '.i', )
 BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT    = ('.out', '.output', '.ans', '.a', )
-BKDNOJ_PROBLEM_DATA_STATEMENT_EXT   = ('.pdf', )
 
 BKDNOJ_SUBMISSION_LIMIT = 3
 

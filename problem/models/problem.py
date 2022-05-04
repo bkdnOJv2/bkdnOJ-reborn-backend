@@ -9,14 +9,17 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 from django.utils.functional import cached_property
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, \
+    FileExtensionValidator
 
 from django_extensions.db.models import TimeStampedModel
 
 from organization.models import Organization
-from helpers.fileupload import path_and_rename_test_zip
+from helpers.problem_data import problem_pdf_storage, problem_directory_pdf
+
 from submission.models import SubmissionSourceAccess
-from .problem_test_data import ProblemTestProfile
+from .problem_test_data import ProblemTestProfile, \
+  problem_directory_file
 
 from judger.models import Language
 
@@ -38,6 +41,12 @@ class Problem(TimeStampedModel):
   content = models.TextField(
     help_text=_("Problem's statement"),
     blank=True, default="",
+  )
+  pdf = models.FileField(
+    storage=problem_pdf_storage,
+    upload_to=problem_directory_pdf,
+    null=True, blank=True, default=None,
+    validators=[FileExtensionValidator(['pdf'])],
   )
 
   source = models.CharField(max_length=2048,
@@ -119,6 +128,7 @@ class Problem(TimeStampedModel):
     default=100,
     validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS)],
   )
+  partial = models.BooleanField(verbose_name=_('allows partial points'), default=False)
   short_circuit = models.BooleanField(verbose_name=_('short circuit'), default=False)
 
   # -------------- TODO: Problem Statistics Info

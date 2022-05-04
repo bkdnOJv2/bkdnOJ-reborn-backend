@@ -113,15 +113,10 @@ class JudgeHandler(ZlibPacketHandler):
         judge = self.judge = Judge.objects.get(name=self.name)
         judge.start_time = timezone.now()
         judge.online = True
-        try:
-            # bkdnOJ uses shortname instead of code
-            judge.problems.set(
-                Problem.objects.filter(shortname__in=list(self.problems.keys()))
-            )
-        except django.core.exceptions.FieldError:
-            # Fallback to dmoj code
-            judge.problems.set(
-                Problem.objects.filter(code__in=list(self.problems.keys())))
+        # bkdnOJ uses shortname instead of code
+        judge.problems.set(
+            Problem.objects.filter(shortname__in=list(self.problems.keys()))
+        )
         
         judge.runtimes.set(
             Language.objects.filter(key__in=list(self.executors.keys())))
@@ -339,14 +334,9 @@ class JudgeHandler(ZlibPacketHandler):
         if not self.working:
             self.judges.update_problems(self)
 
-        try:
-            # BKDNOJ uses 'shortname' for problem keys
-            self.judge.problems.set(
-                Problem.objects.filter(shortname__in=list(self.problems.keys())))
-        except django.core.exceptions.FieldError:
-            # Fallback to DMOJ style
-            self.judge.problems.set(
-                Problem.objects.filter(code__in=list(self.problems.keys())))
+        # BKDNOJ uses 'shortname' for problem keys
+        self.judge.problems.set(
+            Problem.objects.filter(shortname__in=list(self.problems.keys())))
 
         json_log.info(self._make_json_log(action='update-problems', count=len(self.problems)))
 
@@ -426,16 +416,16 @@ class JudgeHandler(ZlibPacketHandler):
             packet, action='grading-end', time=time, memory=memory,
             points=sub_points, total=problem.points, result=submission.result,
             case_points=points, case_total=total, user=submission.user_id,
-            problem=problem.code, finish=True,
+            problem=problem.shortname, finish=True,
         ))
 
-        if problem.is_published and not problem.is_organization_private:
-            submission.user._updating_stats_only = True
-            submission.user.calculate_points()
+        # if problem.is_published and not problem.is_privated_to_orgs:
+        #     submission.user._updating_stats_only = True
+        #     submission.user.calculate_points()
 
-        problem._updating_stats_only = True
-        problem.update_stats()
-        submission.update_contest()
+        # problem._updating_stats_only = True
+        # problem.update_stats()
+        # submission.update_contest()
 
         finished_submission(submission)
 

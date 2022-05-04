@@ -171,9 +171,9 @@ class ProblemDataCompiler(object):
     if cases:
       init['test_cases'] = cases
     if self.data.output_limit is not None:
-      init['output_limit_length'] = self.data.output_limit
+      init['output_limit_length'] = int(self.data.output_limit)
     if self.data.output_prefix is not None:
-      init['output_prefix_length'] = self.data.output_prefix
+      init['output_prefix_length'] = int(self.data.output_prefix)
     if self.data.checker:
       init['checker'] = make_checker(self.data)
     else:
@@ -207,3 +207,33 @@ class ProblemDataCompiler(object):
   def generate(cls, *args, **kwargs):
     self = cls(*args, **kwargs)
     self.compile()
+
+
+class ProblemPDFStorage(FileSystemStorage):
+  def __init__(self):
+    super(ProblemPDFStorage, self).__init__(settings.BKDNOJ_PROBLEM_PDF_ROOT)
+
+  def url(self, name):
+    path = split_path_first(name)
+    if len(path) != 2:
+      raise ValueError('This file is not accessible via a URL.')
+    return reverse('problem_pdf_file', args=path)
+
+  def _save(self, name, content):
+    if self.exists(name):
+      self.delete(name)
+    return super(ProblemPDFStorage, self)._save(name, content)
+
+  def get_available_name(self, name, max_length=None):
+    return name
+
+  def rename(self, old, new):
+    return os.rename(self.path(old), self.path(new))
+  
+
+problem_data_storage = ProblemDataStorage()
+problem_pdf_storage = ProblemPDFStorage()
+
+def problem_directory_pdf(prob, filename):
+  return os.path.join(prob.shortname, 
+                      settings.BKDNOJ_PROBLEM_STATEMENT_PDF_FILENAME)

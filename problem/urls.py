@@ -4,8 +4,9 @@ from rest_framework.urlpatterns import format_suffix_patterns
 
 from .views import ProblemListView, ProblemDetailView, \
     ProblemTestProfileListView, ProblemTestProfileDetailView, \
-    ProblemSubmitView, problem_data_file, \
-    TestCaseListView, TestCaseDetailView
+    ProblemSubmitView, \
+    TestCaseListView, TestCaseDetailView, \
+    problem_pdf_file, problem_data_file 
 
 urlpatterns = [
     path('problem/', 
@@ -34,8 +35,11 @@ urlpatterns = [
         name='problemtestcase-detail',
     ),
 
-    path('problem/test_data/<str:shortname>/<path:path>', 
+    path('problem/problem_data/<str:shortname>/<path:path>', 
         problem_data_file, name='problem_data_file'
+    ),
+    path('problem/problem_pdf/<str:shortname>/<path:path>', 
+        problem_pdf_file, name='problem_pdf_file'
     ),
 
     path('problem-test-profile/', 

@@ -7,10 +7,12 @@ from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
     SubmissionURLSerializer
 
+from helpers.problem_data import problem_pdf_storage
+
 import logging
 logger = logging.getLogger(__name__)
 
-import json
+import json 
 
 class ProblemTestProfileListView(generics.ListAPIView):
     queryset = ProblemTestProfile.objects.all()
@@ -38,6 +40,17 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
         return self.put(*args, **kwargs)
     
     def put(self, request, problem, *args, **kwargs):
+        # Probably my clunkiest solution ever.
+        try:
+            for k in ['output_limit', 'output_prefix']:
+                if int(request.data[k]) < 0:
+                    raise ValueError
+        except ValueError:
+            return response.Response(
+                "'%s' is expected to be a positive number" % (k), 
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         FILE_FIELDS = ('zipfile', 'generator')
         obj = self.get_object()
 
@@ -57,7 +70,13 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
                     obj.generator.delete(save=False)
                 continue
             setattr(obj, k, v)
+        
+        # Save before generate test cases, 
+        # but it doesn't work anyway.
+        obj.generate_test_cases()
+        obj.update_pdf_within_zip()
         obj.save()
+
         return response.Response(
             ProblemTestProfileSerializer(obj, context={'request': request}).data,
             status=status.HTTP_200_OK,
@@ -81,35 +100,38 @@ def add_file_response(request, response, url_path, file_path, file_object=None):
             with file_object.open(file_path, 'rb') as f:
                 response.content = f.read()
 
-def problem_data_file(request, shortname, path):
-    logger.warn(shortname)
+def __problem_x_file(request, shortname, path, url_path, storage, content_type='application/octet-stream'):
     problem = shortname
     object = get_object_or_404(Problem, shortname=problem)
     if not object.is_editable_by(request.user):
         raise Http404()
 
-    problem_dir = problem_data_storage.path(problem)
-    logger.warn('Problem dir: %s', problem_dir)
-
+    problem_dir = storage.path(problem)
     if os.path.commonpath(
-        (problem_data_storage.path(os.path.join(problem, path)), problem_dir)
+        (storage.path(os.path.join(problem, path)), problem_dir)
     ) != problem_dir:
         raise Http404()
 
     response = HttpResponse()
-
-    if hasattr(settings, 'DMOJ_PROBLEM_DATA_INTERNAL'):
-        url_path = '%s/%s/%s' % (settings.DMOJ_PROBLEM_DATA_INTERNAL, problem, path)
-    else:
-        url_path = None
-
     try:
-        add_file_response(request, response, url_path, os.path.join(problem, path), problem_data_storage)
+        add_file_response(request, response, url_path, os.path.join(problem, path), storage)
     except IOError:
         raise Http404()
 
-    response['Content-Type'] = 'application/octet-stream'
+    response['Content-Type'] = content_type
     return response
+
+
+def problem_data_file(request, shortname, path):
+    if hasattr(settings, 'BKDNOJ_PROBLEM_DATA_INTERNAL'):
+        url_path = '%s/%s/%s' % (settings.BKDNOJ_PROBLEM_DATA_INTERNAL, problem, path)
+    else:
+        url_path = None
+    return __problem_x_file(request, shortname, path, url_path, problem_data_storage, 'application/octet-stream')
+
+
+def problem_pdf_file(request, shortname, path):
+    return __problem_x_file(request, shortname, path, None, problem_pdf_storage, 'application/pdf')
 
 def problem_init_view(request, problem):
     problem = get_object_or_404(Problem, shortname=problem)
