@@ -1,6 +1,7 @@
 from distutils.command.upload import upload
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from django_extensions.db.models import TimeStampedModel
 
 from helpers.fileupload import \
@@ -33,6 +34,11 @@ class UserProfile(TimeStampedModel):
         self.avatar.delete(save=False) # delete old image file
         self.avatar = DEFAULT_AVATAR_URL
         self.save()
+    
+    class Meta:
+        ordering = ['owner']
+        verbose_name = _('User Profile')
+        verbose_name_plural = _('User Profiles')
 
     def __str__(self):
         return f"u[{self.owner.username}]'s profile"

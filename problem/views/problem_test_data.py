@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import views, permissions, generics, viewsets, response, status
 
 from problem.serializers import ProblemSerializer, ProblemTestProfileSerializer
@@ -24,18 +25,13 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
     lookup_field = 'problem'
 
     def get(self, request, *args, **kwargs):
-        problem = self.kwargs.get('problem')
-        try:
-            problem = Problem.objects.get(shortname=problem)
-        except Problem.DoesNotExist:
-            return response.Response('Cannot find such problem.',
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
         probprofile, probprofile_created = ProblemTestProfile.objects.get_or_create(problem=problem)
         return response.Response(
             ProblemTestProfileSerializer(probprofile, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
+
     def patch(self, *args, **kwargs):
         return self.put(*args, **kwargs)
     

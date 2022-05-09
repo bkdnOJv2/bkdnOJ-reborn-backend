@@ -14,7 +14,7 @@ SECRET_KEY = 'django-insecure-1e*ebas&7e@j+m8!iwp6ttoi+u_sffgqdv1yw9niq=xyh@90-&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['1509.ddns.net']
+ALLOWED_HOSTS = ['1509.ddns.net', 'localhost']
 
 # Application definition
 
@@ -28,8 +28,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
 
-    ## Local Apps
-    'usergroup',
+    # Local Apps
     'userprofile',
     'organization',
     'problem',
@@ -82,8 +81,6 @@ DATABASES = {
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
-
-AUTH_USER_MODEL = 'usergroup.User'
 
 AUTH_PASSWORD_VALIDATORS = [
     {

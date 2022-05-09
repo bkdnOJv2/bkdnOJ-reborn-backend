@@ -115,8 +115,8 @@ class Language(models.Model):
 
   class Meta:
     ordering = ['key']
-    verbose_name = _('language')
-    verbose_name_plural = _('languages')
+    verbose_name = _('Language')
+    verbose_name_plural = _('Languages')
 
 class LanguageLimit(models.Model):
   problem = models.ForeignKey('problem.Problem', 
@@ -132,8 +132,8 @@ class LanguageLimit(models.Model):
 
   class Meta:
     unique_together = ('problem', 'language')
-    verbose_name = _('language-specific resource limit')
-    verbose_name_plural = _('language-specific resource limits')
+    verbose_name = _('Language-specific resource limit')
+    verbose_name_plural = _('Language-specific resource limits')
 
 
 class RuntimeVersion(models.Model):
@@ -228,6 +228,6 @@ class Judge(models.Model):
 
   class Meta:
     ordering = ['name']
-    verbose_name = _('judge')
-    verbose_name_plural = _('judges')
+    verbose_name = _('Judge')
+    verbose_name_plural = _('Judges')
   

@@ -194,8 +194,8 @@ class ProblemTestProfile(TimeStampedModel):
     ))
   
   class Meta:
-    verbose_name = _('Problem Data Profile')
-    verbose_name_plural = _('Problem Data Profiles')
+    verbose_name = _('problem data profile')
+    verbose_name_plural = _('problem data profiles')
 
 
 class TestCase(models.Model):
@@ -237,9 +237,16 @@ class TestCase(models.Model):
   checker_args = models.TextField(
     verbose_name=_('checker arguments'), blank=True,
     help_text=_('checker arguments as a JSON object'))
-
+  
   def swap_order(self, test_case):
     self.order, test_case.order = test_case.order, self.order
 
   def save(self, *args, **kwargs):
     super(TestCase, self).save(*args, **kwargs)
+  
+  class Meta:
+    ordering = ['test_profile']
+    verbose_name = _('Test case')
+    verbose_name_plural = _('Test cases')
+
+
