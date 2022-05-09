@@ -182,6 +182,29 @@ class Problem(TimeStampedModel):
     verbose_name = _("Problem")
     verbose_name_plural = _("Problems")
 
+    permissions = (
+      ('clone', _("Can clone/copy all problems")),
+    )
+
 
   def __str__(self):
     return f'{self.shortname}'
+
+
+class LanguageLimit(models.Model):
+  problem = models.ForeignKey(Problem, 
+    verbose_name=_('problem'), related_name='language_limits', on_delete=models.CASCADE)
+  language = models.ForeignKey(Language, 
+    verbose_name=_('language'), on_delete=models.CASCADE)
+  time_limit = models.FloatField(verbose_name=_('time limit'),
+    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
+                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)])
+  memory_limit = models.IntegerField(verbose_name=_('memory limit'),
+    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT),
+                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT)])
+
+  class Meta:
+    unique_together = ('problem', 'language')
+    verbose_name = _('Language-specific resource limit')
+    verbose_name_plural = _('Language-specific resource limits')
+

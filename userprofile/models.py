@@ -40,5 +40,12 @@ class UserProfile(TimeStampedModel):
         verbose_name = _('User Profile')
         verbose_name_plural = _('User Profiles')
 
+        default_permissions = ( 
+            'view', 'change', #'add', 'delete'
+        )
+        permissions = (
+            # (, _()),
+        )
+
     def __str__(self):
         return f"u[{self.owner.username}]'s profile"
