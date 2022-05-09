@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Problem 
-        fields = ['url', 'shortname', 'title']
+        fields = ['url', 'shortname', 'title', 'solved_count', 'attempted_count', 'points']
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}

@@ -6,7 +6,6 @@ from django_extensions.db.models import TimeStampedModel
 
 from helpers.fileupload import \
     path_and_rename_avatar, DEFAULT_AVATAR_URL
-
 from organization.models import OrgMembership
 
 class UserProfile(TimeStampedModel):
@@ -25,9 +24,13 @@ class UserProfile(TimeStampedModel):
 
     global_ranking = models.BigIntegerField(default=0)
 
+    orgs = models.ManyToManyField(
+        'organization.Organization', through=OrgMembership
+    )
+
     @property
     def member_of_orgs(self):
-        member_of_orgs = OrgMembership.objects.filter(user=self.owner)
+        member_of_orgs = OrgMembership.objects.filter(user=self)
         return member_of_orgs
 
     def set_image_to_default(self):
@@ -48,4 +51,7 @@ class UserProfile(TimeStampedModel):
         )
 
     def __str__(self):
-        return f"u[{self.owner.username}]'s profile"
+        name = f"{self.first_name} {self.last_name}"
+        if not name.strip():
+            name = "no name given"
+        return f"@{self.owner.username} ({name})"

@@ -1,9 +1,9 @@
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from django_extensions.db.models import TimeStampedModel
 from django.contrib.auth import get_user_model
 User = get_user_model()
+from django_extensions.db.models import TimeStampedModel
 
 from helpers.fileupload import \
   path_and_rename_org_avatar, DEFAULT_ORG_AVATAR_URL
@@ -21,7 +21,7 @@ class Organization(TimeStampedModel):
     default=DEFAULT_ORG_AVATAR_URL,
   )
 
-  members = models.ManyToManyField(User, through='OrgMembership')
+  members = models.ManyToManyField('userprofile.UserProfile', through='OrgMembership')
 
   @property
   def memberships(self):
@@ -53,7 +53,7 @@ class Organization(TimeStampedModel):
 
 
 class OrgMembership(TimeStampedModel):
-  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  user = models.ForeignKey('userprofile.UserProfile', on_delete=models.CASCADE)
   org = models.ForeignKey(Organization, on_delete=models.CASCADE)
 
   class MembershipType(models.TextChoices):
@@ -79,4 +79,4 @@ class OrgMembership(TimeStampedModel):
   admin_list = ('__str__', 'user', 'org', 'role', 'ranking')
 
   def __str__(self):
-    return f'user[{self.user.username}]-org[{self.org.shortname}]'
+    return f'user [{self.user.owner.username}] - org [{self.org.shortname}]'

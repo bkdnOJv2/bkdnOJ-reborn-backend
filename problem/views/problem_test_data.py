@@ -16,10 +16,16 @@ logger = logging.getLogger(__name__)
 import json 
 
 class ProblemTestProfileListView(generics.ListAPIView):
+    """
+        Return a List of Problem Test Profiles
+    """
     queryset = ProblemTestProfile.objects.all()
     serializer_class = ProblemTestProfileSerializer
 
 class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
+    """
+        Return a Detailed view of the requested Problem Test Profiles
+    """
     queryset = ProblemTestProfile.objects.all()
     serializer_class = ProblemTestProfileSerializer
     lookup_field = 'problem'

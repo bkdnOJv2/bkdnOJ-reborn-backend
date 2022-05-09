@@ -8,6 +8,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class TestCaseListView(generics.ListCreateAPIView):
+    """
+        Return a list of all TestCase on the system
+    """
     serializer_class = TestCaseSerializer
     
     def get_queryset(self):
@@ -35,6 +38,9 @@ class TestCaseListView(generics.ListCreateAPIView):
         )
 
 class TestCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+        Return a detailed view of the requested TestCase 
+    """
     serializer_class = TestCaseSerializer
     
     def get_queryset(self):

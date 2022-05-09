@@ -6,19 +6,27 @@ from django.http import Http404
 from .models import UserProfile
 from .serializers import UserProfileSerializer
 
-# Create your views here.
 class UserProfileDetail(generics.RetrieveAPIView):
+    """
+        Return requested User Profile
+    """
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = []
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs,)
 
 class SelfProfileDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+        Return user's User Profile, logged-in is required
+    """
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        permissions.DjangoObjectPermissions,
+    ]
     
     def serialize(self, request, data):
         ser_context = { 'request': request, }

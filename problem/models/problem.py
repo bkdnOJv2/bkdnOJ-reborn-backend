@@ -122,14 +122,26 @@ class Problem(TimeStampedModel):
     ),
   )
 
-  points = models.FloatField(verbose_name=_('points'),
-    help_text=_('Points awarded for problem completion. '
+  points = models.FloatField(
+    verbose_name=_('points'), default=100,
+    help_text=_("Points awarded for problem completion. "
                 "Points are displayed with a 'p' suffix if partial."),
-    default=100,
     validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS)],
   )
-  partial = models.BooleanField(verbose_name=_('allows partial points'), default=False)
-  short_circuit = models.BooleanField(verbose_name=_('short circuit'), default=False)
+  partial = models.BooleanField(
+    verbose_name=_('allows partial points'), default=False,
+    help_text=_(
+      "If this was set to False, user can only be awarded Full score or Zero score. "
+      "If this was set to True, user can earn points for every correct Test Case. "
+    )
+  )
+  short_circuit = models.BooleanField(
+    verbose_name=_('short circuit'), default=False,
+    help_text=_(
+      "If this was set to False, for each submission, all Test Case will be ran. "
+      "If this was set to True, for each submission, grading is stopped if there is a wrong Test Case. "
+    )
+  )
 
   # -------------- TODO: Problem Statistics Info
   solved_count = models.PositiveIntegerField(default=0,
