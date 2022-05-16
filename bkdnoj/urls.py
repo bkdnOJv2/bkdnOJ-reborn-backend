@@ -4,7 +4,7 @@ from django.urls import path, include
 from rest_framework import routers
 from rest_framework.urlpatterns import format_suffix_patterns
 
-from usergroup.views import UserList, UserDetail, GroupList, GroupDetail
+from auth.views import UserList, UserDetail, GroupList, GroupDetail
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -14,8 +14,6 @@ urlpatterns = [
     # Token, Register, Password Change, ...
     path('', include('auth.urls')),
 
-    # UserGroup (Accounts)
-    path('', include('usergroup.urls')),
     # UserProfile
     path('', include('userprofile.urls')),
     # Organization

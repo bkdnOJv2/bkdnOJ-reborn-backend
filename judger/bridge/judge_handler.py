@@ -13,8 +13,8 @@ from django.utils import timezone
 from judger import event_poster as event
 from judger.bridge.base_handler import ZlibPacketHandler, proxy_list
 from judger.caching import finished_submission
-from problem.models import Problem
-from judger.models import Judge, RuntimeVersion, Language, LanguageLimit
+from problem.models import Problem, LanguageLimit
+from judger.models import Judge, RuntimeVersion, Language
 from submission.models import Submission, SubmissionTestCase
 
 logger = logging.getLogger('judge.bridge')

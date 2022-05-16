@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import views, permissions, generics, viewsets, response, status
 
 from problem.serializers import ProblemSerializer, ProblemTestProfileSerializer
@@ -5,7 +6,7 @@ from problem.models import Problem, ProblemTestProfile
 
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
-    SubmissionURLSerializer
+    SubmissionBasicSerializer
 
 from helpers.problem_data import problem_pdf_storage
 
@@ -15,42 +16,32 @@ logger = logging.getLogger(__name__)
 import json 
 
 class ProblemTestProfileListView(generics.ListAPIView):
+    """
+        Return a List of Problem Test Profiles
+    """
     queryset = ProblemTestProfile.objects.all()
     serializer_class = ProblemTestProfileSerializer
 
 class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
+    """
+        Return a Detailed view of the requested Problem Test Profiles
+    """
     queryset = ProblemTestProfile.objects.all()
     serializer_class = ProblemTestProfileSerializer
     lookup_field = 'problem'
 
     def get(self, request, *args, **kwargs):
-        problem = self.kwargs.get('problem')
-        try:
-            problem = Problem.objects.get(shortname=problem)
-        except Problem.DoesNotExist:
-            return response.Response('Cannot find such problem.',
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
         probprofile, probprofile_created = ProblemTestProfile.objects.get_or_create(problem=problem)
         return response.Response(
             ProblemTestProfileSerializer(probprofile, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
+
     def patch(self, *args, **kwargs):
         return self.put(*args, **kwargs)
     
     def put(self, request, problem, *args, **kwargs):
-        # Probably my clunkiest solution ever.
-        try:
-            for k in ['output_limit', 'output_prefix']:
-                if int(request.data[k]) < 0:
-                    raise ValueError
-        except ValueError:
-            return response.Response(
-                "'%s' is expected to be a positive number" % (k), 
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         FILE_FIELDS = ('zipfile', 'generator')
         obj = self.get_object()
 
@@ -70,9 +61,10 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
                     obj.generator.delete(save=False)
                 continue
             setattr(obj, k, v)
-        
-        # Save before generate test cases, 
-        # but it doesn't work anyway.
+
+        # output_prefix and output_length wasn't updated yet
+        # obj.save(update_fields=['output_limit', 'output_prefix']) 
+
         obj.generate_test_cases()
         obj.update_pdf_within_zip()
         obj.save()

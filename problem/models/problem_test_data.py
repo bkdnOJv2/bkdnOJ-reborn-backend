@@ -194,8 +194,8 @@ class ProblemTestProfile(TimeStampedModel):
     ))
   
   class Meta:
-    verbose_name = _('Problem Data Profile')
-    verbose_name_plural = _('Problem Data Profiles')
+    verbose_name = _('problem data profile')
+    verbose_name_plural = _('problem data profiles')
 
 
 class TestCase(models.Model):
@@ -228,18 +228,25 @@ class TestCase(models.Model):
     verbose_name=_('case is pretest?'))
   output_prefix = models.IntegerField(
     verbose_name=_('output prefix length'), 
-    blank=True, null=True)
+    blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_PREFIX or 256))
   output_limit = models.IntegerField(
     verbose_name=_('output limit length'), 
-    blank=True, null=True)
+    blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_LIMIT or (int(1e12))))
   checker = models.CharField(
     max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
   checker_args = models.TextField(
     verbose_name=_('checker arguments'), blank=True,
     help_text=_('checker arguments as a JSON object'))
-
+  
   def swap_order(self, test_case):
     self.order, test_case.order = test_case.order, self.order
 
   def save(self, *args, **kwargs):
     super(TestCase, self).save(*args, **kwargs)
+  
+  class Meta:
+    ordering = ['test_profile']
+    verbose_name = _('Test case')
+    verbose_name_plural = _('Test cases')
+
+

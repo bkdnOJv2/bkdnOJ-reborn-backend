@@ -2,7 +2,7 @@ from rest_framework import serializers
 from submission.models import Submission, SubmissionSource, SubmissionTestCase
 
 from userprofile.serializers import UserProfileSerializer
-from problem.serializers import ProblemBriefSerializer
+from problem.serializers import ProblemBriefSerializer, ProblemBasicSerializer
 from judger.restful.serializers import LanguageSerializer
 
 import logging
@@ -15,28 +15,36 @@ class SubmissionSourceSerializer(serializers.ModelSerializer):
 
 class SubmissionSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source='user.owner.username')
-    problem = serializers.CharField(source='problem.shortname')
+    problem = ProblemBasicSerializer(read_only=True)#serializers.CharField(source='problem.shortname')
     language = serializers.CharField(source='language.name')
 
     class Meta:
         model = Submission
         fields = (
             "id", "date", "time", "memory", "points", "status", "result",
-            "case_points", "case_total", "judged_date", "rejudged_date",
-            "user", "problem", "language",
-            "judged_on", "contest_object",
+            "user", "problem", "language", "contest_object",
+            #"judged_on", "judged_date", "rejudged_date", "case_points", "case_total", 
         )
         read_only_fields = ('id',)
 
 class SubmissionTestCaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubmissionTestCase
-        fields = '__all__'
+        exclude = ['submission',]
+
+class SubmissionResultSerializer(serializers.ModelSerializer):
+    test_cases = SubmissionTestCaseSerializer(many=True, read_only=True)
+    class Meta:
+        model = Submission
+        fields = ['status', 'status', 'result', 'error', 'current_testcase',
+            'is_pretested', 'test_cases'
+        ]
 
 class SubmissionDetailSerializer(serializers.ModelSerializer):
     user = UserProfileSerializer(read_only=True)
     problem = ProblemBriefSerializer(read_only=True)
-    language = LanguageSerializer(read_only=True)
+    language = serializers.CharField(source='language.name')
+    language_ace = serializers.CharField(source='language.ace')
     source = serializers.CharField(source='source.source')
     test_cases = SubmissionTestCaseSerializer(many=True)
 
@@ -45,16 +53,17 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
         fields = ("id", "date", "time", "memory", "points", "status", "result",
             "error", "current_testcase", "batch", "case_points", "case_total", "judged_date", "rejudged_date",
             "is_pretested", "locked_after",
-            "user", "problem", "language", "source",
+            "user", "problem", "language", "language_ace", 
+            "source",
             "judged_on", "contest_object",
 
             'test_cases',
         )
 
-class SubmissionURLSerializer(serializers.HyperlinkedModelSerializer):
+class SubmissionBasicSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Submission
-        fields = ('url',)
+        fields = ('url', 'id')
 
 class SubmissionSubmitSerializer(serializers.ModelSerializer):
     source = serializers.CharField()

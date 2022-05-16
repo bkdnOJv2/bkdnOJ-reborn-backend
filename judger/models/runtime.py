@@ -16,7 +16,6 @@ from judger.judgeapi import disconnect_judge
 
 __all__ = ['Language', 'RuntimeVersion', 'Judge']
 
-
 class Language(models.Model):
   key = models.CharField(max_length=6, verbose_name=_('short identifier'),
     help_text=_('The identifier for this language; the same as its executor id for judges.'),
@@ -118,24 +117,6 @@ class Language(models.Model):
     verbose_name = _('language')
     verbose_name_plural = _('languages')
 
-class LanguageLimit(models.Model):
-  problem = models.ForeignKey('problem.Problem', 
-    verbose_name=_('problem'), related_name='language_limits', on_delete=CASCADE)
-  language = models.ForeignKey(Language, 
-    verbose_name=_('language'), on_delete=CASCADE)
-  time_limit = models.FloatField(verbose_name=_('time limit'),
-    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
-                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)])
-  memory_limit = models.IntegerField(verbose_name=_('memory limit'),
-    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT),
-                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT)])
-
-  class Meta:
-    unique_together = ('problem', 'language')
-    verbose_name = _('language-specific resource limit')
-    verbose_name_plural = _('language-specific resource limits')
-
-
 class RuntimeVersion(models.Model):
   language = models.ForeignKey(Language, 
     verbose_name=_('language to which this runtime belongs'), on_delete=CASCADE)
@@ -230,4 +211,7 @@ class Judge(models.Model):
     ordering = ['name']
     verbose_name = _('judge')
     verbose_name_plural = _('judges')
+
+    permissions = (
+    )
   

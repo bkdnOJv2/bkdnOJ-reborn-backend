@@ -1,11 +1,11 @@
 from django.apps import AppConfig
 from django.db import DatabaseError
-from django.utils.translation import gettext_lazy
-
+from django.utils.translation import gettext_lazy as _
 
 class JudgeAppConfig(AppConfig):
     name = 'judger'
-    verbose_name = gettext_lazy('Judge Servers')
+    verbose_name = _('Judge specifics')
+    verbose_name_plural = _('Judge specifics')
 
     def ready(self):
         # WARNING: AS THIS IS NOT A FUNCTIONAL PROGRAMMING LANGUAGE,

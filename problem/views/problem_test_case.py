@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, views, response, status
 
 from problem.models import TestCase, ProblemTestProfile, Problem
@@ -7,6 +8,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class TestCaseListView(generics.ListCreateAPIView):
+    """
+        Return a list of all TestCase on the system
+    """
     serializer_class = TestCaseSerializer
     
     def get_queryset(self):
@@ -15,12 +19,7 @@ class TestCaseListView(generics.ListCreateAPIView):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        try:
-            problem = Problem.objects.get(shortname=self.kwargs['problem'])
-        except Problem.DoesNotExist:
-            return response.Response('Cannot find such problem.', 
-                status=status.HTTP_404_NOT_FOUND)
-        
+        problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
         data = request.data.copy()
 
         data['test_profile'] = problem.test_profile
@@ -39,5 +38,12 @@ class TestCaseListView(generics.ListCreateAPIView):
         )
 
 class TestCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+        Return a detailed view of the requested TestCase 
+    """
     serializer_class = TestCaseSerializer
-    queryset = TestCase.objects.all()
+    
+    def get_queryset(self):
+        problem = self.kwargs['problem']
+        queryset = TestCase.objects.filter(test_profile__problem=problem)
+        return queryset
