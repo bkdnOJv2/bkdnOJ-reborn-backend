@@ -17,7 +17,7 @@ urlpatterns = [
         ProblemDetailView.as_view(), 
         name='problem-detail',
     ),
-    path('problem/<str:shortname>/submit', 
+    path('problem/<str:shortname>/submit/', 
         ProblemSubmitView.as_view(), 
         name='problem-submit',
     ),

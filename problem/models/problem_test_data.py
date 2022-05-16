@@ -228,10 +228,10 @@ class TestCase(models.Model):
     verbose_name=_('case is pretest?'))
   output_prefix = models.IntegerField(
     verbose_name=_('output prefix length'), 
-    blank=True, null=True)
+    blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_PREFIX or 256))
   output_limit = models.IntegerField(
     verbose_name=_('output limit length'), 
-    blank=True, null=True)
+    blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_LIMIT or (int(1e12))))
   checker = models.CharField(
     max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
   checker_args = models.TextField(

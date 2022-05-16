@@ -9,6 +9,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class ProblemBasicSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Problem 
+        fields = ['url', 'shortname', 'title']
+        lookup_field = 'shortname'
+        extra_kwargs = {
+            'url': {'lookup_field': 'shortname'}
+        }
+
 class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Problem 
@@ -17,6 +26,17 @@ class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
         }
+
+# from judger.restful.serializers import LanguageSerializer
+# The line above causes Circular Import, and I have been trying to fix 
+# this for 30+ mins...
+# Fuck it, lets redefine it for now. 
+from judger.models import Language
+class LanguageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Language
+        fields = '__all__'
+        #('id', 'key', 'name', 'short_name', 'common_name', 'ace', 'template')
 
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     organizations = serializers.SlugRelatedField(
@@ -31,6 +51,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     reviewers = serializers.SlugRelatedField(
         queryset=User.objects.all(), many=True, slug_field="username"
     )
+    allowed_languages = LanguageSerializer(many=True)
 
     class Meta:
         model = Problem 
@@ -38,13 +59,14 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             'url',
             'shortname', 'title', 'content', 'pdf',
             'source', 'time_limit', 'memory_limit',
-            'allowed_languages', 
             'authors', 'collaborators', 'reviewers',
 
+            'allowed_languages',
             'is_published',
             'is_privated_to_orgs', 'organizations',
+            'short_circuit', 'partial',
 
-            'submission_visibility_mode',
+            'submission_visibility_mode', 'solved_count', 'attempted_count',
         ]
         lookup_field = 'shortname'
         extra_kwargs = {
@@ -54,7 +76,8 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 class ProblemTestProfileSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = ProblemTestProfile
-        fields = '__all__'
+        # fields = '__all__'
+        exclude = ('output_prefix', 'output_limit')
         read_only_fields = ('problem', 'created', 'modified', 'feedback')#'zipfile', 'generator')
         lookup_field = 'problem'
         extra_kwargs = {

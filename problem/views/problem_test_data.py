@@ -6,7 +6,7 @@ from problem.models import Problem, ProblemTestProfile
 
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
-    SubmissionURLSerializer
+    SubmissionBasicSerializer
 
 from helpers.problem_data import problem_pdf_storage
 
@@ -42,17 +42,6 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
         return self.put(*args, **kwargs)
     
     def put(self, request, problem, *args, **kwargs):
-        # Probably my clunkiest solution ever.
-        try:
-            for k in ['output_limit', 'output_prefix']:
-                if int(request.data[k]) < 0:
-                    raise ValueError
-        except ValueError:
-            return response.Response(
-                "'%s' is expected to be a positive number" % (k), 
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         FILE_FIELDS = ('zipfile', 'generator')
         obj = self.get_object()
 
@@ -72,9 +61,10 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
                     obj.generator.delete(save=False)
                 continue
             setattr(obj, k, v)
-        
-        # Save before generate test cases, 
-        # but it doesn't work anyway.
+
+        # output_prefix and output_length wasn't updated yet
+        # obj.save(update_fields=['output_limit', 'output_prefix']) 
+
         obj.generate_test_cases()
         obj.update_pdf_within_zip()
         obj.save()

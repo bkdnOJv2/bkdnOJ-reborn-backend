@@ -129,17 +129,15 @@ class Problem(TimeStampedModel):
     validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS)],
   )
   partial = models.BooleanField(
-    verbose_name=_('allows partial points'), default=False,
+    verbose_name=_('allow earning partial points'), default=False,
     help_text=_(
-      "If this was set to False, user can only be awarded Full score or Zero score. "
-      "If this was set to True, user can earn points for every correct Test Case. "
+      "Allow solvers to earn points for each testcase they did right."
     )
   )
   short_circuit = models.BooleanField(
-    verbose_name=_('short circuit'), default=False,
+    verbose_name=_('stop on unacceptted testcase'), default=False,
     help_text=_(
-      "If this was set to False, for each submission, all Test Case will be ran. "
-      "If this was set to True, for each submission, grading is stopped if there is a wrong Test Case. "
+      "Stop grading as soon as there is one not acceptted testcase.",
     )
   )
 

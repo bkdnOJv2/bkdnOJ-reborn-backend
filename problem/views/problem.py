@@ -7,7 +7,7 @@ from problem.models import Problem, ProblemTestProfile
 
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
-  SubmissionURLSerializer
+  SubmissionBasicSerializer
 
 import logging
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ class ProblemSubmitView(generics.CreateAPIView):
   queryset = Problem.objects.all()
   serializer_class = SubmissionSubmitSerializer
   lookup_field = 'shortname'
-  permission_classes = []
+  permission_classes = [permissions.IsAuthenticated]
   
   def create(self, request, *args, **kwargs):
     if (
@@ -60,6 +60,6 @@ class ProblemSubmitView(generics.CreateAPIView):
     sub_obj = sub.save(problem=prob, user=request.user.profile)
     sub_obj.judge()
     return response.Response(
-      SubmissionURLSerializer(sub_obj, context={'request':request}).data,
+      SubmissionBasicSerializer(sub_obj, context={'request':request}).data,
       status=status.HTTP_200_OK,
     )

@@ -242,6 +242,7 @@ class Submission(models.Model):
     return self.get_id_secret(self.id)
 
   class Meta:
+    ordering = ['-id']
     permissions = (
       ('abort_any_submission', _('Abort any submission')),
       ('rejudge_submission', _('Rejudge the submission')),
