@@ -19,11 +19,13 @@ def delete_test_zip(sender, instance, **kwargs):
         logger.info("ProblemTestProfile pre_delete signal caught, deleting zip file")
         instance.zipfile.delete(save=False)
 
+# # Moved into views
 # @receiver(post_save, sender=ProblemTestProfile)
 # def compile_problem_data_yml(sender, instance, created, **kwargs):
-    # problem = instance.problem
-    # in_files, out_files = instance.valid_files
-    # valid_files = in_files + out_files
-    # ProblemDataCompiler.generate(
-    #     problem, instance, instance.cases.order_by('order'), valid_files
-    # )
+#     if instance._signal_caught != True:
+#         instance._zipfile_change = True
+#         instance._signal_caught = True
+#         instance.save()
+#         instance.generate_test_cases()
+#         instance.update_pdf_within_zip()
+#         instance.save()

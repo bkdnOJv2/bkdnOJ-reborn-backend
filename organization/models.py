@@ -42,7 +42,7 @@ class Organization(TimeStampedModel):
       ("change_all_org", _("Can change all organizations and its' members")),
     ]
 
-  admin_list = ('shortname', 'name')
+  admin_list = ['shortname', 'name']
 
   def __str__(self):
     return f'{self.shortname}'
@@ -76,7 +76,7 @@ class OrgMembership(TimeStampedModel):
     verbose_name_plural = _('Organization-User Relationships')
 
 
-  admin_list = ('__str__', 'user', 'org', 'role', 'ranking')
+  admin_list = ['__str__', 'user', 'org', 'role', 'ranking']
 
   def __str__(self):
     return f'user [{self.user.owner.username}] - org [{self.org.shortname}]'

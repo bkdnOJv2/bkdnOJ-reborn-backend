@@ -6,12 +6,17 @@ from .views import ProblemListView, ProblemDetailView, \
     ProblemTestProfileListView, ProblemTestProfileDetailView, \
     ProblemSubmitView, \
     TestCaseListView, TestCaseDetailView, \
-    problem_pdf_file, problem_data_file 
+    problem_pdf_file, problem_data_file, \
+    create_problem_from_archive
 
 urlpatterns = [
     path('problem/', 
         ProblemListView.as_view(), 
         name='problem-list'
+    ),
+    path('problem/new-from-archive', 
+        create_problem_from_archive, 
+        name='problem-new-from-archive'
     ),
     path('problem/<str:shortname>/', 
         ProblemDetailView.as_view(), 

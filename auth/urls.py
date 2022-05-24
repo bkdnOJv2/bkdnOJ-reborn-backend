@@ -6,9 +6,11 @@ from rest_framework_simplejwt.views import (
     # TokenVerifyView,
 )
 from .views import MyTokenObtainPairView, MyTokenVerifyView, SignOutView, \
-    UserList, UserDetail, GroupList, GroupDetail
+    UserList, UserDetail, GroupList, GroupDetail, get_csrf
 
 urlpatterns = [
+    path('csrf/', get_csrf, name='get-csrf'),
+
     path('sign-in/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('sign-in/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('sign-in/verify/', MyTokenVerifyView.as_view(), name='token_verify'),

@@ -1,5 +1,3 @@
-from ast import IsNot
-from os import access
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
@@ -80,3 +78,14 @@ class GroupDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.http import JsonResponse
+
+@ensure_csrf_cookie
+def get_csrf(request):
+    response = JsonResponse({'detail': 'CSRF cookie set'},
+        status=status.HTTP_200_OK)
+    response['X-CSRFToken'] = get_token(request)
+    return response

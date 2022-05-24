@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-1e*ebas&7e@j+m8!iwp6ttoi+u_sffgqdv1yw9niq=xyh@90-&'
+SECRET_KEY = '8u923hr45677ujhbvcde4r56789pedasc9ijnjk192e8uwydgvdbhnjkiudwyhdn2j1ie837eyftrsdghsj'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
+    'django_extensions',
 
     # Local Apps
     'helpers',
@@ -125,9 +126,14 @@ MEDIA_URL = '/media/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-]
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL=True
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:3000', 'http://1509.dns.net:3000',
+# ]
+
+CSRF_COOKIE_HTTPONLY = False
+CSRF_TRUSTED_ORIGINS = ['http://1509.ddns.net:3000', 'http://localhost:3000']
 
 # REST Framework settings
 REST_FRAMEWORK = {
@@ -142,7 +148,7 @@ REST_FRAMEWORK = {
 
 # SimpleJWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=180),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
@@ -170,15 +176,15 @@ LOGGING = {
 # --------- Site settings
 BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'problem_data')
 BKDNOJ_PROBLEM_PDF_ROOT=os.path.join(MEDIA_ROOT, 'problem_pdf')
-BKDNOJ_PROBLEM_ACCEPTABLE_STATEMENT_PDF = set(['statement.pdf', 'problem.pdf', 'prob.pdf'])
-BKDNOJ_PROBLEM_STATEMENT_PDF_FILENAME = 'problem.pdf'
 BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS = 0.0
 BKDNOJ_PROBLEM_MAX_TIME_LIMIT=20.0 # 20 seconds
 BKDNOJ_PROBLEM_MIN_TIME_LIMIT=0.1 # 0.1 second = 100 milliseconds
 BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT=1024*1024 # 1024*1024 kB = 1024 MB = 1GB
 BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT=64*1024 # 64*1024 KB = 64 MB
-BKDNOJ_PROBLEM_DATA_IN_FILE_EXT     = ('.in',  '.input',  '.inp', '.i', )
-BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT    = ('.out', '.output', '.ans', '.a', )
+BKDNOJ_PROBLEM_ACCEPTABLE_STATEMENT_PDF = set(['statement.pdf', 'problem.pdf', 'prob.pdf'])
+BKDNOJ_PROBLEM_STATEMENT_PDF_FILENAME   = 'problem.pdf'
+BKDNOJ_PROBLEM_DATA_IN_FILE_EXT         = ('.in',  '.input',  '.inp', '.i', )
+BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT        = ('.out', '.output', '.ans', '.a', )
 BKDNOJ_SUBMISSION_LIMIT = 3
 BKDNOJ_SUBMISSION_OUTPUT_PREFIX = 200
 BKDNOJ_SUBMISSION_OUTPUT_LIMIT = int(1e12)
