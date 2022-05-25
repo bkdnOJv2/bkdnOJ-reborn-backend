@@ -56,16 +56,16 @@ class LanguageBasicSerializer(serializers.ModelSerializer):
 
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     organizations = serializers.SlugRelatedField(
-        queryset=Organization.objects.all(), many=True, slug_field="shortname"
+        queryset=Organization.objects.all(), many=True, slug_field="shortname", required=False 
     )
     authors = serializers.SlugRelatedField(
-        queryset=User.objects.all(), many=True, slug_field="username"
+        queryset=User.objects.all(), many=True, slug_field="username", 
     )
     collaborators = serializers.SlugRelatedField(
-        queryset=User.objects.all(), many=True, slug_field="username"
+        queryset=User.objects.all(), many=True, slug_field="username", required=False,
     )
     reviewers = serializers.SlugRelatedField(
-        queryset=User.objects.all(), many=True, slug_field="username"
+        queryset=User.objects.all(), many=True, slug_field="username", required=False,
     )
     allowed_languages = LanguageBasicSerializer(many=True, required=False)
 
@@ -85,7 +85,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             'submission_visibility_mode', 'solved_count', 'attempted_count',
         ]
         read_only_fields = ['url', ]
-        optional_fields = ['allowed_languages']
+        optional_fields = ['allowed_languages', 'collaborators', 'reviewers', 'organizations']
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'},

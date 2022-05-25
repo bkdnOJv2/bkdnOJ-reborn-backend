@@ -185,6 +185,7 @@ BKDNOJ_PROBLEM_ACCEPTABLE_STATEMENT_PDF = set(['statement.pdf', 'problem.pdf', '
 BKDNOJ_PROBLEM_STATEMENT_PDF_FILENAME   = 'problem.pdf'
 BKDNOJ_PROBLEM_DATA_IN_FILE_EXT         = ('.in',  '.input',  '.inp', '.i', )
 BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT        = ('.out', '.output', '.ans', '.a', )
+BKDNOJ_PROBLEM_ACCEPTABLE_CONFIG_EXT = set(['.ini', '.conf'])
 BKDNOJ_SUBMISSION_LIMIT = 3
 BKDNOJ_SUBMISSION_OUTPUT_PREFIX = 200
 BKDNOJ_SUBMISSION_OUTPUT_LIMIT = int(1e12)

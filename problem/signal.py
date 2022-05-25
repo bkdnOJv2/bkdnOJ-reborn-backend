@@ -11,7 +11,7 @@ from helpers.problem_data import ProblemDataCompiler
 @receiver(post_save, sender=Problem)
 def create_profile(sender, instance, created, **kwargs):
     if created:
-        ProblemTestProfile.objects.create(problem=instance)
+        ProblemTestProfile.objects.get_or_create(problem=instance)
 
 @receiver(pre_delete, sender=ProblemTestProfile)
 def delete_test_zip(sender, instance, **kwargs):
