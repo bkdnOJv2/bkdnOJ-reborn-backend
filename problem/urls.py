@@ -14,9 +14,9 @@ urlpatterns = [
         ProblemListView.as_view(), 
         name='problem-list'
     ),
-    path('problem/new-from-archive', 
+    path('problem-from-archive', 
         create_problem_from_archive, 
-        name='problem-new-from-archive'
+        name='problem-from-archive'
     ),
     path('problem/<str:shortname>/', 
         ProblemDetailView.as_view(), 

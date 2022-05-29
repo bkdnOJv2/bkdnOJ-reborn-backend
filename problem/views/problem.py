@@ -67,24 +67,30 @@ class ProblemSubmitView(generics.CreateAPIView):
       status=status.HTTP_200_OK,
     )
 
+from django.core.validators import ValidationError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.exceptions import APIException
 from helpers.string_process import ustrip
+from problem.validators import problem_data_zip_validator
 
 import io, os
 from ast import literal_eval
 from zipfile import BadZipfile, ZipFile
 
+CONF_TOK_LEN = settings.BKDNOJ_PROBLEM_CONFIG_TOKEN_LENGTH
 encoding = 'utf-8-sig'
 __prob_attrib_2_confkey = {
-  'shortname': ['code', 'codename', 'probid'],
+  'shortname': ['shortname', 'code', 'codename', 'probid',],
   'title': ['name', 'title', 'problem', 'code', 'codename'],
   'time_limit': ['time_limit', 'timelimit', 'time', 'tl'],
   'memory_limit': ['memory_limit', 'memorylimit', 'mem_limit', 'memlimit', 'memory', 'mem', 'ml'],
   'points': ['points', 'pts'],
-  'short_circuit': ['skip_non_ac', 'short_circuit'],
-  'partial': ['allow_partial', 'partial'],
+
+  'short_circuit': ['short_circuit', 'skip_non_ac', 'icpc'],
+  'partial': ['partial', 'allow_partial', 'ioi'],
+
+  'is_published': ['is_published', 'published', 'public', 'allow_submit']
 }
 
 @api_view(['POST'])
@@ -97,52 +103,65 @@ def create_problem_from_archive(request):
   config_file = None
   problem_config = {}
 
-  with ZipFile(archive, 'r') as zfile:
-    for filename in zfile.namelist():
-      _, fileext = os.path.splitext(filename)
-      if fileext in settings.BKDNOJ_PROBLEM_ACCEPTABLE_CONFIG_EXT:
-        # print(f"Reading file '{filename}':")
-        if config_file != None:
-          return Response({
-            "detail": f"Found multiple config files ['{config_file}', '{filename}']. Please provide only 1 config file."
-          }, status=status.HTTP_400_BAD_REQUEST)
+  try:
+    with ZipFile(archive, 'r') as zfile:
+      for filename in zfile.namelist():
+        _, fileext = os.path.splitext(filename)
+        if fileext in settings.BKDNOJ_PROBLEM_ACCEPTABLE_CONFIG_EXT:
+          # print(f"Reading file '{filename}':")
+          if config_file != None:
+            return Response({
+              "detail": f"Found multiple config files ['{config_file}', '{filename}']. Please provide only 1 config file."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        config_file = filename
-        with zfile.open(config_file) as file:
-          line_row = 0
-          for line in io.TextIOWrapper(file, encoding):
-            line_row += 1
+          config_file = filename
+          with zfile.open(config_file) as file:
+            line_row = 0
+            for line in io.TextIOWrapper(file, encoding):
+              line_row += 1
 
-            line = ustrip(line)
-            if len(line) == 0 or line.startswith(';'): # comment or empty line
-              continue
-
-            tokens = line.split('=')
-            if len(tokens) != 2:
-              return Response({
-                "detail": f"Invalid format while reading File '{config_file}', "+
-                          f"Line {line_row}: '{line}'."
-              }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # The value might be a string enclosed in Ascii quotes
-            parsed_key = ustrip(tokens[0])
-            parsed_val = ustrip(tokens[1])
-            # If starts or end with a quote, attempt to parse it
-            if parsed_val[0] in "'\"" or parsed_val[-1] in "'\"":
-              # attempt to avoid crashing ast compiler by limiting the len 
-              if len(parsed_val) > 65536: 
+              line = ustrip(line)
+              if len(line) == 0 or line.startswith(';'): # comment or empty line
+                continue
+              
+              eqlpos = line.find('=')
+              if eqlpos < 0:
                 return Response({
-                  "detail": f"Key '{parsed_key}' has value's length too long (>65536)."
+                  "detail": f"Invalid format. File '{config_file}', "+
+                            f"Line {line_row}: `{line}` not following 'KEY=VALUE' format."
+                }, status=status.HTTP_400_BAD_REQUEST)
+              
+              # String unicode whitespaces
+              parsed_key = ustrip(line[:eqlpos])
+              parsed_val = ustrip(line[eqlpos+1:])
+
+              # Check the length to make sure notempty or too long
+              if len(parsed_key) == 0 or len(parsed_key) > CONF_TOK_LEN:
+                return Response({
+                  "detail": f"File '{config_file}', line {line_row}: Key is empty or too long. (>{CONF_TOK_LEN})"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-              try:
-                parsed_val = literal_eval(parsed_val)
-              except Exception as err:
+              if len(parsed_val) == 0 or len(parsed_val) > CONF_TOK_LEN:
                 return Response({
-                  "detail": f"Cannot parse value for key {parsed_key} ({err})"
+                  "detail": f"File '{config_file}', line {line_row}: Value is empty or too long. (>{CONF_TOK_LEN})"
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
-            problem_config[parsed_key] = ustrip(parsed_val)
+
+              # The value might be a string enclosed in Ascii quotes
+              # If starts or end with a quote, attempt to parse it
+              if parsed_val[0] in "'\"" or parsed_val[-1] in "'\"":
+                # because we have checked the length, this wont crash the ast compiler 
+                try:
+                  parsed_val = literal_eval(parsed_val)
+                except Exception as err:
+                  return Response({
+                    "detail": f"Cannot parse value for key {parsed_key} ({err})"
+                  }, status=status.HTTP_400_BAD_REQUEST)
+              
+              problem_config[parsed_key] = ustrip(parsed_val)
+  except BadZipfile:
+    return Response({
+      "detail": "Provided file is not a valid .zip file.",
+    }, status=status.HTTP_400_BAD_REQUEST)
    
   # Collect into a dict
   data = {}
@@ -155,8 +174,9 @@ def create_problem_from_archive(request):
     
   # Include additional data that config file might not have
   data['authors'] = [request.user]
+  print(data)
       
-  # Validatin
+  # Validating Problem settings
   context={'request':request}
   seri = ProblemSerializer(data=data, context=context)
   if not seri.is_valid():
@@ -164,18 +184,28 @@ def create_problem_from_archive(request):
       "detail": "Invalid problem attributes after parsing.",
       "errors": seri.errors,
     }, status=status.HTTP_400_BAD_REQUEST)
+  
+  # Validating archive testdata
+  try:
+    problem_data_zip_validator(archive)
+  except ValidationError as ve:
+    return Response({
+      "detail": "Invalid test cases.",
+      "errors": ve,
+    }, status=status.HTTP_400_BAD_REQUEST)
+
 
   # Creating problem object
   try:
     with transaction.atomic():
       prob = seri.save()
       test_profile, _ = ProblemTestProfile.objects.get_or_create(problem=prob)
+
       test_profile.set_zipfile( archive )
       test_profile.generate_test_cases()
       test_profile.update_pdf_within_zip()
       test_profile.save()
-      return Response(seri.data, 
-        status=status.HTTP_201_CREATED)
+      return Response(seri.data, status=status.HTTP_201_CREATED)
   except IntegrityError as intergrity_err:
     return Response({
       "detail": intergrity_err,
