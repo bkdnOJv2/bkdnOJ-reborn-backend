@@ -15,9 +15,8 @@ def create_profile(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=ProblemTestProfile)
 def delete_test_zip(sender, instance, **kwargs):
-    if instance.zipfile:
-        logger.info("ProblemTestProfile pre_delete signal caught, deleting zip file")
-        instance.zipfile.delete(save=False)
+    logger.info("ProblemTestProfile pre_delete signal caught, deleting problem_data")
+    instance.delete_data()
 
 # # Moved into views
 # @receiver(post_save, sender=ProblemTestProfile)

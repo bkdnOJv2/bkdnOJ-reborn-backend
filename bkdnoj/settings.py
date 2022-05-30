@@ -1,6 +1,9 @@
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
 from pathlib import Path
 from datetime import timedelta
-import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -75,8 +78,12 @@ WSGI_APPLICATION = 'bkdnoj.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': os.getenv('POSTGRES_NAME'),
+        'USER': os.getenv('POSTGRES_USER'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+        'HOST': os.getenv('POSTGRES_HOST'),
+        'PORT': os.getenv('POSTGRES_PORT'),
     }
 }
 
@@ -173,6 +180,12 @@ LOGGING = {
     },
 }
 
+# --------- Credits to DMOJ
+# Refer to dmoj.ca/post/103-point-system-rework
+DMOJ_PP_STEP = 0.95
+DMOJ_PP_ENTRIES = 100
+DMOJ_PP_BONUS_FUNCTION = lambda n: 300 * (1 - 0.997 ** n)  # noqa: E731
+
 # --------- Site settings
 BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'problem_data')
 BKDNOJ_PROBLEM_PDF_ROOT=os.path.join(MEDIA_ROOT, 'problem_pdf')
@@ -190,6 +203,9 @@ BKDNOJ_PROBLEM_CONFIG_TOKEN_LENGTH = 2**16
 BKDNOJ_SUBMISSION_LIMIT = 3
 BKDNOJ_SUBMISSION_OUTPUT_PREFIX = 200
 BKDNOJ_SUBMISSION_OUTPUT_LIMIT = int(1e12)
+
+DEFAULT_USER_TIME_ZONE = 'Asia/Ho_Chi_Minh'
+DEFAULT_USER_LANGUAGE = 'PY3'
 
 #
 EVENT_DAEMON_USE = False

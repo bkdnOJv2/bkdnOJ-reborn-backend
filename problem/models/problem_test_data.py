@@ -107,9 +107,10 @@ class ProblemTestProfile(TimeStampedModel):
     self._zipfile_changed = True
     # statement.pdf
 
-  def delete_zipfile(self, *args, **kwargs):
-    self.zipfile.delete(kwargs.get('save', True))
-    self.cases.all().delete()
+  def delete_data(self, *args, **kwargs):
+    # self.zipfile.delete(kwargs.get('save', True))
+    # self.cases.all().delete()
+    problem_data_storage.delete(self.problem.shortname)
 
   def generate_test_cases(self):
     if self._zipfile_changed:

@@ -9,6 +9,8 @@ from django.core.files.storage import FileSystemStorage
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
+import shutil
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,9 @@ class ProblemDataStorage(FileSystemStorage):
   def rename(self, old, new):
     return os.rename(self.path(old), self.path(new))
 
+  def delete(self, name):
+    # Folders not empty
+    shutil.rmtree(name, ignore_errors=True)
 
 class ProblemDataError(Exception):
   def __init__(self, message):

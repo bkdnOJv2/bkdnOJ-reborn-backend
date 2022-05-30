@@ -194,6 +194,9 @@ def create_problem_from_archive(request):
       "errors": ve,
     }, status=status.HTTP_400_BAD_REQUEST)
 
+  print('123123123123123')
+  prob = seri.save()
+  print(seri.validated_data)
 
   # Creating problem object
   try:

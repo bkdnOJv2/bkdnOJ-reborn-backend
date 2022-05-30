@@ -2,33 +2,22 @@ from django.contrib.auth.models import Group
 from rest_framework import serializers
 
 from auth.serializers import UserSerializer
-from .models import OrgMembership, Organization
+from .models import Organization
 
 class OrganizationSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Organization
-        fields = ('url', 'shortname', 'name', 'description')
-        lookup_field = 'shortname'
+        fields = '__all__'
+        lookup_field = 'slug'
         extra_kwargs = {
-            'url': {'lookup_field': 'shortname'}
+            'url': {'lookup_field': 'slug'}
         }
 
-class OrgMembershipSerializer(serializers.Serializer):
-    user = UserSerializer()
-    role_label = serializers.CharField()
-    ranking = serializers.IntegerField()
-
-    class Meta:
-        model = OrgMembership
-        fields = ('user', 'role_label', 'ranking')
-
-class OrganizationDetailSerializer(serializers.HyperlinkedModelSerializer):
-    memberships = OrgMembershipSerializer(many=True)
-
+class OrganizationDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
-        fields = ('url', 'shortname', 'name', 'description', 'memberships')
-        lookup_field = 'shortname'
+        fields = ['slug', 'shortname']
+        lookup_field = 'slug'
         extra_kwargs = {
-            'url': {'lookup_field': 'shortname'}
+            'url': {'lookup_field': 'slug'}
         }
