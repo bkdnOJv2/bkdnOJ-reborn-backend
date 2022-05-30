@@ -22,6 +22,7 @@ from problem.validators import problem_data_zip_validator
 from helpers.problem_data import ProblemDataCompiler, \
   problem_data_storage, problem_pdf_storage
 
+import shutil
 import zipfile
 import logging
 logger = logging.getLogger(__name__)
@@ -65,10 +66,16 @@ class ProblemTestProfile(TimeStampedModel):
     upload_to=problem_directory_file)
   output_prefix = models.IntegerField(
     verbose_name=_('output prefix length'),
-    blank=True, null=True)
+    blank=True, null=True,
+    validators=[MinValueValidator(0),
+                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_OUTPUT_PREFIX)],
+    )
   output_limit = models.IntegerField(
     verbose_name=_('output limit length'),
-    blank=True, null=True)
+    blank=True, null=True,
+    validators=[MinValueValidator(0),
+                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_OUTPUT_LIMIT)],
+  )
   feedback = models.TextField(
     verbose_name=_('init.yml generation feedback'), blank=True)
   checker = models.CharField(
@@ -110,7 +117,8 @@ class ProblemTestProfile(TimeStampedModel):
   def delete_data(self, *args, **kwargs):
     # self.zipfile.delete(kwargs.get('save', True))
     # self.cases.all().delete()
-    problem_data_storage.delete(self.problem.shortname)
+    shutil.rmtree(problem_data_storage.path(self.problem.shortname), 
+      ignore_errors=True)
 
   def generate_test_cases(self):
     if self._zipfile_changed:
@@ -133,7 +141,7 @@ class ProblemTestProfile(TimeStampedModel):
         TestCase.objects.bulk_create(testcase_to_be_created)
 
       ProblemDataCompiler.generate(
-          self.problem, self, self.cases.order_by('order'), self.valid_files
+        self.problem, self, self.cases.order_by('order'), self.valid_files
       )
       return True
     return False
@@ -231,10 +239,12 @@ class TestCase(models.Model):
     verbose_name=_('case is pretest?'))
   output_prefix = models.IntegerField(
     verbose_name=_('output prefix length'),
-    blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_PREFIX or 256))
+    blank=True, null=True, default=settings.BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_PREFIX,
+  )
   output_limit = models.IntegerField(
     verbose_name=_('output limit length'),
-    blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_LIMIT or (int(1e12))))
+    blank=True, null=True, default=settings.BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_LIMIT,
+  )
   checker = models.CharField(
     max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
   checker_args = models.TextField(

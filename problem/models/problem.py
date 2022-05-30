@@ -1,7 +1,6 @@
 from django.utils.translation import gettext_lazy as _
-# from bkdnoj import settings
-import bkdnoj
 
+import shutil
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -10,7 +9,7 @@ User = get_user_model()
 
 from django.utils.functional import cached_property
 from django.core.validators import MinValueValidator, MaxValueValidator, \
-    FileExtensionValidator
+    FileExtensionValidator, MinLengthValidator
 
 from django_extensions.db.models import TimeStampedModel
 
@@ -26,7 +25,7 @@ from judger.models import Language
 class Problem(TimeStampedModel):
   # -------------- Problem General Info
   shortname = models.SlugField(
-    max_length=128,
+    max_length=128, validators=[MinLengthValidator(4)],
     null=False, blank=False, unique=True, db_index=True,
     help_text=_("This field is used to separate different problems from each other, "
               "similar to `problem code'. Only letters [A-Z], numbers [0-9], "
@@ -59,15 +58,15 @@ class Problem(TimeStampedModel):
     help_text=_("The time limit for this problem, in seconds. "
                 "Fractional seconds (e.g. 1.5) are supported."
     ),
-    validators=[MinValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
-                MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)],
+    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
+                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_TIME_LIMIT)],
   )
   memory_limit = models.PositiveIntegerField(default=256*1024,
     help_text=_("The memory limit for this problem, in kilobytes "
                 "(e.g. 64mb = 65536 kilobytes)."
     ),
-    validators=[MinValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT),
-                MaxValueValidator(bkdnoj.settings.BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT)]
+    validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT),
+                MaxValueValidator(settings.BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT)]
   )
 
   # -------------- Problem Judging Info
@@ -187,6 +186,13 @@ class Problem(TimeStampedModel):
   def get_absolute_url(self):
     return reverse('problem_detail', args=(self.shortname,))
 
+  def delete_pdf(self):
+    shutil.rmtree(problem_pdf_storage.path(self.shortname), ignore_errors=True)
+
+  def save(self, *args, **kwargs):
+    self.shortname = self.shortname.upper()
+    super().save(*args, **kwargs)
+
   class Meta:
     ordering = ['-created']
     verbose_name = _("Problem")
@@ -195,7 +201,6 @@ class Problem(TimeStampedModel):
     permissions = (
       ('clone', _("Can clone/copy all problems")),
     )
-
 
   def __str__(self):
     return f'{self.shortname}'

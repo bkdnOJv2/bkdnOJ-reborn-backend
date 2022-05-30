@@ -17,38 +17,6 @@
     },
     {
         "model": "judger.language",
-        "pk": 2,
-        "fields": {
-            "key": "GAS64",
-            "name": "Assembly (x64)",
-            "short_name": null,
-            "common_name": "Assembly",
-            "ace": "assembly_x86",
-            "pygments": "gas",
-            "template": "",
-            "info": "",
-            "description": "",
-            "extension": "asm"
-        }
-    },
-    {
-        "model": "judger.language",
-        "pk": 3,
-        "fields": {
-            "key": "AWK",
-            "name": "AWK",
-            "short_name": "AWK",
-            "common_name": "Awk",
-            "ace": "AWK",
-            "pygments": "awk",
-            "template": "",
-            "info": "",
-            "description": "",
-            "extension": "awk"
-        }
-    },
-    {
-        "model": "judger.language",
         "pk": 4,
         "fields": {
             "key": "C",
@@ -97,22 +65,6 @@
     },
     {
         "model": "judger.language",
-        "pk": 7,
-        "fields": {
-            "key": "PERL",
-            "name": "Perl",
-            "short_name": null,
-            "common_name": "Perl",
-            "ace": "perl",
-            "pygments": "perl",
-            "template": "",
-            "info": "",
-            "description": "",
-            "extension": "pl"
-        }
-    },
-    {
-        "model": "judger.language",
         "pk": 8,
         "fields": {
             "key": "PY3",
@@ -141,54 +93,6 @@
             "info": "",
             "description": "Compile options: `javac -encoding UTF-8 -profile compact1`",
             "extension": "java"
-        }
-    },
-    {
-        "model": "judger.language",
-        "pk": 10,
-        "fields": {
-            "key": "TEXT",
-            "name": "Text",
-            "short_name": null,
-            "common_name": "Text",
-            "ace": "text",
-            "pygments": "text",
-            "template": "",
-            "info": "",
-            "description": "",
-            "extension": "txt"
-        }
-    },
-    {
-        "model": "judger.language",
-        "pk": 11,
-        "fields": {
-            "key": "GAS32",
-            "name": "Assembly (x86)",
-            "short_name": null,
-            "common_name": "Assembly",
-            "ace": "assembly_x86",
-            "pygments": "gas",
-            "template": "",
-            "info": "",
-            "description": "",
-            "extension": "asm"
-        }
-    },
-    {
-        "model": "judger.language",
-        "pk": 12,
-        "fields": {
-            "key": "SED",
-            "name": "Sed",
-            "short_name": null,
-            "common_name": "Sed",
-            "ace": "perl",
-            "pygments": "perl",
-            "template": "",
-            "info": "",
-            "description": "",
-            "extension": "sed"
         }
     },
     {
@@ -252,22 +156,6 @@
             "template": "",
             "info": "",
             "description": "Compile options: `gcc -std=c11 -Wall -DONLINE_JUDGE -O2 -lm -fmax-errors=5 -march=native -s`",
-            "extension": "c"
-        }
-    },
-    {
-        "model": "judger.language",
-        "pk": 17,
-        "fields": {
-            "key": "BF",
-            "name": "Brain****",
-            "short_name": null,
-            "common_name": "Brain****",
-            "ace": "plain_text",
-            "pygments": "bf",
-            "template": "",
-            "info": "",
-            "description": "Classical [brain\\*\\*\\*\\*][1] with as many byte-sized cells as there are bytes in the memory limit.\r\n\r\n  [1]: http://www.muppetlabs.com/~breadbox/bf/",
             "extension": "c"
         }
     },
