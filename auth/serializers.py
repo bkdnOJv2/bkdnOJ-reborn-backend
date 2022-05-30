@@ -18,6 +18,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=True, min_length=4, max_length=30)
     email = serializers.EmailField(
         required=True,
         validators=[UniqueValidator(queryset=User.objects.all())]
@@ -52,17 +53,20 @@ from rest_framework import serializers
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = User
-        fields = ['url', 'username', 'email']#, 'groups']
+        fields = ['url', 'id', 'username', 'email', 'is_staff', 'is_superuser',
+            'is_active', 'date_joined', 'last_login']#, 'groups']
 
 class UserDetailSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ['url', 'username', 'email', 'groups']
+        fields = ['url', 'id', 'username', 'email', 'is_staff', 'is_superuser',
+            'is_active', 'date_joined', 'last_login']#, 'groups']
 
 class UserMoreDetailSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ['url', 'username', 'email', 'groups', 'is_staff', 'is_superuser']
+        fields = ['url', 'id', 'username', 'email', 'is_staff', 'is_superuser',
+            'is_active', 'date_joined', 'last_login', 'groups']
 
 class GroupSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

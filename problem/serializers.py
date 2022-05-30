@@ -21,7 +21,8 @@ class ProblemBasicSerializer(serializers.HyperlinkedModelSerializer):
 class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Problem 
-        fields = ['url', 'shortname', 'title', 'solved_count', 'attempted_count', 'points']
+        fields = ['url', 'shortname', 'title', 'solved_count', 
+            'attempted_count', 'points', 'is_published', 'is_privated_to_orgs']
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
@@ -32,26 +33,41 @@ class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
 # this for 30+ mins...
 # Fuck it, lets redefine it for now. 
 from judger.models import Language
-class LanguageSerializer(serializers.ModelSerializer):
+class LanguageBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Language
-        fields = '__all__'
-        #('id', 'key', 'name', 'short_name', 'common_name', 'ace', 'template')
+        fields = ['id', 'key', 'name', 'short_name', 'common_name', 'ace']
+        read_only_fields = ['id', 'key', 'name', 'short_name', 'common_name', 'ace']
+        optional_fields = ['name', 'short_name', 'common_name', 'ace']
+    
+    def to_internal_value(self, data):
+        if type(data) in [str, int]:
+            lookup_key = ('key' if type(data) == str else 'id')
+            langs = Language.objects.filter(**{f'{lookup_key}': data})
+            if langs.exists():
+                return langs[0].id
+
+            raise serializers.ValidationError({
+                'language_not_exist': f"Cannot find language with '{lookup_key}' = {data}"
+            })
+        else:
+            return super().to_internal_value(data)
+
 
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     organizations = serializers.SlugRelatedField(
-        queryset=Organization.objects.all(), many=True, slug_field="shortname"
+        queryset=Organization.objects.all(), many=True, slug_field="shortname", required=False 
     )
     authors = serializers.SlugRelatedField(
-        queryset=User.objects.all(), many=True, slug_field="username"
+        queryset=User.objects.all(), many=True, slug_field="username", 
     )
     collaborators = serializers.SlugRelatedField(
-        queryset=User.objects.all(), many=True, slug_field="username"
+        queryset=User.objects.all(), many=True, slug_field="username", required=False,
     )
     reviewers = serializers.SlugRelatedField(
-        queryset=User.objects.all(), many=True, slug_field="username"
+        queryset=User.objects.all(), many=True, slug_field="username", required=False,
     )
-    allowed_languages = LanguageSerializer(many=True)
+    allowed_languages = LanguageBasicSerializer(many=True, required=False)
 
     class Meta:
         model = Problem 
@@ -64,14 +80,22 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             'allowed_languages',
             'is_published',
             'is_privated_to_orgs', 'organizations',
-            'short_circuit', 'partial',
+            'points', 'short_circuit', 'partial',
 
             'submission_visibility_mode', 'solved_count', 'attempted_count',
         ]
+        read_only_fields = ['url', ]
+        optional_fields = ['allowed_languages', 'collaborators', 'reviewers', 'organizations']
         lookup_field = 'shortname'
         extra_kwargs = {
-            'url': {'lookup_field': 'shortname'}
+            'url': {'lookup_field': 'shortname'},
         }
+    
+    def update(self, instance, validated_data):
+        if validated_data.get('allowed_languages', None) != None:
+            langs = validated_data.pop('allowed_languages')
+            instance.allowed_languages.set(langs)
+        return super().update(instance, validated_data)
 
 class ProblemTestProfileSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

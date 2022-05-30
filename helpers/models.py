@@ -5,19 +5,24 @@ class AllFieldModelAdmin(admin.ModelAdmin):
         return [field.name for field in self.model._meta.concrete_fields]
 
 class MetaInferModelAdmin(admin.ModelAdmin):
+    def get_admin_list(self):
+        try:
+            return self.model.admin_list
+        except AttributeError:
+            return []
+    
     def get_list_display(self, request):
-        return self.model.admin_list
+        return self.get_admin_list()
 
-class MetaInferTimestampedModelAdmin(admin.ModelAdmin):
+class MetaInferTimestampedModelAdmin(MetaInferModelAdmin):
     def get_list_display(self, request):
-        return self.model.admin_list + ('created', 'modified')
+        return self.get_admin_list() + ['created', 'modified']
 
 class MyModelAdmin(MetaInferTimestampedModelAdmin):
     """
         Customized AdminModel, has 'created', 'modified' fields
         and also shortcut form widget in case of m2m relationship with intermediary table
     """
-
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         db = kwargs.get('using')

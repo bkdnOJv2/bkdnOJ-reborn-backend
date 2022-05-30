@@ -18,7 +18,7 @@ if os.altsep:
 else:
   def split_path_first(path):
     return path.split(os.sep, 1)
-  
+
 class ProblemDataStorage(FileSystemStorage):
   def __init__(self):
     super(ProblemDataStorage, self).__init__(settings.BKDNOJ_PROBLEM_DATA_ROOT)
@@ -26,7 +26,8 @@ class ProblemDataStorage(FileSystemStorage):
   def url(self, name):
     path = split_path_first(name)
     if len(path) != 2:
-      raise ValueError('This file is not accessible via a URL.')
+      return ''
+      #raise ValueError('This file is not accessible via a URL.')
     return reverse('problem_data_file', args=path)
 
   def _save(self, name, content):
@@ -229,11 +230,11 @@ class ProblemPDFStorage(FileSystemStorage):
 
   def rename(self, old, new):
     return os.rename(self.path(old), self.path(new))
-  
+
 
 problem_data_storage = ProblemDataStorage()
 problem_pdf_storage = ProblemPDFStorage()
 
 def problem_directory_pdf(prob, filename):
-  return os.path.join(prob.shortname, 
+  return os.path.join(prob.shortname,
                       settings.BKDNOJ_PROBLEM_STATEMENT_PDF_FILENAME)

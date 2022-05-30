@@ -1,7 +1,7 @@
 from django.utils.translation import gettext_lazy as _
 
 from django.conf import settings
-from django.db import models
+from django.db import models, IntegrityError, transaction
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -60,14 +60,14 @@ class ProblemTestProfile(TimeStampedModel):
     validators=[problem_data_zip_validator],
   )
   generator = models.FileField(
-    verbose_name=_('generator file'), 
+    verbose_name=_('generator file'),
     storage=problem_data_storage, null=True, blank=True,
     upload_to=problem_directory_file)
   output_prefix = models.IntegerField(
-    verbose_name=_('output prefix length'), 
+    verbose_name=_('output prefix length'),
     blank=True, null=True)
   output_limit = models.IntegerField(
-    verbose_name=_('output limit length'), 
+    verbose_name=_('output limit length'),
     blank=True, null=True)
   feedback = models.TextField(
     verbose_name=_('init.yml generation feedback'), blank=True)
@@ -79,17 +79,18 @@ class ProblemTestProfile(TimeStampedModel):
 
   _original_zipfile = None
   _zipfile_changed = False
+  _signal_caught = False
 
   def __init__(self, *args, **kwargs):
     super(ProblemTestProfile, self).__init__(*args, **kwargs)
     self._original_zipfile = self.zipfile
 
   def __str__(self):
-    return 'Problem Test Profile for problem %s' % (self.problem)
-  
+    return 'Problem Test Profile %s' % (self.problem)
+
   def get_absolute_url(self):
     return reverse('problemtestprofile_detail', args=(self.problem,))
-  
+
   def save(self, *args, **kwargs):
     return super(ProblemTestProfile, self).save(*args, **kwargs)
 
@@ -109,11 +110,9 @@ class ProblemTestProfile(TimeStampedModel):
   def delete_zipfile(self, *args, **kwargs):
     self.zipfile.delete(kwargs.get('save', True))
     self.cases.all().delete()
-  
+
   def generate_test_cases(self):
     if self._zipfile_changed:
-      self.cases.all().delete()
-
       testcase_to_be_created = []
       case_pairs = self.valid_pairs_of_cases
       for in_file, ans_file in case_pairs:
@@ -127,27 +126,30 @@ class ProblemTestProfile(TimeStampedModel):
                   points=1,
               )
           )
-      TestCase.objects.bulk_create(testcase_to_be_created)
+
+      with transaction.atomic():
+        self.cases.all().delete()
+        TestCase.objects.bulk_create(testcase_to_be_created)
 
       ProblemDataCompiler.generate(
           self.problem, self, self.cases.order_by('order'), self.valid_files
       )
       return True
     return False
-  
+
   def update_pdf_within_zip(self):
     pdf_file = self.valid_statement_pdf
     if not pdf_file:
       return False
     with zipfile.ZipFile(self.zipfile.path, 'r') as zfile:
       pdf_data = zfile.read(pdf_file)
-      
+
       self.problem.pdf = problem_pdf_storage.save(
         problem_directory_pdf(self.problem, None),
         ContentFile(pdf_data)
       )
       self.problem.save(update_fields=['pdf'])
-  
+
   @cached_property
   def valid_statement_pdf(self):
     if self.zipfile:
@@ -181,7 +183,7 @@ class ProblemTestProfile(TimeStampedModel):
     except BadZipfile:
       return [], []
     return [], []
-  
+
   @cached_property
   def valid_files(self):
     inf, ansf = self.valid_in_ans_files
@@ -192,7 +194,7 @@ class ProblemTestProfile(TimeStampedModel):
     return list(zip(
       *self.valid_in_ans_files
     ))
-  
+
   class Meta:
     verbose_name = _('problem data profile')
     verbose_name_plural = _('problem data profiles')
@@ -216,37 +218,35 @@ class TestCase(models.Model):
               ('S', _('Batch start')),
               ('E', _('Batch end'))),
     default='C')
-  input_file = models.CharField(max_length=100, 
+  input_file = models.CharField(max_length=100,
     verbose_name=_('input file name'), blank=True)
-  output_file = models.CharField(max_length=100, 
+  output_file = models.CharField(max_length=100,
     verbose_name=_('output file name'), blank=True)
   generator_args = models.TextField(
     verbose_name=_('generator arguments'), blank=True)
-  points = models.IntegerField(verbose_name=_('point value'), 
+  points = models.IntegerField(verbose_name=_('point value'),
     blank=True, null=True)
   is_pretest = models.BooleanField(
     verbose_name=_('case is pretest?'))
   output_prefix = models.IntegerField(
-    verbose_name=_('output prefix length'), 
+    verbose_name=_('output prefix length'),
     blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_PREFIX or 256))
   output_limit = models.IntegerField(
-    verbose_name=_('output limit length'), 
+    verbose_name=_('output limit length'),
     blank=True, null=True, default=(settings.BKDNOJ_SUBMISSION_OUTPUT_LIMIT or (int(1e12))))
   checker = models.CharField(
     max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
   checker_args = models.TextField(
     verbose_name=_('checker arguments'), blank=True,
     help_text=_('checker arguments as a JSON object'))
-  
+
   def swap_order(self, test_case):
     self.order, test_case.order = test_case.order, self.order
 
   def save(self, *args, **kwargs):
     super(TestCase, self).save(*args, **kwargs)
-  
+
   class Meta:
     ordering = ['test_profile']
     verbose_name = _('Test case')
     verbose_name_plural = _('Test cases')
-
-

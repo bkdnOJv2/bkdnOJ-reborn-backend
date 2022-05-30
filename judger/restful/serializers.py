@@ -5,13 +5,17 @@ from problem.models import Problem
 
 class JudgeSerializer(serializers.ModelSerializer):
     problems = serializers.SlugRelatedField(
-        queryset=Problem.objects.all(), many=True, slug_field="shortname"
+        queryset=Problem.objects.all(), many=True, slug_field="shortname",
+        required=False,
     )
-    runtimes = serializers.StringRelatedField(many=True)
+    runtimes = serializers.StringRelatedField(many=True, required=False)
 
     class Meta:
         model = Judge
-        fields = '__all__'
+        fields = ['id', 'name', 'auth_key', 'online', 'is_blocked', 
+                'last_ip', 'load', 'ping', 'problems', 'runtimes', 'start_time']
+        optional_fields = ['id', 'last_ip', 'online', 'is_blocked', 
+                'load', 'ping', 'problems', 'runtimes', 'start_time']
 
 class RuntimeVersionSerializer(serializers.ModelSerializer):
     class Meta:

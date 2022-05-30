@@ -11,6 +11,7 @@ class TestCaseListView(generics.ListCreateAPIView):
     """
         Return a list of all TestCase on the system
     """
+    pagination_class = None
     serializer_class = TestCaseSerializer
     
     def get_queryset(self):

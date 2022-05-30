@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import views, permissions, generics, viewsets, response, status
 
 from problem.serializers import ProblemSerializer, ProblemTestProfileSerializer
@@ -13,7 +14,7 @@ from helpers.problem_data import problem_pdf_storage
 import logging
 logger = logging.getLogger(__name__)
 
-import json 
+import json
 
 class ProblemTestProfileListView(generics.ListAPIView):
     """
@@ -40,7 +41,7 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
 
     def patch(self, *args, **kwargs):
         return self.put(*args, **kwargs)
-    
+
     def put(self, request, problem, *args, **kwargs):
         FILE_FIELDS = ('zipfile', 'generator')
         obj = self.get_object()
@@ -48,6 +49,9 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
         for k, v in request.data.items():
             # k is file key but the file is empty
             if (k in FILE_FIELDS) and not v:
+                continue
+            if k == 'generator' and v:
+                obj.generator = v
                 continue
             if k == 'zipfile' and v:
                 obj.set_zipfile(v)
@@ -62,9 +66,9 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
                 continue
             setattr(obj, k, v)
 
-        # output_prefix and output_length wasn't updated yet
-        # obj.save(update_fields=['output_limit', 'output_prefix']) 
-
+        # # # Currently not in-use
+        # # output_prefix and output_length wasn't updated yet
+        # obj.save(update_fields=['output_limit', 'output_prefix'])
         obj.generate_test_cases()
         obj.update_pdf_within_zip()
         obj.save()
@@ -73,8 +77,8 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
             ProblemTestProfileSerializer(obj, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
-    
-    
+
+
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from problem.models import problem_data_storage
