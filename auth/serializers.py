@@ -53,8 +53,7 @@ from rest_framework import serializers
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = User
-        fields = ['url', 'id', 'username', 'email', 'is_staff', 'is_superuser',
-            'is_active', 'date_joined', 'last_login']#, 'groups']
+        fields = ['url', 'id', 'username', 'email', 'is_staff', 'is_superuser']
 
 class UserDetailSerializer(UserSerializer):
     class Meta:

@@ -152,7 +152,7 @@ class Submission(models.Model):
 
   def judge(self, *args, rejudge=False, force_judge=False, rejudge_user=None, **kwargs):
     if force_judge or not self.is_locked:
-      judge_submission(self, *args, rejudge=rejudge, **kwargs)
+      judged_succeeded = judge_submission(self, *args, rejudge=rejudge, **kwargs)
 
   judge.alters_data = True
 

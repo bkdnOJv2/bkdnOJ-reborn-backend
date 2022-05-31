@@ -24,6 +24,9 @@ urlpatterns = [
     path('', include('judger.restful.urls')),
     # Submission
     path('', include('submission.urls')),
+
+    # Submission
+    path('', include('compete.urls')),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)

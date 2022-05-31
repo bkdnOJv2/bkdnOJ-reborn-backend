@@ -22,6 +22,9 @@ from .problem_test_data import ProblemTestProfile, \
 
 from judger.models import Language
 
+import logging
+logger = logging.getLogger(__name__)
+
 class Problem(TimeStampedModel):
   # -------------- Problem General Info
   shortname = models.SlugField(
@@ -188,6 +191,17 @@ class Problem(TimeStampedModel):
 
   def delete_pdf(self):
     shutil.rmtree(problem_pdf_storage.path(self.shortname), ignore_errors=True)
+
+  def expensive_recompute_stats(self):
+    logger.warn(f"Need Optimize: Recomputing Problem stats ({self.shortname}) is an expensive operation.")
+    solves = self.submission_set.filter(result='AC').order_by('user').\
+      values_list('user', flat=True).distinct().count()
+    total = self.submission_set.order_by('user').\
+      values_list('user', flat=True).distinct().count()
+    
+    self.solved_count = solves
+    self.attempted_count = total
+    self.save()
 
   def save(self, *args, **kwargs):
     self.shortname = self.shortname.upper()

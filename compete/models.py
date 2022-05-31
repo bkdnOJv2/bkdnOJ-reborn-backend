@@ -316,16 +316,16 @@ class Contest(models.Model):
 
     @cached_property
     def author_ids(self):
-        return Contest.authors.through.objects.filter(contest=self).values_list('profile_id', flat=True)
+        return Contest.authors.through.objects.filter(contest=self).values_list('userprofile_id', flat=True)
 
     @cached_property
     def editor_ids(self):
         return self.author_ids.union(
-            Contest.curators.through.objects.filter(contest=self).values_list('profile_id', flat=True))
+            Contest.collaborators.through.objects.filter(contest=self).values_list('userprofile_id', flat=True))
 
     @cached_property
     def tester_ids(self):
-        return Contest.testers.through.objects.filter(contest=self).values_list('profile_id', flat=True)
+        return Contest.reviewers.through.objects.filter(contest=self).values_list('userprofile_id', flat=True)
 
     def __str__(self):
         return self.name
@@ -417,6 +417,12 @@ class Contest(models.Model):
             return True
 
         return False
+    
+    # TODO: perms
+    def is_testable_by(self, user):
+        if user.profile.id in self.tester_ids:
+            return True
+        return self.is_editable_by(user)
 
     @classmethod
     def get_visible_contests(cls, user):
@@ -439,8 +445,8 @@ class Contest(models.Model):
             )
 
             q |= Q(authors=user.profile)
-            q |= Q(curators=user.profile)
-            q |= Q(testers=user.profile)
+            q |= Q(collaborators=user.profile)
+            q |= Q(reviewers=user.profile)
             queryset = queryset.filter(q)
         return queryset.distinct()
 
@@ -500,7 +506,7 @@ class ContestParticipation(models.Model):
         with transaction.atomic():
             self.contest.format.update_participation(self)
             if self.is_disqualified:
-                self.score = -1509999
+                self.score = -9999
                 self.cumtime = 0
                 self.tiebreaker = 0
                 self.save(update_fields=['score', 'cumtime', 'tiebreaker'])
@@ -604,7 +610,6 @@ class ContestProblem(models.Model):
         verbose_name = _('contest problem')
         verbose_name_plural = _('contest problems')
         ordering = ('order',)
-
 
 
 class ContestSubmission(models.Model):

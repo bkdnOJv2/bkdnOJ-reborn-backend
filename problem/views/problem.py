@@ -207,5 +207,6 @@ def create_problem_from_archive(request):
       return Response(seri.data, status=status.HTTP_201_CREATED)
   except IntegrityError as intergrity_err:
     return Response({
-      "detail": intergrity_err,
+      'detail': "Error while creating problem/populating data",
+      'errors': [str(intergrity_err)],
     }, status=status.HTTP_400_BAD_REQUEST)

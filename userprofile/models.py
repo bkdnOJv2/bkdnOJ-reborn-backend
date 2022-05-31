@@ -28,6 +28,7 @@ class UserProfile(TimeStampedModel):
         default=Language.get_default_language_pk)
     points = models.FloatField(default=0, db_index=True)
     performance_points = models.FloatField(default=0, db_index=True)
+
     problem_count = models.IntegerField(default=0, db_index=True)
 
     ace_theme = models.CharField(max_length=30, choices=ACE_THEMES, default='github')
@@ -62,6 +63,10 @@ class UserProfile(TimeStampedModel):
         help_text=_('name displayed in place of username'))
     
     avatar = models.ImageField( upload_to=path_and_rename_avatar, default=DEFAULT_AVATAR_URL )
+
+    @property
+    def id(self):
+        return self.owner.id # Compatibility
 
     @property
     def user(self):

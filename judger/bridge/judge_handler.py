@@ -425,7 +425,9 @@ class JudgeHandler(ZlibPacketHandler):
 
         # problem._updating_stats_only = True
         # problem.update_stats()
-        # submission.update_contest()
+
+        submission.update_contest()
+        problem.expensive_recompute_stats()
 
         finished_submission(submission)
 
