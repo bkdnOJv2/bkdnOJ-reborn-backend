@@ -5,17 +5,24 @@ from auth.serializers import UserSerializer
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
 from problem.models import Problem
 from problem.serializers import ProblemSerializer
+from submission.serializers import SubmissionSerializer, SubmissionDetailSerializer
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
 
-class ContestSerializer(serializers.HyperlinkedModelSerializer):
+class ContestBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contest
+        fields = [
+            'key', 'name', 'start_time', 'end_time', 'time_limit', 'user_count',
+        ]
+
+class ContestSerializer(serializers.ModelSerializer):
     authors = ProfileSerializer(many=True)
 
     class Meta:
         model = Contest
         fields = [
-            'url',
             'authors', 'key', 'name', 'start_time', 'end_time',
-            'time_limit', 'is_rated', 'tags',
+            'time_limit', 'is_rated', 'tags', 'user_count',
         ]
 
         lookup_field = 'key'
@@ -23,7 +30,7 @@ class ContestSerializer(serializers.HyperlinkedModelSerializer):
             'url': {'lookup_field': 'key'}
         }
 
-class ContestProblemSerializer(serializers.HyperlinkedModelSerializer):
+class ContestProblemSerializer(serializers.ModelSerializer):
     # problem = serializers.ReadOnlyField(source='problem.shortname')
     # contest = serializers.ReadOnlyField(source='contest.key')
     problem = serializers.SlugRelatedField(
@@ -61,11 +68,13 @@ class ContestDetailSerializer(serializers.ModelSerializer):
             'url': {'lookup_field': 'key'}
         }
 
-
 class ContestSubmissionSerializer(serializers.ModelSerializer):
+    submission = SubmissionSerializer()
+
     class Meta:
         model = ContestSubmission
-        fields = '__all__'
+        # fields = '__all__'
+        exclude = ['problem', 'participation']
 
 class ContestParticipationSerializer(serializers.ModelSerializer):
     user = ProfileSerializer(required=False)

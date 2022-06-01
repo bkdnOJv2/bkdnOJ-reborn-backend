@@ -5,6 +5,10 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from .views import *
 
 urlpatterns = [
+    path('past-contest/', 
+        PastContestListView.as_view(), 
+        name='pastcontest-list',
+    ),
     path('contest/', 
         ContestListView.as_view(), 
         name='contest-list',

@@ -10,16 +10,28 @@ from rest_framework import views, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
-from .serializers import ContestSerializer, \
+from .serializers import ContestSerializer, ContestBriefSerializer, \
     ContestDetailSerializer, ContestProblemSerializer, ContestSubmissionSerializer, \
     ContestParticipationSerializer
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
 
-__all__ = ['ContestListView', 'ContestDetailView', 
+__all__ = [
+    'PastContestListView',
+    'ContestListView', 'ContestDetailView', 
     'ContestProblemListView', 'ContestProblemDetailView', 'ContestProblemSubmitView',
     'ContestSubmissionListView',
     'ContestProblemSubmissionListView', 'ContestProblemSubmissionDetailView', 
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
+    ]
+
+class PastContestListView(generics.ListCreateAPIView):
+    """
+        Return a List of all organizations
+    """
+    queryset = Contest.objects.filter(end_time__lte=timezone.now()).order_by('-end_time')
+    serializer_class = ContestSerializer
+    permission_classes = [
+        permissions.DjangoModelPermissionsOrAnonReadOnly,
     ]
 
 class ContestListView(generics.ListCreateAPIView):
@@ -27,7 +39,7 @@ class ContestListView(generics.ListCreateAPIView):
         Return a List of all organizations
     """
     queryset = Contest.objects.all()
-    serializer_class = ContestSerializer
+    serializer_class = ContestBriefSerializer
     permission_classes = [
         permissions.DjangoModelPermissionsOrAnonReadOnly,
     ]
@@ -58,8 +70,6 @@ class ContestListView(generics.ListCreateAPIView):
                     .select_related('contest') \
                     .prefetch_related('contest__authors', 'contest__collaborators', 'contest__reviewers') \
                     .annotate(key=F('contest__key')):
-                print(participation)
-                print(participation.ended)
                 if participation.ended:
                     finished.add(participation.contest)
                 else:
@@ -71,9 +81,9 @@ class ContestListView(generics.ListCreateAPIView):
         future.sort(key=attrgetter('start_time'))
         context={'request': request}
         return Response({
-            'active': ContestSerializer(active, many=True, context=context).data,
-            'present': ContestSerializer(present, many=True, context=context).data,
-            'future': ContestSerializer(future, many=True, context=context).data,
+            'active': ContestBriefSerializer(active, many=True, context=context).data,
+            'present': ContestBriefSerializer(present, many=True, context=context).data,
+            'future': ContestBriefSerializer(future, many=True, context=context).data,
         }, status=status.HTTP_200_OK)
 
 
@@ -151,6 +161,12 @@ class ContestSubmissionListView(generics.ListAPIView):
     def get_queryset(self):
         cps = ContestProblem.objects.filter(contest__key=self.kwargs['key']).all()
         css = ContestSubmission.objects.filter(problem__in=cps)
+        username = self.request.query_params.get('user')
+        if username is not None:
+            css = css.filter(participation__user__owner__username=username)
+        prob_shortname = self.request.query_params.get('problem')
+        if prob_shortname is not None:
+            css = css.filter(problem__problem__shortname=prob_shortname)
         return css
 
     def get(self, request, key):
@@ -344,7 +360,8 @@ def contest_leave_view(request, key):
     # contest = contests[0]
     contest = get_object_or_404(Contest, key=key)
     profile = user.profile
-    if profile.current_contest is None or profile.current_contest.contest_id != contest.id:
+    if profile.current_contest is None or not contests.exists() or \
+            profile.current_contest.contest_id != contest.id:
         return Response({'detail': f"Cannot find such contest."}, 
             status=status.HTTP_404_NOT_FOUND) ## Prevent user from guessing the existing of contest
 

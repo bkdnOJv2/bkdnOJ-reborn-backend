@@ -9,19 +9,19 @@ from .models import Problem, ProblemTestProfile, TestCase
 import logging
 logger = logging.getLogger(__name__)
 
-class ProblemBasicSerializer(serializers.HyperlinkedModelSerializer):
+class ProblemBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem 
-        fields = ['url', 'shortname', 'title']
+        fields = ['shortname', 'title']
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
         }
 
-class ProblemBriefSerializer(serializers.HyperlinkedModelSerializer):
+class ProblemBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem 
-        fields = ['url', 'shortname', 'title', 'solved_count', 
+        fields = ['shortname', 'title', 'solved_count', 
             'attempted_count', 'points', 'is_published', 'is_privated_to_orgs']
         lookup_field = 'shortname'
         extra_kwargs = {

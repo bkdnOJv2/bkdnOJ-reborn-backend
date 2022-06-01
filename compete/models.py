@@ -357,8 +357,8 @@ class Contest(models.Model):
 
         # TODO: perms
         # If the user can view or edit all contests
-        # if user.has_perm('judge.see_private_contest') or user.has_perm('judge.edit_all_contest'):
-        #     return
+        if user.is_superuser or user.has_perm('contest.see_private_contest') or user.has_perm('contest.edit_all_contest'):
+            return
 
         # User is organizer or curator for contest
         if user.profile.id in self.editor_ids:
