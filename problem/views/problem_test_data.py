@@ -1,5 +1,9 @@
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
+from django.utils.html import escape, format_html
+from django.utils.safestring import mark_safe
+from django.utils.translation import gettext as _
 from rest_framework import views, permissions, generics, viewsets, response, status
 
 from problem.serializers import ProblemSerializer, ProblemTestProfileSerializer
@@ -10,6 +14,8 @@ from submission.serializers import SubmissionSubmitSerializer, \
     SubmissionBasicSerializer
 
 from helpers.problem_data import problem_pdf_storage
+from judger.utils.unicode import utf8text
+from judger.highlight_code import highlight_code
 
 import logging
 logger = logging.getLogger(__name__)
@@ -120,7 +126,7 @@ def __problem_x_file(request, shortname, path, url_path, storage, content_type='
 
 def problem_data_file(request, shortname, path):
     if hasattr(settings, 'BKDNOJ_PROBLEM_DATA_INTERNAL'):
-        url_path = '%s/%s/%s' % (settings.BKDNOJ_PROBLEM_DATA_INTERNAL, problem, path)
+        url_path = '%s/%s/%s' % (settings.BKDNOJ_PROBLEM_DATA_INTERNAL, shortname, path)
     else:
         url_path = None
     return __problem_x_file(request, shortname, path, url_path, problem_data_storage, 'application/octet-stream')

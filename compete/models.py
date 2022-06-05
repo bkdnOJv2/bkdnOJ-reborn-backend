@@ -65,7 +65,7 @@ class Contest(models.Model):
     name = models.CharField(max_length=100, verbose_name=_('contest name'), db_index=True)
     authors = models.ManyToManyField(Profile, help_text=_('These users will be able to edit the contest.'),
                                      related_name='authors+')
-    collaborators = models.ManyToManyField(Profile, 
+    collaborators = models.ManyToManyField(Profile,
         help_text=_('These users will be able to edit the contest, '
                     'but will not be listed as authors.'),
         related_name='collaborators+', blank=True)
@@ -128,7 +128,7 @@ class Contest(models.Model):
     is_private = models.BooleanField(
         verbose_name=_('private to specific users'), default=False
     )
-    private_contestants = models.ManyToManyField(Profile, 
+    private_contestants = models.ManyToManyField(Profile,
         blank=True, verbose_name=_('private contestants'),
         help_text=_('If private, only these users may see the contest'),
         related_name='private_contestants+'
@@ -181,11 +181,11 @@ class Contest(models.Model):
         verbose_name=_('access code'), blank=True, default='', max_length=255,
         help_text=_('An optional code to prompt contestants before they are allowed '
                     'to join the contest. Leave it blank to disable.'))
-    
-    banned_users = models.ManyToManyField(Profile, 
+
+    banned_users = models.ManyToManyField(Profile,
         verbose_name=_('Banned users'), blank=True,
         help_text=_('Bans the selected users from joining this contest.'))
-    
+
     format_name = models.CharField(
         verbose_name=_('contest format'), default='default', max_length=32,
         choices=contest_format.choices(), help_text=_('The contest format module to use.')
@@ -417,7 +417,7 @@ class Contest(models.Model):
             return True
 
         return False
-    
+
     # TODO: perms
     def is_testable_by(self, user):
         if user.profile.id in self.tester_ids:
@@ -481,9 +481,9 @@ class ContestParticipation(models.Model):
     LIVE = 0
     SPECTATE = -1
 
-    contest = models.ForeignKey(Contest, 
+    contest = models.ForeignKey(Contest,
         verbose_name=_('associated contest'), related_name='users', on_delete=CASCADE)
-    user = models.ForeignKey(Profile, 
+    user = models.ForeignKey(Profile,
         verbose_name=_('user'), related_name='contest_history', on_delete=CASCADE)
     real_start = models.DateTimeField(
         verbose_name=_('start time'), default=timezone.now, db_column='start')
@@ -510,6 +510,7 @@ class ContestParticipation(models.Model):
                 self.cumtime = 0
                 self.tiebreaker = 0
                 self.save(update_fields=['score', 'cumtime', 'tiebreaker'])
+
     recompute_results.alters_data = True
 
     def set_disqualified(self, disqualified):
@@ -580,12 +581,10 @@ class ContestParticipation(models.Model):
         unique_together = ('contest', 'user', 'virtual')
 
 
-
-
 class ContestProblem(models.Model):
-    problem = models.ForeignKey(Problem, 
+    problem = models.ForeignKey(Problem,
         verbose_name=_('problem'), related_name='contests', on_delete=CASCADE)
-    contest = models.ForeignKey(Contest, 
+    contest = models.ForeignKey(Contest,
         verbose_name=_('contest'), related_name='contest_problems', on_delete=CASCADE)
     points = models.IntegerField(verbose_name=_('points'))
     partial = models.BooleanField(default=True, verbose_name=_('partial'))
@@ -593,7 +592,7 @@ class ContestProblem(models.Model):
 
     order = models.PositiveIntegerField(
         db_index=True, verbose_name=_('order'))
-    
+
     output_prefix_override = models.IntegerField(
         verbose_name=_('output prefix length override'),
         default=0, null=True, blank=True)
@@ -605,6 +604,22 @@ class ContestProblem(models.Model):
         default=None, null=True, blank=True,
     )
 
+    solved_count = models.PositiveIntegerField(default=0,
+        help_text=_("Number of users who has solved this problem"),
+    )
+    attempted_count = models.PositiveIntegerField(default=0,
+        help_text=_("Number of users who has attempted this problem"),
+    )
+
+    def expensive_recompute_stats(self):
+        queryset = self.submissions.prefetch_related('submission')
+        totals = queryset.values_list('submission__user').distinct().count()
+        solves = queryset.filter(submission__result='AC').\
+                    values_list('submission__user').distinct().count()
+        self.solved_count = solves
+        self.attempted_count = totals
+        self.save()
+
     class Meta:
         unique_together = ('problem', 'contest')
         verbose_name = _('contest problem')
@@ -613,12 +628,12 @@ class ContestProblem(models.Model):
 
 
 class ContestSubmission(models.Model):
-    submission = models.OneToOneField(Submission, 
+    submission = models.OneToOneField(Submission,
         verbose_name=_('submission'), related_name='contest', on_delete=CASCADE)
-    problem = models.ForeignKey(ContestProblem, 
+    problem = models.ForeignKey(ContestProblem,
         verbose_name=_('problem'), on_delete=CASCADE,
         related_name='submissions', related_query_name='submission')
-    participation = models.ForeignKey(ContestParticipation, 
+    participation = models.ForeignKey(ContestParticipation,
         verbose_name=_('participation'), on_delete=CASCADE,
         related_name='submissions', related_query_name='submission')
     points = models.FloatField(default=0.0, verbose_name=_('points'))
@@ -630,7 +645,20 @@ class ContestSubmission(models.Model):
     class Meta:
         verbose_name = _('contest submission')
         verbose_name_plural = _('contest submissions')
+        ordering = ['-id']
 
+
+class ContestParticipantBestSubmission(models.Model):
+    participant = models.OneToOneField(ContestParticipation,
+        verbose_name=_('participant'), related_name='best_submission', on_delete=CASCADE)
+    problem = models.OneToOneField(ContestProblem,
+        verbose_name=_('problem'), related_name='best_submission', on_delete=CASCADE)
+    submission = models.OneToOneField(ContestSubmission, null=True,
+        verbose_name=_('submission'), related_name='best_submission', on_delete=CASCADE)
+
+    class Meta:
+        verbose_name = _("participant's best submission")
+        verbose_name_plural = _("participant's best submissions")
 
 
 class Rating(models.Model):
@@ -648,4 +676,3 @@ class Rating(models.Model):
         unique_together = ('user', 'contest')
         verbose_name = _('contest rating')
         verbose_name_plural = _('contest ratings')
-

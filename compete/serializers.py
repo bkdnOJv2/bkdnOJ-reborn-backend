@@ -4,7 +4,7 @@ from rest_framework import serializers
 from auth.serializers import UserSerializer
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
 from problem.models import Problem
-from problem.serializers import ProblemSerializer
+from problem.serializers import ProblemBasicSerializer
 from submission.serializers import SubmissionSerializer, SubmissionDetailSerializer
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
 
@@ -33,10 +33,14 @@ class ContestSerializer(serializers.ModelSerializer):
 class ContestProblemSerializer(serializers.ModelSerializer):
     # problem = serializers.ReadOnlyField(source='problem.shortname')
     # contest = serializers.ReadOnlyField(source='contest.key')
-    problem = serializers.SlugRelatedField(
+    # problem = ProblemBriefSerializer()
+    shortname = serializers.SlugRelatedField(
+        source='problem',
         slug_field='shortname',
         queryset=Problem.objects.all(),
     )
+    title = serializers.ReadOnlyField(source='problem.title')
+
     contest = serializers.SlugRelatedField(
         slug_field='key',
         queryset=Contest.objects.all(),
@@ -45,7 +49,9 @@ class ContestProblemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContestProblem
         fields = [
-            'problem', 'contest', 'points', 'partial', 'is_pretested',
+            #'problem', 
+            'shortname', 'title', 'solved_count', 'attempted_count',
+            'contest', 'points', 'partial', 'is_pretested',
             'order', 'output_prefix_override', 'max_submissions',
         ]
 
@@ -69,12 +75,30 @@ class ContestDetailSerializer(serializers.ModelSerializer):
         }
 
 class ContestSubmissionSerializer(serializers.ModelSerializer):
-    submission = SubmissionSerializer()
+    #submission = SubmissionSerializer()
+    #shortname = serializers.SlugRelatedField(
+    #    source='problem',
+    #    slug_field='shortname',
+    #    queryset=Problem.objects.all(),
+    #)
+    id = serializers.ReadOnlyField(source='submission.id')
+    date = serializers.ReadOnlyField(source='submission.date')
+    time = serializers.ReadOnlyField(source='submission.time')
+    memory = serializers.ReadOnlyField(source='submission.memory')
+    status = serializers.ReadOnlyField(source='submission.status')
+    result = serializers.ReadOnlyField(source='submission.result')
+    user = serializers.ReadOnlyField(source='submission.user.username')
+    language = serializers.ReadOnlyField(source='submission.language.name')
+
+    # # Problems
+    problem = ProblemBasicSerializer(read_only=True, source='problem.problem')
 
     class Meta:
         model = ContestSubmission
-        # fields = '__all__'
-        exclude = ['problem', 'participation']
+        #fields = '__all__'
+        exclude = [
+            'participation', 'submission',
+        ]
 
 class ContestParticipationSerializer(serializers.ModelSerializer):
     user = ProfileSerializer(required=False)
