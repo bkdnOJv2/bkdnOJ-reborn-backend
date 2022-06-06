@@ -22,13 +22,14 @@ class ContestSerializer(serializers.ModelSerializer):
         model = Contest
         fields = [
             'authors', 'key', 'name', 'start_time', 'end_time',
-            'time_limit', 'is_rated', 'tags', 'user_count',
+            'time_limit', 'is_rated', 'tags', 'user_count', 'format_name',
         ]
 
         lookup_field = 'key'
         extra_kwargs = {
             'url': {'lookup_field': 'key'}
         }
+
 
 class ContestProblemSerializer(serializers.ModelSerializer):
     # problem = serializers.ReadOnlyField(source='problem.shortname')
@@ -46,14 +47,18 @@ class ContestProblemSerializer(serializers.ModelSerializer):
         queryset=Contest.objects.all(),
     )
     # contest = serializers.ReadOnlyField(source='contest.key')
+
     class Meta:
         model = ContestProblem
         fields = [
-            #'problem', 
+            #'problem',
+            'id',
             'shortname', 'title', 'solved_count', 'attempted_count',
             'contest', 'points', 'partial', 'is_pretested',
             'order', 'output_prefix_override', 'max_submissions',
+            'label',
         ]
+
 
 class ContestDetailSerializer(serializers.ModelSerializer):
     authors = ProfileSerializer(many=True, required=False)
@@ -62,7 +67,7 @@ class ContestDetailSerializer(serializers.ModelSerializer):
 
     banned_users = ProfileSerializer(many=True, required=False)
 
-    problems = ContestProblemSerializer(many=True, 
+    problems = ContestProblemSerializer(many=True,
         source='contest_problems'
     )
 
@@ -100,11 +105,17 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
             'participation', 'submission',
         ]
 
+import json
+
 class ContestParticipationSerializer(serializers.ModelSerializer):
     user = ProfileSerializer(required=False)
+    format_data = serializers.SerializerMethodField()
+
+    def get_format_data(self, obj):
+        return json.dumps(obj.format_data)
 
     class Meta:
         model = ContestParticipation
         fields = ['user', 'score', 'cumtime', 'is_disqualified',
-            'tiebreaker', 'virtual',
+            'tiebreaker', 'virtual', 'format_data',
         ]

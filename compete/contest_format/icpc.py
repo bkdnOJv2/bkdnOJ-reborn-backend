@@ -56,13 +56,13 @@ class ICPCContestFormat(DefaultContestFormat):
             cursor.execute("""
                 SELECT MAX(cs.points) as `points`, (
                     SELECT MIN(csub.date)
-                        FROM judge_contestsubmission ccs LEFT OUTER JOIN
-                             judge_submission csub ON (csub.id = ccs.submission_id)
+                        FROM compete_contestsubmission ccs LEFT OUTER JOIN
+                             compete_submission csub ON (csub.id = ccs.submission_id)
                         WHERE ccs.problem_id = cp.id AND ccs.participation_id = %s AND ccs.points = MAX(cs.points)
                 ) AS `time`, cp.id AS `prob`
-                FROM judge_contestproblem cp INNER JOIN
-                     judge_contestsubmission cs ON (cs.problem_id = cp.id AND cs.participation_id = %s) LEFT OUTER JOIN
-                     judge_submission sub ON (sub.id = cs.submission_id)
+                FROM compete_contestproblem cp INNER JOIN
+                     compete_contestsubmission cs ON (cs.problem_id = cp.id AND cs.participation_id = %s) LEFT OUTER JOIN
+                     submission_submission sub ON (sub.id = cs.submission_id)
                 GROUP BY cp.id
             """, (participation.id, participation.id))
 

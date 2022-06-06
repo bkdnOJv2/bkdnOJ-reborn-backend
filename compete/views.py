@@ -15,6 +15,7 @@ from .serializers import ContestSerializer, ContestBriefSerializer, \
     ContestDetailSerializer, ContestProblemSerializer, ContestSubmissionSerializer, \
     ContestParticipationSerializer
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
+from helpers.custom_pagination import BigPageCountPagination
 
 __all__ = [
     'PastContestListView',
@@ -112,6 +113,8 @@ class ContestProblemListView(generics.ListCreateAPIView):
         Problems within contests view
     """
     serializer_class = ContestProblemSerializer
+    pagination_class = BigPageCountPagination
+    lookup_field = 'shortname'
 
     def get_queryset(self):
         queryset = ContestProblem.objects.filter(contest__key=self.kwargs['key'])
@@ -138,14 +141,18 @@ class ContestProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
     pagination_class = None
     serializer_class = ContestProblemSerializer
 
+    def get_object(self):
+        p = get_object_or_404(ContestProblem,
+            contest__key=self.kwargs['key'],
+            problem__shortname=self.kwargs['shortname'])
+        return p
+
     def get_queryset(self):
         queryset = ContestProblem.objects.filter(contest__key=self.kwargs['key'])
         return queryset
 
     def get(self, *args, **kwargs):
-        p = get_object_or_404(ContestProblem,
-            contest__key=self.kwargs['key'],
-            problem__shortname=self.kwargs['shortname'])
+        p = self.get_object()
         return Response(
             ContestProblemSerializer(p).data,
             status=status.HTTP_200_OK,
@@ -368,7 +375,7 @@ def contest_leave_view(request, key):
 
 
 from collections import defaultdict, namedtuple
-
+from django.core.cache import cache
 
 @api_view(['GET'])
 def contest_standing_view(request, key):
@@ -378,6 +385,20 @@ def contest_standing_view(request, key):
     queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
         order_by('-score', 'cumtime').all()
 
-    return Response(
-        ContestParticipationSerializer(queryset, many=True).data,
-        status=status.HTTP_200_OK)
+    cache_key = f"contest-{contest.key}-problem-data"
+    if cache.get(cache_key) == None:
+        cprobs = contest.contest_problems.all()
+        problem_data = [{
+            'id': p.id,
+            'label': p.label,
+            'shortname': p.problem.shortname,
+            'points': p.points,
+        } for p in cprobs]
+        cache.set(cache_key, problem_data, 60)
+    else:
+        problem_data = cache.get(cache_key)
+
+    return Response({
+        'problems': problem_data,
+        'results': ContestParticipationSerializer(queryset, many=True).data,
+    }, status=status.HTTP_200_OK)

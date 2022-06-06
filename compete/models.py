@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.cache import cache
 from django.db import models, transaction
-from django.db.models import CASCADE, Q
+from django.db.models import CASCADE, SET_NULL, Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -15,7 +16,7 @@ from submission.models import Submission
 from .ratings import rate_contest
 from . import contest_format
 
-__all__ = ['Contest', 'ContestTag', 'ContestParticipation', 'ContestProblem', 'ContestSubmission', 'Rating']
+__all__ = ['Contest', 'ContestTag', 'ContestParticipation', 'ContestProblem', 'ContestSubmission', 'Rating',]
 
 class MinValueOrNoneValidator(MinValueValidator):
     def compare(self, a, b):
@@ -458,6 +459,14 @@ class Contest(models.Model):
             ).order_by('end_time'):
                 rate_contest(contest)
 
+    def renumerate_problems(self):
+        numbering = 0
+        problems = self.contest_problems.all()
+        for prob in problems:
+            prob.order = numbering
+            prob.save(update_fields=['order'])
+            numbering += 1
+
     class Meta:
         permissions = (
             ('see_private_contest', _('See private contests')),
@@ -474,7 +483,6 @@ class Contest(models.Model):
         )
         verbose_name = _('contest')
         verbose_name_plural = _('contests')
-
 
 
 class ContestParticipation(models.Model):
@@ -510,7 +518,6 @@ class ContestParticipation(models.Model):
                 self.cumtime = 0
                 self.tiebreaker = 0
                 self.save(update_fields=['score', 'cumtime', 'tiebreaker'])
-
     recompute_results.alters_data = True
 
     def set_disqualified(self, disqualified):
@@ -611,6 +618,10 @@ class ContestProblem(models.Model):
         help_text=_("Number of users who has attempted this problem"),
     )
 
+    @cached_property
+    def label(self):
+        return self.contest.get_label_for_problem(self.order)
+
     def expensive_recompute_stats(self):
         queryset = self.submissions.prefetch_related('submission')
         totals = queryset.values_list('submission__user').distinct().count()
@@ -619,6 +630,11 @@ class ContestProblem(models.Model):
         self.solved_count = solves
         self.attempted_count = totals
         self.save()
+
+    def save(self, *args, **kwargs):
+        super().save(args, kwargs)
+        cache_key = f"contest-{self.contest.key}-problem-data"
+        cache.delete(cache_key)
 
     class Meta:
         unique_together = ('problem', 'contest')
@@ -646,19 +662,6 @@ class ContestSubmission(models.Model):
         verbose_name = _('contest submission')
         verbose_name_plural = _('contest submissions')
         ordering = ['-id']
-
-
-class ContestParticipantBestSubmission(models.Model):
-    participant = models.OneToOneField(ContestParticipation,
-        verbose_name=_('participant'), related_name='best_submission', on_delete=CASCADE)
-    problem = models.OneToOneField(ContestProblem,
-        verbose_name=_('problem'), related_name='best_submission', on_delete=CASCADE)
-    submission = models.OneToOneField(ContestSubmission, null=True,
-        verbose_name=_('submission'), related_name='best_submission', on_delete=CASCADE)
-
-    class Meta:
-        verbose_name = _("participant's best submission")
-        verbose_name_plural = _("participant's best submissions")
 
 
 class Rating(models.Model):

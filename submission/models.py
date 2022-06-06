@@ -207,6 +207,7 @@ class Submission(models.Model):
       contest.points = 0
     contest.save()
     contest.participation.recompute_results()
+    contest.participation.update_best_submissions(self.contest)
     contest_problem.expensive_recompute_stats()
 
   update_contest.alters_data = True
