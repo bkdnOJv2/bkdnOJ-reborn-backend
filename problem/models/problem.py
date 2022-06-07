@@ -194,6 +194,10 @@ class Problem(TimeStampedModel):
             if not cp.ended:
                 return True
 
+    # Belong in a public contest
+    if self.contest_set.filter(is_visible=True).exists():
+        return True
+
     if self.is_public:
         # Problem is not private to an organization.
         if not self.is_organization_private:

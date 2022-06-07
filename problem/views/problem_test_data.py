@@ -102,10 +102,10 @@ def add_file_response(request, response, url_path, file_path, file_object=None):
             with file_object.open(file_path, 'rb') as f:
                 response.content = f.read()
 
-def __problem_x_file(request, shortname, path, url_path, storage, content_type='application/octet-stream'):
+def __problem_x_file(request, shortname, path, url_path, storage, content_type='application/octet-stream', skip_perm_check=False):
     problem = shortname
     obj = get_object_or_404(Problem, shortname=problem)
-    if not obj.is_accessible_by(request.user):
+    if not skip_perm_check and not obj.is_accessible_by(request.user):
         raise Http404()
 
     problem_dir = storage.path(problem)
@@ -124,12 +124,12 @@ def __problem_x_file(request, shortname, path, url_path, storage, content_type='
     return response
 
 
-def problem_data_file(request, shortname, path):
+def problem_data_file(request, shortname, path, **kwargs):
     if hasattr(settings, 'BKDNOJ_PROBLEM_DATA_INTERNAL'):
         url_path = '%s/%s/%s' % (settings.BKDNOJ_PROBLEM_DATA_INTERNAL, shortname, path)
     else:
         url_path = None
-    return __problem_x_file(request, shortname, path, url_path, problem_data_storage, 'application/octet-stream')
+    return __problem_x_file(request, shortname, path, url_path, problem_data_storage, 'application/octet-stream', **kwargs)
 
 
 def problem_pdf_file(request, shortname, path):
