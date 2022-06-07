@@ -9,9 +9,30 @@ from submission.serializers import SubmissionSerializer, SubmissionDetailSeriali
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
 
 class ContestBriefSerializer(serializers.ModelSerializer):
+    spectate_allow = serializers.SerializerMethodField()
+    def get_spectate_allow(self, obj):
+        user = self.context['request'].user
+        if obj.is_testable_by(user):
+            return True
+        return False
+
+    is_registered = serializers.SerializerMethodField()
+    def get_is_registered(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return False
+
+        if ContestParticipation.objects.filter(
+                virtual=ContestParticipation.LIVE,
+                contest=obj, user=user.profile
+        ).exists():
+            return True
+        return False
+
     class Meta:
         model = Contest
         fields = [
+            'spectate_allow', 'is_registered',
             'key', 'name', 'start_time', 'end_time', 'time_limit', 'user_count',
         ]
 
@@ -108,7 +129,13 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
 import json
 
 class ContestParticipationSerializer(serializers.ModelSerializer):
-    user = ProfileSerializer(required=False)
+    #user = ProfileSerializer(required=False)
+    user = serializers.SerializerMethodField()
+    def get_user(self, obj):
+        ser_context = {'request': self.context.get('request')}
+        user_ser = ProfileSerializer(obj.user, context=ser_context)
+        return user_ser.data
+
     format_data = serializers.SerializerMethodField()
 
     def get_format_data(self, obj):

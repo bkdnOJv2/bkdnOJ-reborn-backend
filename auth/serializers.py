@@ -10,11 +10,15 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, Toke
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super(MyTokenObtainPairSerializer, self).validate(attrs)
-        data.update({'user': {
+        user = {
             'username': self.user.username,
-            'is_staff': self.user.is_staff,
-            'is_superuser': self.user.is_superuser,
-        }})
+            'email': self.user.email,
+        }
+        if self.user.is_staff:
+            user['is_staff'] = True
+        if self.user.is_superuser:
+            user['is_superuser'] = True
+        data.update({ 'user': user })
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):

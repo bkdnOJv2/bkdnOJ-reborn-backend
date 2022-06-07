@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.http import Http404
 
 from .models import UserProfile
-from .serializers import UserProfileSerializer
+from .serializers import UserProfileSerializer, UserProfileBasicSerializer
 
 class UserProfileDetail(generics.RetrieveAPIView):
     """

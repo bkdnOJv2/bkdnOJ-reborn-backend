@@ -408,6 +408,8 @@ class Contest(models.Model):
 
     # TODO: perms
     def is_editable_by(self, user):
+        if not user.is_authenticated:
+            return False
         # If the user can edit all contests
         # if user.has_perm('judge.edit_all_contest'):
         #     return True
@@ -421,6 +423,8 @@ class Contest(models.Model):
 
     # TODO: perms
     def is_testable_by(self, user):
+        if not user.is_authenticated:
+            return False
         if user.profile.id in self.tester_ids:
             return True
         return self.is_editable_by(user)
@@ -428,23 +432,20 @@ class Contest(models.Model):
     @classmethod
     def get_visible_contests(cls, user):
         if not user.is_authenticated:
-            return cls.objects.filter(is_visible=True, is_organization_private=False, is_private=False) \
-                              .defer('description').distinct()
-
+            return cls.objects.filter(is_visible=True, is_organization_private=False, 
+                                        is_private=False).defer('description').distinct()
         queryset = cls.objects.defer('description')
         # TODO: perms
         # if not (user.has_perm('judge.see_private_contest') or user.has_perm('judge.edit_all_contest')):
         if True:
             q = Q(is_visible=True)
-            q &= (
-                Q(view_contest_scoreboard=user.profile) |
-                Q(is_organization_private=False, is_private=False) |
-                Q(is_organization_private=False, is_private=True, private_contestants=user.profile) |
-                Q(is_organization_private=True, is_private=False, organizations__in=user.profile.organizations.all()) |
-                Q(is_organization_private=True, is_private=True, organizations__in=user.profile.organizations.all(),
-                  private_contestants=user.profile)
-            )
-
+            #q &= (
+                # Q(view_contest_scoreboard=user.profile) |
+                # Q(is_organization_private=False, is_private=False) |
+                # Q(is_organization_private=False, is_private=True, private_contestants=user.profile) |
+                # Q(is_organization_private=True, is_private=False, organizations__in=user.profile.organizations.all()) |
+                # Q(is_organization_private=True, is_private=True, organizations__in=user.profile.organizations.all(), private_contestants=user.profile)
+            #)
             q |= Q(authors=user.profile)
             q |= Q(collaborators=user.profile)
             q |= Q(reviewers=user.profile)
@@ -635,6 +636,9 @@ class ContestProblem(models.Model):
         super().save(args, kwargs)
         cache_key = f"contest-{self.contest.key}-problem-data"
         cache.delete(cache_key)
+
+    def __str__(self):
+        return f"Problem {self.problem.shortname} in Contest {self.contest.key}"
 
     class Meta:
         unique_together = ('problem', 'contest')

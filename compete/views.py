@@ -1,6 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from operator import attrgetter, itemgetter
-
+from django.http import Http404
 from django.conf import settings
 from django.db.models import Case, Count, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
 from django.db import IntegrityError
@@ -10,6 +9,8 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import views, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+
+from operator import attrgetter, itemgetter
 
 from .serializers import ContestSerializer, ContestBriefSerializer, \
     ContestDetailSerializer, ContestProblemSerializer, ContestSubmissionSerializer, \
@@ -30,18 +31,7 @@ class PastContestListView(generics.ListCreateAPIView):
     """
         Return a List of all organizations
     """
-    queryset = Contest.objects.filter(end_time__lte=timezone.now()).order_by('-end_time')
     serializer_class = ContestSerializer
-    permission_classes = [
-        permissions.DjangoModelPermissionsOrAnonReadOnly,
-    ]
-
-class ContestListView(generics.ListCreateAPIView):
-    """
-        Return a List of all organizations
-    """
-    queryset = Contest.objects.all()
-    serializer_class = ContestBriefSerializer
     permission_classes = [
         permissions.DjangoModelPermissionsOrAnonReadOnly,
     ]
@@ -50,8 +40,27 @@ class ContestListView(generics.ListCreateAPIView):
     def _now(self):
         return timezone.now()
 
+    def get_queryset(self):
+        qs = Contest.get_visible_contests(self.request.user).\
+                filter(end_time__lt=self._now).order_by('-end_time')
+        return qs
+
+class ContestListView(generics.ListCreateAPIView):
+    """
+        Return a List of all organizations
+    """
+    queryset = Contest.objects.all()
+    serializer_class = ContestBriefSerializer
+    permission_classes = []
+
+    @cached_property
+    def _now(self):
+        return timezone.now()
+
     def _get_queryset(self):
-        return super().get_queryset().prefetch_related('tags', 'organizations', 'authors', 'collaborators', 'reviewers')
+        qs = Contest.get_visible_contests(self.request.user)
+        return qs.prefetch_related(
+                'tags', 'organizations', 'authors', 'collaborators', 'reviewers')
 
     def get_queryset(self):
         return self._get_queryset().order_by('key').filter(end_time__lt=self._now)
@@ -65,9 +74,8 @@ class ContestListView(generics.ListCreateAPIView):
             else:
                 present.append(contest)
 
-
         if self.request.user.is_authenticated:
-            for participation in ContestParticipation.objects.filter(virtual=0,
+            for participation in ContestParticipation.objects.filter(virtual=0, #LIVE
                     user=self.request.user.profile, contest_id__in=present) \
                     .select_related('contest') \
                     .prefetch_related('contest__authors', 'contest__collaborators', 'contest__reviewers') \
@@ -96,10 +104,15 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Contest.objects.all()
     lookup_field = 'key'
     serializer_class = ContestDetailSerializer
-    permission_classes = [
-        permissions.IsAuthenticated,
-        permissions.DjangoObjectPermissions,
-    ]
+    permission_classes = []
+
+    def get_object(self, *a):
+        contest = super().get_object(*a)
+
+        user = self.request.user
+        if contest.is_accessible_by(user):
+            return contest
+        raise Http404
 
     def put(self, *args, **kwargs):
         return self.patch(*args, **kwargs)
@@ -116,12 +129,20 @@ class ContestProblemListView(generics.ListCreateAPIView):
     pagination_class = BigPageCountPagination
     lookup_field = 'shortname'
 
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
+
     def get_queryset(self):
-        queryset = ContestProblem.objects.filter(contest__key=self.kwargs['key'])
+        contest = self.get_contest()
+        queryset = ContestProblem.objects.filter(contest=contest)
         return queryset
 
     def create(self, request, *args, **kwargs):
-        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        contest = self.get_contest()
+
         data = request.data.copy()
         if data.get('order') == None:
             data['order'] = ContestProblem.objects.filter(
@@ -141,14 +162,20 @@ class ContestProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
     pagination_class = None
     serializer_class = ContestProblemSerializer
 
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
+
     def get_object(self):
         p = get_object_or_404(ContestProblem,
-            contest__key=self.kwargs['key'],
+            contest=self.get_contest(),
             problem__shortname=self.kwargs['shortname'])
         return p
 
     def get_queryset(self):
-        queryset = ContestProblem.objects.filter(contest__key=self.kwargs['key'])
+        queryset = ContestProblem.objects.filter(contest=self.get_contest())
         return queryset
 
     def get(self, *args, **kwargs):
@@ -165,8 +192,14 @@ class ContestSubmissionListView(generics.ListAPIView):
     """
     serializer_class = ContestSubmissionSerializer
 
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
+
     def get_queryset(self):
-        cps = ContestProblem.objects.filter(contest__key=self.kwargs['key']).all()
+        cps = ContestProblem.objects.filter(contest=self.get_contest()).all()
         css = ContestSubmission.objects.filter(problem__in=cps)
         username = self.request.query_params.get('user')
         if username is not None:
@@ -182,24 +215,27 @@ class ContestSubmissionListView(generics.ListAPIView):
     #        status=status.HTTP_200_OK)
 
 
-class ContestProblemSubmissionListView(generics.ListCreateAPIView):
+class ContestProblemSubmissionListView(generics.ListAPIView):
     """
         Submissions within contests view
     """
     serializer_class = ContestSubmissionSerializer
 
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
+
     def get_queryset(self):
         cp = get_object_or_404( ContestProblem,
-            contest__key=self.kwargs['key'],
+            contest=self.get_contest(),
             problem__shortname=self.kwargs['shortname']
         )
         queryset = ContestSubmission.objects.filter(problem=cp)
+        if not queryset.exists():
+            raise Http404
         return queryset
-
-    def post(self, request, *args, **kwargs):
-        return Response({'detail': "Submitting to contest-problem."},
-            status=status.HTTP_201_CREATED,
-        )
 
 class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -207,9 +243,15 @@ class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     serializer_class = ContestSubmissionSerializer
 
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
+
     def get_queryset(self):
         cp = get_object_or_404( ContestProblem,
-            contest__key=self.kwargs['key'],
+            contest=self.get_contest(),
             problem__shortname=self.kwargs['shortname']
         )
         queryset = ContestSubmission.objects.filter(problem=cp)
@@ -227,55 +269,65 @@ from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, SubmissionBasicSerializer
 
 class ContestProblemSubmitView(generics.CreateAPIView):
-  """
-    Submit to Problem in Contest
-  """
-  queryset = Problem.objects.none()
-  serializer_class = SubmissionSubmitSerializer
-  permission_classes = [permissions.IsAuthenticated]
+    """
+        Submit to Problem in Contest
+    """
+    queryset = Problem.objects.none()
+    serializer_class = SubmissionSubmitSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-  def create(self, request, *args, **kwargs):
-    profile = request.user.profile
-    if profile.current_contest == None:
-        return Response({ 'detail': "You are currently not in any contest." }, status=status.HTTP_400_BAD_REQUEST)
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
 
-    if (
-      not self.request.user.has_perm('submission.spam_submission')
-      and Submission
-        .objects.filter(user=self.request.user.profile, rejudged_date__isnull=True)
-        .exclude(status__in=['D', 'IE', 'CE', 'AB']).count() >= settings.BKDNOJ_SUBMISSION_LIMIT
-    ):
-      return Response(
-        _('You have reached maximum pending submissions allowed. '
-          'Please wait until your previous submissions finish grading.'),
-        status=status.HTTP_429_TOO_MANY_REQUESTS,
-      )
+    def create(self, request, *args, **kwargs):
+        profile = request.user.profile
+        if profile.current_contest == None:
+                return Response({ 'detail': "You are currently not in any contest." }, status=status.HTTP_400_BAD_REQUEST)
+
+        if (
+            not self.request.user.has_perm('submission.spam_submission')
+            and Submission
+                .objects.filter(user=self.request.user.profile, rejudged_date__isnull=True)
+                .exclude(status__in=['D', 'IE', 'CE', 'AB']).count() >= settings.BKDNOJ_SUBMISSION_LIMIT
+        ):
+            return Response(
+                _('You have reached maximum pending submissions allowed. '
+                    'Please wait until your previous submissions finish grading.'),
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
 
-    contest = profile.current_contest.contest
-    problem = get_object_or_404(contest.problems, shortname=self.kwargs['shortname'])
+        contest = self.get_contest() # accessible
+        if profile.current_contest.contest != contest: # different contests
+            return Response({ 'detail': "You are currently in another contest." },
+                                status=status.HTTP_400_BAD_REQUEST)
 
-    print(f"Submitting to {contest}-{problem}")
-    data = request.data.copy()
+        # should be the same contest now
+        problem = get_object_or_404(contest.problems, shortname=self.kwargs['shortname'])
 
-    sub = SubmissionSubmitSerializer(data=request.data)
-    if not sub.is_valid():
-      return Response(sub.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = request.data.copy()
 
-    sub_obj = sub.save(problem=problem, user=request.user.profile, contest_object=contest)
-    sub_obj.judge()
-    consub = ContestSubmission(
-        submission=sub_obj,
-        problem=contest.contest_problems.get(problem=problem),
-        participation=profile.current_contest,
-        # is_pretest=contest. # TODO: is_pretest
-    )
-    consub.save()
+        sub = SubmissionSubmitSerializer(data=request.data)
+        if not sub.is_valid():
+            return Response(sub.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    return Response(
-      SubmissionBasicSerializer(sub_obj, context={'request':request}).data,
-      status=status.HTTP_200_OK,
-    )
+        sub_obj = sub.save(problem=problem, user=request.user.profile, contest_object=contest)
+        sub_obj.judge()
+        consub = ContestSubmission(
+                submission=sub_obj,
+                problem=contest.contest_problems.get(problem=problem),
+                participation=profile.current_contest,
+                # is_pretest=contest. # TODO: is_pretest
+        )
+        consub.save()
+
+        return Response(
+            SubmissionBasicSerializer(sub_obj, context={'request':request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(['POST'])
@@ -307,25 +359,37 @@ def contest_participate_view(request, key):
     profile = request.user.profile
     if not request.user.is_superuser and contest.banned_users.filter(owner_id=profile.user.id).exists():
         return banned()
+    # if (not profile.current_contest == None):
+    #     if profile.current_contest.contest != contest:
+    #         return Response({ 'detail': _("You are currently in another contest."),
+    #             }, status=status.HTTP_400_BAD_REQUEST)
+    #     if profile.current_contest.contest != contest:
+    #         return Response({ 'detail': _("You are already in this contest."),
+    #             }, status=status.HTTP_400_BAD_REQUEST)
 
     if contest.ended:
-        if not contest.is_testable_by(user):
-            return Response({
-                'detail': _("Contest has ended.")},
-                status=status.HTTP_400_BAD_REQUEST)
-        while True:
-            virtual_id = max((ContestParticipation.objects.filter(contest=contest, user=profile)
-                                .aggregate(virtual_id=Max('virtual'))['virtual_id'] or 0) + 1, 1)
-            try:
-                participation = ContestParticipation.objects.create(
-                    contest=contest, user=profile, virtual=virtual_id,
-                    real_start=timezone.now(),
-                )
-            # There is obviously a race condition here, so we keep trying until we win the race.
-            except IntegrityError:
-                pass
-            else:
-                break
+        return Response({
+            'detail': _("Contest has ended.")},
+            status=status.HTTP_400_BAD_REQUEST)
+
+        ## Virtual Participation feature
+        # if not contest.is_testable_by(user):
+        #     return Response({
+        #         'detail': _("Contest has ended.")},
+        #         status=status.HTTP_400_BAD_REQUEST)
+        # while True:
+        #     virtual_id = max((ContestParticipation.objects.filter(contest=contest, user=profile)
+        #                         .aggregate(virtual_id=Max('virtual'))['virtual_id'] or 0) + 1, 1)
+        #     try:
+        #         participation = ContestParticipation.objects.create(
+        #             contest=contest, user=profile, virtual=virtual_id,
+        #             real_start=timezone.now(),
+        #         )
+        #     # There is obviously a race condition here, so we keep trying until we win the race.
+        #     except IntegrityError:
+        #         pass
+        #     else:
+        #         break
     else:
         SPECTATE = ContestParticipation.SPECTATE
         LIVE = ContestParticipation.LIVE
@@ -367,8 +431,8 @@ def contest_leave_view(request, key):
     contest = get_object_or_404(Contest, key=key)
     profile = user.profile
     if profile.current_contest is None or profile.current_contest.contest_id != contest.id:
-        return Response({'detail': f"Cannot find such contest."},
-            status=status.HTTP_404_NOT_FOUND) ## Prevent user from guessing the existing of contest
+        return Response({'detail': f"Contest not exists/Not in this contest."},
+            status=status.HTTP_400_BAD_REQUEST) ## Prevent user from guessing the existing of contest
 
     profile.remove_contest()
     return Response({}, status=status.HTTP_204_NO_CONTENT)
@@ -381,6 +445,10 @@ from django.core.cache import cache
 def contest_standing_view(request, key):
     user = request.user
     contest = get_object_or_404(Contest, key=key)
+    if not contest.is_accessible_by(user):
+        raise Http404
+
+    ## TODO: Scoreboard visibility
 
     queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
         order_by('-score', 'cumtime').all()
@@ -400,5 +468,5 @@ def contest_standing_view(request, key):
 
     return Response({
         'problems': problem_data,
-        'results': ContestParticipationSerializer(queryset, many=True).data,
+        'results': ContestParticipationSerializer(queryset, many=True, context={'request': request}).data,
     }, status=status.HTTP_200_OK)
