@@ -22,7 +22,7 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem 
         fields = ['shortname', 'title', 'solved_count', 
-            'attempted_count', 'points', 'is_published', 'is_privated_to_orgs']
+            'attempted_count', 'points', 'is_public', 'is_organization_private']
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
@@ -78,8 +78,8 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             'authors', 'collaborators', 'reviewers',
 
             'allowed_languages',
-            'is_published',
-            'is_privated_to_orgs', 'organizations',
+            'is_public',
+            'is_organization_private', 'organizations',
             'points', 'short_circuit', 'partial',
 
             'submission_visibility_mode', 'solved_count', 'attempted_count',

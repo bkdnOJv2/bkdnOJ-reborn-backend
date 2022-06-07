@@ -585,7 +585,6 @@ class ContestParticipation(models.Model):
     class Meta:
         verbose_name = _('contest participation')
         verbose_name_plural = _('contest participations')
-
         unique_together = ('contest', 'user', 'virtual')
 
 

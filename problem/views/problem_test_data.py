@@ -104,8 +104,8 @@ def add_file_response(request, response, url_path, file_path, file_object=None):
 
 def __problem_x_file(request, shortname, path, url_path, storage, content_type='application/octet-stream'):
     problem = shortname
-    object = get_object_or_404(Problem, shortname=problem)
-    if not object.is_editable_by(request.user):
+    obj = get_object_or_404(Problem, shortname=problem)
+    if not obj.is_accessible_by(request.user):
         raise Http404()
 
     problem_dir = storage.path(problem)

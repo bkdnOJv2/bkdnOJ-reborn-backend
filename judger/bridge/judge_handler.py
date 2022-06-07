@@ -419,7 +419,7 @@ class JudgeHandler(ZlibPacketHandler):
             problem=problem.shortname, finish=True,
         ))
 
-        # if problem.is_published and not problem.is_privated_to_orgs:
+        # if problem.is_public and not problem.is_organization_private:
         #     submission.user._updating_stats_only = True
         #     submission.user.calculate_points()
 
@@ -637,12 +637,12 @@ class JudgeHandler(ZlibPacketHandler):
             data = self._submission_cache
         else:
             self._submission_cache = data = Submission.objects.filter(id=id).values(
-                'problem__is_published', 'contest_object_id',
+                'problem__is_public', 'contest_object_id',
                 'user_id', 'problem_id', 'status', 'language__key',
             ).get()
             self._submission_cache_id = id
 
-        if data['problem__is_published']:
+        if data['problem__is_public']:
             event.post('submissions', {
                 'type': 'done-submission' if done else 'update-submission',
                 'state': state, 'id': id,

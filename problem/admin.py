@@ -5,7 +5,7 @@ from django.utils.safestring import mark_safe
 from problem.models import Problem, ProblemTestProfile, TestCase, LanguageLimit
 
 class ProblemAdmin(admin.ModelAdmin):
-    list_display = ('shortname', 'title', 'is_published', 'points', 'submission_visibility_mode', 'test_profile_link')
+    list_display = ('shortname', 'title', 'is_public', 'points', 'submission_visibility_mode', 'test_profile_link')
 
     readonly_fields = ('test_profile_link',)
 

@@ -1,3 +1,5 @@
+from django.shortcuts import get_object_or_404
+from django.http import Http404
 from django.conf import settings
 from django.utils.translation import gettext as _
 from django.db import transaction, IntegrityError
@@ -18,28 +20,41 @@ class ProblemListView(generics.ListCreateAPIView):
   """ 
     Return a list of Problems 
   """
-  queryset = Problem.objects.all()
   serializer_class = ProblemBriefSerializer
   permission_classes = []
+
+  def get_queryset(self):
+      user = self.request.user
+      return Problem.get_visible_problems(user)
+
 
 class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
   """ 
     Return detailed view of the requested problem
   """
-  queryset = Problem.objects.all()
   serializer_class = ProblemSerializer 
   permission_classes = []
   lookup_field = 'shortname'
 
+  def get_object(self):
+      p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
+      if not p.is_accessible_by(self.request.user):
+          raise Http404()
+      return p
 
 class ProblemSubmitView(generics.CreateAPIView):
   """ 
     Return the requested Problem's view to submit submissions.
   """
-  queryset = Problem.objects.all()
   serializer_class = SubmissionSubmitSerializer
   lookup_field = 'shortname'
   permission_classes = [permissions.IsAuthenticated]
+
+  def get_object(self):
+      p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
+      if not p.is_accessible_by(self.request.user):
+          raise Http404()
+      return p
   
   def create(self, request, *args, **kwargs):
     if (
@@ -90,7 +105,7 @@ __prob_attrib_2_confkey = {
   'short_circuit': ['short_circuit', 'skip_non_ac', 'icpc'],
   'partial': ['partial', 'allow_partial', 'ioi'],
 
-  'is_published': ['is_published', 'published', 'public', 'allow_submit']
+  'is_public': ['is_public', 'public', 'allow_submit']
 }
 
 @api_view(['POST'])

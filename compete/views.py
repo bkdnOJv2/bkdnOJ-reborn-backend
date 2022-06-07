@@ -12,6 +12,7 @@ from rest_framework.decorators import api_view
 
 from operator import attrgetter, itemgetter
 
+from problem.serializers import ProblemSerializer
 from .serializers import ContestSerializer, ContestBriefSerializer, \
     ContestDetailSerializer, ContestProblemSerializer, ContestSubmissionSerializer, \
     ContestParticipationSerializer
@@ -155,12 +156,11 @@ class ContestProblemListView(generics.ListCreateAPIView):
             status=status.HTTP_201_CREATED,
         )
 
-class ContestProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ContestProblemDetailView(generics.RetrieveAPIView):
     """
         Certain Problem within Contest view
     """
     pagination_class = None
-    serializer_class = ContestProblemSerializer
 
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
@@ -178,10 +178,10 @@ class ContestProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
         queryset = ContestProblem.objects.filter(contest=self.get_contest())
         return queryset
 
-    def get(self, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         p = self.get_object()
         return Response(
-            ContestProblemSerializer(p).data,
+            ProblemSerializer(p.problem, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
 
@@ -284,8 +284,6 @@ class ContestProblemSubmitView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         profile = request.user.profile
-        if profile.current_contest == None:
-                return Response({ 'detail': "You are currently not in any contest." }, status=status.HTTP_400_BAD_REQUEST)
 
         if (
             not self.request.user.has_perm('submission.spam_submission')
@@ -299,10 +297,9 @@ class ContestProblemSubmitView(generics.CreateAPIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-
         contest = self.get_contest() # accessible
-        if profile.current_contest.contest != contest: # different contests
-            return Response({ 'detail': "You are currently in another contest." },
+        if contest.ended:
+            return Response({ 'detail': "Contest has ended." },
                                 status=status.HTTP_400_BAD_REQUEST)
 
         # should be the same contest now
