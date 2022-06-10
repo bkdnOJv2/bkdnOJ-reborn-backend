@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from auth.serializers import UserSerializer
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
+from userprofile.models import UserProfile as Profile
 from problem.models import Problem
 from problem.serializers import ProblemBasicSerializer
 from submission.serializers import SubmissionSerializer, SubmissionDetailSerializer
@@ -42,8 +43,17 @@ class ContestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contest
         fields = [
-            'authors', 'key', 'name', 'start_time', 'end_time',
-            'time_limit', 'is_rated', 'tags', 'user_count', 'format_name',
+            'id',
+            'authors', 'key', 'name', 'start_time', 'end_time', 'time_limit', 
+
+            'is_visible', 
+            'is_private', 'private_contestants',
+
+            'is_organization_private', 'organizations',
+
+
+            'tags', 'user_count', 'format_name',
+            'is_rated', 
         ]
 
         lookup_field = 'key'
@@ -100,6 +110,7 @@ class ContestDetailSerializer(serializers.ModelSerializer):
             'url': {'lookup_field': 'key'}
         }
 
+
 class ContestSubmissionSerializer(serializers.ModelSerializer):
     #submission = SubmissionSerializer()
     #shortname = serializers.SlugRelatedField(
@@ -128,7 +139,7 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
 
 import json
 
-class ContestParticipationSerializer(serializers.ModelSerializer):
+class ContestStandingSerializer(serializers.ModelSerializer):
     #user = ProfileSerializer(required=False)
     user = serializers.SerializerMethodField()
     def get_user(self, obj):
@@ -146,3 +157,27 @@ class ContestParticipationSerializer(serializers.ModelSerializer):
         fields = ['user', 'score', 'cumtime', 'is_disqualified',
             'tiebreaker', 'virtual', 'format_data',
         ]
+
+class ContestParticipationSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=Profile.objects.all(),
+    )
+
+    class Meta:
+        model = ContestParticipation
+        fields = ['id', 'real_start', 'virtual', 'is_disqualified',
+            'user',]
+
+
+class ContestParticipationDetailSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=Profile.objects.all(),
+    )
+
+    class Meta:
+        model = ContestParticipation
+        fields = '__all__'
+
+

@@ -77,7 +77,7 @@ from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
 
 class UserList(generics.ListCreateAPIView):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.OrderingFilter]
     ordering = ['-id']

@@ -484,6 +484,7 @@ class Contest(models.Model):
         )
         verbose_name = _('contest')
         verbose_name_plural = _('contests')
+        ordering = ['-id']
 
 
 class ContestParticipation(models.Model):
@@ -586,6 +587,7 @@ class ContestParticipation(models.Model):
         verbose_name = _('contest participation')
         verbose_name_plural = _('contest participations')
         unique_together = ('contest', 'user', 'virtual')
+        ordering = ['-id']
 
 
 class ContestProblem(models.Model):

@@ -6,6 +6,7 @@ from django.db import IntegrityError
 from django.utils.functional import cached_property
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import PermissionDenied, ViewDoesNotExist
 from rest_framework import views, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -15,20 +16,22 @@ from operator import attrgetter, itemgetter
 from problem.serializers import ProblemSerializer
 from .serializers import ContestSerializer, ContestBriefSerializer, \
     ContestDetailSerializer, ContestProblemSerializer, ContestSubmissionSerializer, \
-    ContestParticipationSerializer
+    ContestStandingSerializer, \
+    ContestParticipationSerializer, ContestParticipationDetailSerializer
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
 from helpers.custom_pagination import BigPageCountPagination
 
 __all__ = [
     'PastContestListView',
-    'ContestListView', 'ContestDetailView',
+    'AllContestListView', 'ContestListView', 'ContestDetailView',
     'ContestProblemListView', 'ContestProblemDetailView', 'ContestProblemSubmitView',
     'ContestSubmissionListView',
+    'ContestParticipationListView', 'ContestParticipationDetailView',
     'ContestProblemSubmissionListView', 'ContestProblemSubmissionDetailView',
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
-    ]
+]
 
-class PastContestListView(generics.ListCreateAPIView):
+class PastContestListView(generics.ListAPIView):
     """
         Return a List of all organizations
     """
@@ -46,9 +49,17 @@ class PastContestListView(generics.ListCreateAPIView):
                 filter(end_time__lt=self._now).order_by('-end_time')
         return qs
 
+class AllContestListView(generics.ListAPIView):
+    """
+        Return a List of all Contests
+    """
+    queryset = Contest.objects.all()
+    serializer_class = ContestSerializer
+    permission_classes = [permissions.IsAdminUser]
+
 class ContestListView(generics.ListCreateAPIView):
     """
-        Return a List of all organizations
+        Return a List of present, active, future contest
     """
     queryset = Contest.objects.all()
     serializer_class = ContestBriefSerializer
@@ -97,6 +108,9 @@ class ContestListView(generics.ListCreateAPIView):
             'future': ContestBriefSerializer(future, many=True, context=context).data,
         }, status=status.HTTP_200_OK)
 
+    def create(self, request):
+        raise ViewDoesNotExist
+
 
 class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -114,12 +128,18 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
         if contest.is_accessible_by(user):
             return contest
         raise Http404
+    
+    def has_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        raise PermissionDenied
 
     def put(self, *args, **kwargs):
         return self.patch(*args, **kwargs)
 
     def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
+        if self.has_permission(request):
+            return super().patch(request, *args, **kwargs)
 
 
 class ContestProblemListView(generics.ListCreateAPIView):
@@ -236,6 +256,7 @@ class ContestProblemSubmissionListView(generics.ListAPIView):
         if not queryset.exists():
             raise Http404
         return queryset
+
 
 class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -465,5 +486,44 @@ def contest_standing_view(request, key):
 
     return Response({
         'problems': problem_data,
-        'results': ContestParticipationSerializer(queryset, many=True, context={'request': request}).data,
+        'results': ContestStandingSerializer(queryset, many=True, context={'request': request}).data,
     }, status=status.HTTP_200_OK)
+
+
+class ContestParticipationListView(generics.ListCreateAPIView):
+    """
+        Submissions within contests view
+    """
+    serializer_class = ContestParticipationSerializer
+    permission_classes = [permissions.IsAdminUser]
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
+
+    def get_queryset(self):
+        queryset = self.get_contest().users.all()
+        return queryset
+
+
+class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+        Submissions within contests view
+    """
+    serializer_class = ContestParticipationDetailSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404
+        return contest
+
+    def get_queryset(self):
+        queryset = self.get_contest().users.all()
+        return queryset
+
+

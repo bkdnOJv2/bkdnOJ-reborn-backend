@@ -9,6 +9,10 @@ urlpatterns = [
         PastContestListView.as_view(), 
         name='pastcontest-list',
     ),
+    path('all-contest/', 
+        AllContestListView.as_view(), 
+        name='all-contest-list',
+    ),
     path('contest/', 
         ContestListView.as_view(), 
         name='contest-list',
@@ -31,6 +35,16 @@ urlpatterns = [
         contest_standing_view,
         name='contest-standing',
     ),
+
+    path('contest/<str:key>/participations/', 
+        ContestParticipationListView.as_view(),
+        name='contestparticipation-list',
+    ),
+    path('contest/<str:key>/participation/<int:pk>/', 
+        ContestParticipationDetailView.as_view(),
+        name='contestparticipation-detail',
+    ),
+
 
     path('contest/<str:key>/submission/', 
         ContestSubmissionListView.as_view(), 
