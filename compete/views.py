@@ -496,7 +496,6 @@ class ContestParticipationListView(generics.ListCreateAPIView):
     """
     serializer_class = ContestParticipationSerializer
     permission_classes = [permissions.IsAdminUser]
-    filter_backends = (filters.DjangoFilterBackend,)
 
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
@@ -505,8 +504,28 @@ class ContestParticipationListView(generics.ListCreateAPIView):
         return contest
 
     def get_queryset(self):
-        queryset = self.get_contest().users.all()
-        return queryset
+        queryset = self.get_contest().users
+
+        username = self.request.query_params.get('user')
+        if username is not None:
+            queryset = queryset.filter(user__owner__username=username)
+
+        virtual = self.request.query_params.get('virtual')
+        if virtual is not None:
+            if virtual == 'LIVE':
+                queryset = queryset.filter(virtual=0)
+            elif virtual == 'SPECTATE':
+                queryset = queryset.filter(virtual=-1)
+            elif virtual == 'VIRTUAL':
+                queryset = queryset.filter(virtual__gt=0)
+            else:
+                raise Http404
+
+        is_disqualified = self.request.query_params.get('is_disqualified')
+        if is_disqualified is not None:
+            queryset = queryset.filter(is_disqualified=is_disqualified)
+
+        return queryset.all()
 
 
 class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
