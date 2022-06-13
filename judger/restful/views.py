@@ -1,14 +1,13 @@
 from rest_framework import generics, views, permissions
 from judger.models import Judge, Language
-from .serializers import JudgeSerializer, LanguageSerializer,\
-    JudgeBasicSerializer, LanguageBasicSerializer
+from .serializers import *
 
 class JudgeListView(generics.ListCreateAPIView):
-    serializer_class = JudgeBasicSerializer
+    serializer_class = JudgeSerializer
     queryset = Judge.objects.all()
 
 class JudgeDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = JudgeSerializer
+    serializer_class = JudgeDetailSerializer
     queryset = Judge.objects.all()
     permission_classes = [permissions.IsAdminUser]
 

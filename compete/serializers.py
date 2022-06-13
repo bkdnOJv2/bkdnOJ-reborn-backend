@@ -5,9 +5,21 @@ from auth.serializers import UserSerializer
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
 from userprofile.models import UserProfile as Profile
 from problem.models import Problem
-from problem.serializers import ProblemBasicSerializer
+from problem.serializers import ProblemInContestSerializer, ProblemBasicSerializer
 from submission.serializers import SubmissionSerializer, SubmissionDetailSerializer
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
+
+__all__ = [
+    'ContestSerializer', 
+    'ContestBriefSerializer',
+    'ContestDetailSerializer',
+    'ContestProblemSerializer', 
+    'ContestProblemBriefSerializer',
+    'ContestSubmissionSerializer',
+    'ContestStandingSerializer',
+    'ContestParticipationSerializer', 
+    'ContestParticipationDetailSerializer',
+]
 
 class ContestBriefSerializer(serializers.ModelSerializer):
     spectate_allow = serializers.SerializerMethodField()
@@ -38,13 +50,22 @@ class ContestBriefSerializer(serializers.ModelSerializer):
         ]
 
 class ContestSerializer(serializers.ModelSerializer):
-    authors = ProfileSerializer(many=True)
+    authors = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
+    collaborators = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
+    reviewers = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
 
     class Meta:
         model = Contest
         fields = [
             'id',
-            'authors', 'key', 'name', 'start_time', 'end_time', 'time_limit', 
+            'key', 'name', 'start_time', 'end_time', 'time_limit', 
+            'authors', 'collaborators', 'reviewers',
 
             'is_visible', 
             'is_private', 'private_contestants',
@@ -62,27 +83,39 @@ class ContestSerializer(serializers.ModelSerializer):
         }
 
 
-class ContestProblemSerializer(serializers.ModelSerializer):
-    # problem = serializers.ReadOnlyField(source='problem.shortname')
-    # contest = serializers.ReadOnlyField(source='contest.key')
-    # problem = ProblemBriefSerializer()
+class ContestProblemBriefSerializer(serializers.ModelSerializer):
     shortname = serializers.SlugRelatedField(
         source='problem',
         slug_field='shortname',
         queryset=Problem.objects.all(),
     )
     title = serializers.ReadOnlyField(source='problem.title')
-
     contest = serializers.SlugRelatedField(
         slug_field='key',
         queryset=Contest.objects.all(),
     )
-    # contest = serializers.ReadOnlyField(source='contest.key')
 
     class Meta:
         model = ContestProblem
         fields = [
-            #'problem',
+            'id',
+            'shortname', 'title', 'solved_count', 'attempted_count',
+            'contest', 'points', 'partial', 'is_pretested',
+            'order', 'output_prefix_override', 'max_submissions',
+            'label',
+        ]
+        read_only_fields = ['id',
+            'solved_count', 'attempted_count',
+            'label',
+        ]
+
+
+class ContestProblemSerializer(ContestProblemBriefSerializer):
+    problem_data = ProblemInContestSerializer(read_only=True, source='problem')
+    class Meta:
+        model = ContestProblem
+        fields = [
+            'problem_data',
             'id',
             'shortname', 'title', 'solved_count', 'attempted_count',
             'contest', 'points', 'partial', 'is_pretested',
@@ -91,20 +124,48 @@ class ContestProblemSerializer(serializers.ModelSerializer):
         ]
 
 
-class ContestDetailSerializer(serializers.ModelSerializer):
-    authors = ProfileSerializer(many=True, required=False)
-    collaborators = ProfileSerializer(many=True, required=False)
-    reviewers = ProfileSerializer(many=True, required=False)
+class ContestDetailSerializer(ContestBriefSerializer):
+    authors = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
+    collaborators = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
+    reviewers = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
+    banned_users = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
 
-    banned_users = ProfileSerializer(many=True, required=False)
+    def to_internal_value(self, data):
+        profiles = ['authors', 'collaborators', 'reviewers', 'banned_users']
+        qs = Profile.objects.select_related('owner')
+        profiles_val = {}
 
-    problems = ContestProblemSerializer(many=True,
+        for prf in profiles:
+            usernames = data.pop(prf, [])
+            profile_ins = []
+            for uname in usernames:
+                p = qs.filter(owner__username=uname)
+                if p == None:
+                    raise ValidationError(f"User '{uname}' does not exist.")
+                profile_ins.append(p.first().id)
+            profiles_val[prf] = profile_ins
+            
+        val_data = super().to_internal_value(data)
+        for k, v in profiles_val.items():
+            val_data[k] = v
+        return val_data
+
+    problems = ContestProblemBriefSerializer(many=True, read_only=True,
         source='contest_problems'
     )
 
     class Meta:
         model = Contest
         fields = '__all__'
+        optional_fields = ['is_registered', 'spectate_allow']
         lookup_field = 'key'
         extra_kwargs = {
             'url': {'lookup_field': 'key'}

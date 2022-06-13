@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, \
+    RegexValidator, MinLengthValidator
 from django.core.cache import cache
 from django.db import models, transaction
 from django.db.models import CASCADE, SET_NULL, Q
@@ -61,8 +62,13 @@ class Contest(models.Model):
         (SCOREBOARD_AFTER_PARTICIPATION, _('Hidden for duration of participation')),
     )
     # ---------------------
-    key = models.CharField(max_length=20, verbose_name=_('contest id'), unique=True,
-                           validators=[RegexValidator('^[a-z0-9]+$', _('Contest id must be ^[a-z0-9]+$'))])
+    key = models.CharField(max_length=20, verbose_name=_('contest identifier'), unique=True,
+        validators=[
+            RegexValidator('^[a-z][a-z0-9]+$', 
+               _('Contest identifier must starts with a letter, contains only letters.')),
+            MinLengthValidator(4),
+        ]
+    )
     name = models.CharField(max_length=100, verbose_name=_('contest name'), db_index=True)
     authors = models.ManyToManyField(Profile, help_text=_('These users will be able to edit the contest.'),
                                      related_name='authors+')
@@ -222,22 +228,6 @@ class Contest(models.Model):
     def get_label_for_problem(self):
         return self.format.get_label_for_problem
 
-    def clean(self):
-        # Django will complain if you didn't fill in start_time or end_time, so we don't have to.
-        if self.start_time and self.end_time and self.start_time >= self.end_time:
-            raise ValidationError('What is this? A contest that ended before it starts?')
-        self.format_class.validate(self.format_config)
-
-        try:
-            # a contest should have at least one problem, with contest problem index 0
-            # so test it to see if the script returns a valid label.
-            label = self.get_label_for_problem(0)
-        except Exception as e:
-            raise ValidationError('Contest problem label script: %s' % e)
-        else:
-            if not isinstance(label, str):
-                raise ValidationError('Contest problem label script: script should return a string.')
-
     def is_in_contest(self, user):
         if user.is_authenticated:
             profile = user.profile
@@ -327,9 +317,6 @@ class Contest(models.Model):
     @cached_property
     def tester_ids(self):
         return Contest.reviewers.through.objects.filter(contest=self).values_list('userprofile_id', flat=True)
-
-    def __str__(self):
-        return self.name
 
     def get_absolute_url(self):
         return reverse('contest_view', args=(self.key,))
@@ -437,7 +424,7 @@ class Contest(models.Model):
         queryset = cls.objects.defer('description')
         # TODO: perms
         # if not (user.has_perm('judge.see_private_contest') or user.has_perm('judge.edit_all_contest')):
-        if True:
+        if not user.is_superuser:
             q = Q(is_visible=True)
             #q &= (
                 # Q(view_contest_scoreboard=user.profile) |
@@ -467,6 +454,37 @@ class Contest(models.Model):
             prob.order = numbering
             prob.save(update_fields=['order'])
             numbering += 1
+
+    ## Django model methods
+    def clean(self):
+        if self.time_limit.total_seconds() < 0:
+            raise ValidationError(
+                _("time_limit cannot be negative"),
+                code='invalid')
+
+        # Django will complain if you didn't fill in start_time or end_time, so we don't have to.
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
+            raise ValidationError(
+                _("Contest cannot have `end_time` <= `start_time`."),
+                code='invalid')
+        self.format_class.validate(self.format_config)
+
+        try:
+            # a contest should have at least one problem, with contest problem index 0
+            # so test it to see if the script returns a valid label.
+            label = self.get_label_for_problem(0)
+        except Exception as e:
+            raise ValidationError('Contest problem label script: %s' % e)
+        else:
+            if not isinstance(label, str):
+                raise ValidationError('Contest problem label script: script should return a string.')
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
 
     class Meta:
         permissions = (

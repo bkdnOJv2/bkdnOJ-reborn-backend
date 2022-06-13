@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.conf import settings
 from django.db.models import Case, Count, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
@@ -6,7 +6,8 @@ from django.db import IntegrityError
 from django.utils.functional import cached_property
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import PermissionDenied, ViewDoesNotExist
+from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
+
 from rest_framework import views, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -14,10 +15,8 @@ from rest_framework.decorators import api_view
 from operator import attrgetter, itemgetter
 
 from problem.serializers import ProblemSerializer
-from .serializers import ContestSerializer, ContestBriefSerializer, \
-    ContestDetailSerializer, ContestProblemSerializer, ContestSubmissionSerializer, \
-    ContestStandingSerializer, \
-    ContestParticipationSerializer, ContestParticipationDetailSerializer
+from .serializers import *
+
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
 from helpers.custom_pagination import BigPageCountPagination
 
@@ -108,8 +107,8 @@ class ContestListView(generics.ListCreateAPIView):
             'future': ContestBriefSerializer(future, many=True, context=context).data,
         }, status=status.HTTP_200_OK)
 
-    def create(self, request):
-        raise ViewDoesNotExist
+    #def create(self, request):
+    #    raise ViewDoesNotExist
 
 
 class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -139,14 +138,19 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def patch(self, request, *args, **kwargs):
         if self.has_permission(request):
-            return super().patch(request, *args, **kwargs)
+            try:
+                return super().patch(request, *args, **kwargs)
+            except ValidationError as e:
+                return Response({
+                    'general': e,
+                }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ContestProblemListView(generics.ListCreateAPIView):
     """
         Problems within contests view
     """
-    serializer_class = ContestProblemSerializer
+    serializer_class = ContestProblemBriefSerializer
     pagination_class = BigPageCountPagination
     lookup_field = 'shortname'
 
@@ -160,27 +164,41 @@ class ContestProblemListView(generics.ListCreateAPIView):
         contest = self.get_contest()
         queryset = ContestProblem.objects.filter(contest=contest)
         return queryset
-
+    
+    NON_ASSOCIATE_FIELDS = ('order', 'points', 'partial', 'is_pretested', 'max_submissions')
     def create(self, request, *args, **kwargs):
         contest = self.get_contest()
+        cproblems = contest.contest_problems
+        visproblems = Problem.get_visible_problems(request.user)
+        
+        new_problem_ids = set()
+        for problem_kw in request.data:
+            cpf = cproblems.filter(problem__shortname=problem_kw['shortname'])
+            if cpf.exists():
+                cpf = cpf.first()
+            else:
+                p = get_object_or_404(visproblems, shortname=problem_kw['shortname'])
+                cpf = ContestProblem(contest=contest, problem=p)
+            for k, v in problem_kw.items(): 
+                if k in ContestProblemListView.NON_ASSOCIATE_FIELDS:
+                    setattr(cpf, k, v)
+            cpf.save()
+            new_problem_ids.add(cpf.id)
 
-        data = request.data.copy()
-        if data.get('order') == None:
-            data['order'] = ContestProblem.objects.filter(
-                contest=contest).count()+1
-
-        serializer = ContestProblemSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data,
-            status=status.HTTP_201_CREATED,
-        )
+        cproblems.exclude(id__in=new_problem_ids).delete()
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 class ContestProblemDetailView(generics.RetrieveAPIView):
     """
         Certain Problem within Contest view
     """
     pagination_class = None
+
+    def get_serializer_class(self):
+        # print(self.request.method)
+        # if self.request.method == 'GET':
+        #     return ProblemSerializer
+        return ContestProblemSerializer
 
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
@@ -193,17 +211,6 @@ class ContestProblemDetailView(generics.RetrieveAPIView):
             contest=self.get_contest(),
             problem__shortname=self.kwargs['shortname'])
         return p
-
-    def get_queryset(self):
-        queryset = ContestProblem.objects.filter(contest=self.get_contest())
-        return queryset
-
-    def get(self, request, *args, **kwargs):
-        p = self.get_object()
-        return Response(
-            ProblemSerializer(p.problem, context={'request': request}).data,
-            status=status.HTTP_200_OK,
-        )
 
 
 class ContestSubmissionListView(generics.ListAPIView):
@@ -306,6 +313,23 @@ class ContestProblemSubmitView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         profile = request.user.profile
 
+        contest = self.get_contest() # Accesibility checks
+        if contest.ended:
+            return Response({ 'detail': "Contest has ended." },
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user still have parts in the contest
+        # We checks this because later we have to take care of Virtual Participations
+
+        # Because Participations are in `date` order, and we only allow 1 participation
+        # that is not ended per user/contest. So, we only need to check the last Part.
+        participation = contest.users.filter(user=profile).last()
+        if participation == None or participation.ended:
+            return Response({
+                'detail': "You are not registered."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Compulsory spam checks
         if (
             not self.request.user.has_perm('submission.spam_submission')
             and Submission
@@ -318,16 +342,10 @@ class ContestProblemSubmitView(generics.CreateAPIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        contest = self.get_contest() # accessible
-        if contest.ended:
-            return Response({ 'detail': "Contest has ended." },
-                                status=status.HTTP_400_BAD_REQUEST)
-
-        # should be the same contest now
+        # Constructing ContestSubmission object
         problem = get_object_or_404(contest.problems, shortname=self.kwargs['shortname'])
 
         data = request.data.copy()
-
         sub = SubmissionSubmitSerializer(data=request.data)
         if not sub.is_valid():
             return Response(sub.errors, status=status.HTTP_400_BAD_REQUEST)

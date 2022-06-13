@@ -187,12 +187,17 @@ class Problem(TimeStampedModel):
       return False
   
   def is_accessible_by(self, user, contest=None):
-    if contest and user.is_authenticated:
+    if contest != None and user.is_authenticated:
         from compete.models import ContestParticipation
         cps = ContestParticipation.objects.filter(contest=contest, user=user.profile).all()
         for cp in reversed(cps):
             if not cp.ended:
                 return True
+
+    if user.is_superuser:
+        return True
+    
+    print('User not superuser')
 
     # Belong in a public contest
     if self.contest_set.filter(is_visible=True).exists():

@@ -54,12 +54,12 @@ class ICPCContestFormat(DefaultContestFormat):
 
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT MAX(cs.points) as `points`, (
+                SELECT MAX(cs.points) as points, (
                     SELECT MIN(csub.date)
                         FROM compete_contestsubmission ccs LEFT OUTER JOIN
-                             compete_submission csub ON (csub.id = ccs.submission_id)
+                             submission_submission csub ON (csub.id = ccs.submission_id)
                         WHERE ccs.problem_id = cp.id AND ccs.participation_id = %s AND ccs.points = MAX(cs.points)
-                ) AS `time`, cp.id AS `prob`
+                ) AS time, cp.id AS prob
                 FROM compete_contestproblem cp INNER JOIN
                      compete_contestsubmission cs ON (cs.problem_id = cp.id AND cs.participation_id = %s) LEFT OUTER JOIN
                      submission_submission sub ON (sub.id = cs.submission_id)
@@ -72,7 +72,7 @@ class ICPCContestFormat(DefaultContestFormat):
 
                 # Compute penalty
                 if self.config['penalty']:
-                    # An IE can have a submission result of `None`
+                    # An IE can have a submission result of 'None'
                     subs = participation.submissions.exclude(submission__result__isnull=True) \
                                                     .exclude(submission__result__in=['IE', 'CE']) \
                                                     .filter(problem_id=prob)

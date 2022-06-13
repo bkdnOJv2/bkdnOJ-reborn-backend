@@ -4,6 +4,8 @@ from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
+
+from rest_framework.decorators import api_view
 from rest_framework import views, permissions, generics, viewsets, response, status
 
 from problem.serializers import ProblemSerializer, ProblemTestProfileSerializer
@@ -105,7 +107,9 @@ def add_file_response(request, response, url_path, file_path, file_object=None):
 def __problem_x_file(request, shortname, path, url_path, storage, content_type='application/octet-stream', skip_perm_check=False):
     problem = shortname
     obj = get_object_or_404(Problem, shortname=problem)
+
     if not skip_perm_check and not obj.is_accessible_by(request.user):
+        print("ProblemPDF: Not allowed")
         raise Http404()
 
     problem_dir = storage.path(problem)
@@ -131,25 +135,7 @@ def problem_data_file(request, shortname, path, **kwargs):
         url_path = None
     return __problem_x_file(request, shortname, path, url_path, problem_data_storage, 'application/octet-stream', **kwargs)
 
-
+@api_view(['GET'])
 def problem_pdf_file(request, shortname, path):
     return __problem_x_file(request, shortname, path, None, problem_pdf_storage, 'application/pdf')
 
-def problem_init_view(request, problem):
-    problem = get_object_or_404(Problem, shortname=problem)
-    if not problem.is_editable_by(request.user):
-        raise Http404()
-
-    try:
-        with problem_data_storage.open(os.path.join(problem.shortname, 'init.yml'), 'rb') as f:
-            data = utf8text(f.read()).rstrip('\n')
-    except IOError:
-        raise Http404()
-
-    return render(request, 'problem/yaml.html', {
-        'raw_source': data, 'highlighted_source': highlight_code(data, 'yaml'),
-        'title': _('Generated init.yml for %s') % problem.name,
-        'content_title': mark_safe(escape(_('Generated init.yml for %s')) % (
-            format_html('<a href="{1}">{0}</a>', problem.name,
-                        reverse('problem_detail', args=[problem.shortname])))),
-    })

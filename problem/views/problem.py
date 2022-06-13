@@ -188,8 +188,7 @@ def create_problem_from_archive(request):
         break
     
   # Include additional data that config file might not have
-  data['authors'] = [request.user]
-  print(data)
+  data['authors'] = [request.user.profile.username]
       
   # Validating Problem settings
   context={'request':request}
