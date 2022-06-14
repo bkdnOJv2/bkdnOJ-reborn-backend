@@ -19,13 +19,13 @@ class JudgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Judge
         fields = ['id', 'name', 'auth_key', 'online', 'is_blocked', 'description',
-                'last_ip', 'load', 'ping', 'problems', 'runtimes', 'start_time']
+                'load', 'ping', 'problems', 'runtimes', 'start_time']
         extra_kwargs = {
             'auth_key': {'write_only': True},
-            'start_time': {'write_only': True},
+            'start_time': {'read_only': True},
             'description': {'write_only': True},
-            'load': {'write_only': True},
-            'ping': {'write_only': True},
+            'load': {'read_only': True},
+            'ping': {'read_only': True},
             'problem': {'write_only': True},
             'runtimes': {'write_only': True},
         }

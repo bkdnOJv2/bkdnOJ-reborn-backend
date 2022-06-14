@@ -305,6 +305,10 @@ class Contest(models.Model):
     def ended(self):
         return self.end_time < self._now
 
+    @property
+    def started(self):
+        return self.start_time <= self._now
+
     @cached_property
     def author_ids(self):
         return Contest.authors.through.objects.filter(contest=self).values_list('userprofile_id', flat=True)
@@ -364,11 +368,11 @@ class Contest(models.Model):
         if not self.is_private and not self.is_organization_private:
             return
 
-        if self.view_contest_scoreboard.filter(id=user.profile.id).exists():
-            return
+        # if self.view_contest_scoreboard.filter(id=user.profile.id).exists():
+        #     return
 
         in_org = self.organizations.filter(id__in=user.profile.organizations.all()).exists()
-        in_users = self.private_contestants.filter(id=user.profile.id).exists()
+        in_users = self.private_contestants.filter(owner__id=user.profile.id).exists()
 
         if not self.is_private and self.is_organization_private:
             if in_org:
@@ -393,6 +397,28 @@ class Contest(models.Model):
         else:
             return True
 
+    def is_registerable_by(self, user):
+        if not self.is_accessible_by(user):
+            return False
+
+        #if self.is_testable_by(user):
+        #    return False
+
+        return True
+        
+        # # # Visible Contest checks:
+        # if (not obj.is_private) and (not obj.is_organization_private):
+        #     return True
+
+        # # Private Contest for contestants
+        # if obj.is_private and obj.private_contestants.filter(owner__id=user.id).exists():
+        #     return True
+
+        # # Private Contest for contestants
+        # in_org = obj.organizations.filter(id__in=user.profile.organizations.all()).exists()
+        # if obj.is_organization_private and in_org:
+        #     return True
+
     # TODO: perms
     def is_editable_by(self, user):
         if not user.is_authenticated:
@@ -403,7 +429,7 @@ class Contest(models.Model):
 
         # If the user is a contest organizer or curator
         # if user.has_perm('judge.edit_own_contest') and user.profile.id in self.editor_ids:
-        if user.profile.id in self.editor_ids:
+        if user.is_superuser or user.profile.id in self.editor_ids:
             return True
 
         return False
@@ -412,15 +438,16 @@ class Contest(models.Model):
     def is_testable_by(self, user):
         if not user.is_authenticated:
             return False
-        if user.profile.id in self.tester_ids:
+        if user.is_superuser or user.profile.id in self.tester_ids:
             return True
         return self.is_editable_by(user)
 
     @classmethod
     def get_visible_contests(cls, user):
         if not user.is_authenticated:
-            return cls.objects.filter(is_visible=True, is_organization_private=False, 
-                                        is_private=False).defer('description').distinct()
+            return cls.objects.filter(is_visible=True).defer('description').distinct()
+            # return cls.objects.filter(is_visible=True, is_organization_private=False, 
+            #                            is_private=False).defer('description').distinct()
         queryset = cls.objects.defer('description')
         # TODO: perms
         # if not (user.has_perm('judge.see_private_contest') or user.has_perm('judge.edit_all_contest')):
@@ -457,7 +484,7 @@ class Contest(models.Model):
 
     ## Django model methods
     def clean(self):
-        if self.time_limit.total_seconds() < 0:
+        if self.time_limit != None and self.time_limit.total_seconds() < 0:
             raise ValidationError(
                 _("time_limit cannot be negative"),
                 code='invalid')

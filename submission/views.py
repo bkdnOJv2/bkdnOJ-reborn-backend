@@ -1,3 +1,6 @@
+from django.http import Http404
+from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
+
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
 from rest_framework import views, generics, status
@@ -22,6 +25,13 @@ class SubmissionDetailView(generics.RetrieveUpdateAPIView):
     queryset = Submission.objects.all()
     serializer_class = SubmissionDetailSerializer
     permission_classes = []
+
+    def get_object(self, *args, **kwargs):
+        sub = super().get_object(*args)
+        user = self.request.user
+        if sub.can_see_detail(user):
+            return sub
+        raise PermissionDenied
 
 class SubmissionResultView(views.APIView):
     """

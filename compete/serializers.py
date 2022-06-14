@@ -1,4 +1,5 @@
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from auth.serializers import UserSerializer
@@ -29,6 +30,11 @@ class ContestBriefSerializer(serializers.ModelSerializer):
             return True
         return False
 
+    register_allow = serializers.SerializerMethodField()
+    def get_register_allow(self, obj):
+        user = self.context['request'].user
+        return obj.is_registerable_by(user)
+
     is_registered = serializers.SerializerMethodField()
     def get_is_registered(self, obj):
         user = self.context['request'].user
@@ -36,8 +42,8 @@ class ContestBriefSerializer(serializers.ModelSerializer):
             return False
 
         if ContestParticipation.objects.filter(
-                virtual=ContestParticipation.LIVE,
-                contest=obj, user=user.profile
+            virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
+            contest=obj, user=user.profile
         ).exists():
             return True
         return False
@@ -45,7 +51,7 @@ class ContestBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contest
         fields = [
-            'spectate_allow', 'is_registered',
+            'spectate_allow', 'register_allow', 'is_registered',
             'key', 'name', 'start_time', 'end_time', 'time_limit', 'user_count',
         ]
 
@@ -134,12 +140,16 @@ class ContestDetailSerializer(ContestBriefSerializer):
     reviewers = serializers.SlugRelatedField(
         queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
     )
+    private_contestants = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
+    )
     banned_users = serializers.SlugRelatedField(
         queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
     )
 
     def to_internal_value(self, data):
-        profiles = ['authors', 'collaborators', 'reviewers', 'banned_users']
+        profiles = ['authors', 'collaborators', 'reviewers', 
+            'private_contestants', 'banned_users']
         qs = Profile.objects.select_related('owner')
         profiles_val = {}
 
@@ -148,7 +158,7 @@ class ContestDetailSerializer(ContestBriefSerializer):
             profile_ins = []
             for uname in usernames:
                 p = qs.filter(owner__username=uname)
-                if p == None:
+                if not p.exists():
                     raise ValidationError(f"User '{uname}' does not exist.")
                 profile_ins.append(p.first().id)
             profiles_val[prf] = profile_ins
@@ -165,7 +175,7 @@ class ContestDetailSerializer(ContestBriefSerializer):
     class Meta:
         model = Contest
         fields = '__all__'
-        optional_fields = ['is_registered', 'spectate_allow']
+        optional_fields = ['is_registered', 'spectate_allow', 'register_allow']
         lookup_field = 'key'
         extra_kwargs = {
             'url': {'lookup_field': 'key'}

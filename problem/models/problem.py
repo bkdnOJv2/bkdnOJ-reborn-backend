@@ -127,7 +127,7 @@ class Problem(TimeStampedModel):
   )
 
   submission_visibility_mode = models.CharField(max_length=16,
-    choices=SubmissionSourceAccess.choices, default=SubmissionSourceAccess.FOLLOW,
+    choices=SubmissionSourceAccess.choices, default=SubmissionSourceAccess.ONLY_OWN,
     help_text=_("Determine if users can view submissions for this problem. This is for "
                 "public problems only. For problems within certain contests, please set "
                 "the contest's own submission visibility setting."),
@@ -178,8 +178,11 @@ class Problem(TimeStampedModel):
   
   def is_editable_by(self, user):
       if not user.is_authenticated: return False
+      if user.is_superuser: return True
+
       if not user.has_perm('problem.edit_own_problem'): return False
       if user.has_perm('problem.edit_all_problem'): return True
+
       if user.profile.id in self.editor_ids:
           return True
       if self.is_organization_private and self.organizations.filter(admins=user.profile).exists():
@@ -196,8 +199,6 @@ class Problem(TimeStampedModel):
 
     if user.is_superuser:
         return True
-    
-    print('User not superuser')
 
     # Belong in a public contest
     if self.contest_set.filter(is_visible=True).exists():
