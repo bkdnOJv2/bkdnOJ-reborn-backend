@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.conf import settings
 from django.utils.translation import gettext as _
@@ -46,10 +47,20 @@ class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
   lookup_field = 'shortname'
 
   def get_object(self):
-      p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
-      if not p.is_accessible_by(self.request.user):
-          raise Http404()
-      return p
+      method = self.request.method
+      if method == 'GET':
+          p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
+          if not p.is_accessible_by(self.request.user):
+              raise Http404()
+          return p
+      else:
+          if not self.request.user.is_staff:
+              raise Http404()
+          p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
+          if not p.is_editable_by(self.request.user):
+              raise PermissionDenied
+          return p
+
 
 class ProblemSubmitView(generics.CreateAPIView):
   """ 

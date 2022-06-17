@@ -146,8 +146,7 @@ class ProblemTestProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProblemTestProfile
-        # fields = '__all__'
-        exclude = ('output_prefix', 'output_limit')
+        fields = '__all__'
         read_only_fields = ('problem', 'created', 'modified', 'feedback')#'zipfile', 'generator')
         extra_kwargs = {
             'url': {'lookup_field': 'problem'}

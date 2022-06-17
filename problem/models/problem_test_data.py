@@ -38,7 +38,7 @@ CHECKERS = (
   ('identical', _('Byte identical')),
   ('linecount', _('Line-by-line')),
 
-  ('custom', _("Custom checker (Py3)")),
+  ('custom-py3', _("Custom checker (Py3)")),
 )
 
 from zipfile import BadZipfile, ZipFile
@@ -90,8 +90,8 @@ class ProblemTestProfile(TimeStampedModel):
   custom_checker = models.FileField(
     verbose_name=_("Custom checker script/code"),
     storage=problem_data_storage,
+    upload_to=problem_directory_file,
     null=True, blank=True,
-    upload_to=problem_data_storage,
     validators=[FileExtensionValidator(allowed_extensions=["py"])],
   )
 
@@ -102,15 +102,6 @@ class ProblemTestProfile(TimeStampedModel):
   def __init__(self, *args, **kwargs):
     super(ProblemTestProfile, self).__init__(*args, **kwargs)
     self._original_zipfile = self.zipfile
-
-  def __str__(self):
-    return 'Problem Test Profile %s' % (self.problem)
-
-  def get_absolute_url(self):
-    return reverse('problemtestprofile_detail', args=(self.problem,))
-
-  def save(self, *args, **kwargs):
-    return super(ProblemTestProfile, self).save(*args, **kwargs)
 
   def set_zipfile(self, zipf, *args, **kwargs):
     self._original_zipfile.delete(save=False)
@@ -130,6 +121,15 @@ class ProblemTestProfile(TimeStampedModel):
     # self.cases.all().delete()
     shutil.rmtree(problem_data_storage.path(self.problem.shortname), 
       ignore_errors=True)
+  
+  def update_test_cases(self):
+      self.cases.update(
+        output_prefix=self.output_prefix, output_limit=self.output_limit,
+        checker=self.checker, checker_args=self.checker_args
+      )
+      ProblemDataCompiler.generate(
+        self.problem, self, self.cases.order_by('order'), self.valid_files
+      )
 
   def generate_test_cases(self):
     if self._zipfile_changed:
@@ -141,9 +141,13 @@ class ProblemTestProfile(TimeStampedModel):
                   order=len(testcase_to_be_created),
                   input_file=in_file,
                   output_file=ans_file,
-                  checker=self.checker,
-                  is_pretest=False,
+                  generator_args=self.generator_args,
                   points=1,
+                  is_pretest=False,
+                  output_prefix=self.output_prefix,
+                  output_limit=self.output_limit,
+                  checker=self.checker,
+                  checker_args=self.checker_args,
               )
           )
 
@@ -169,6 +173,17 @@ class ProblemTestProfile(TimeStampedModel):
         ContentFile(pdf_data)
       )
       self.problem.save(update_fields=['pdf'])
+
+  def __str__(self):
+    return 'Problem Test Profile %s' % (self.problem)
+
+  def get_absolute_url(self):
+    return reverse('problemtestprofile_detail', args=(self.problem,))
+
+  def save(self, *args, **kwargs):
+    obj = super(ProblemTestProfile, self).save(*args, **kwargs)
+    # Don't call ProblemDataCompiler.generate() it causes infinite recursion
+    return obj
 
   @cached_property
   def valid_statement_pdf(self):

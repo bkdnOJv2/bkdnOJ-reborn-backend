@@ -6,8 +6,9 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 from django.core.exceptions import PermissionDenied
 
-from rest_framework.decorators import api_view
 from rest_framework import views, permissions, generics, viewsets, response, status
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser
 
 from problem.serializers import ProblemSerializer, ProblemTestProfileSerializer
 from problem.models import Problem, ProblemTestProfile
@@ -43,11 +44,19 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get_object(self, problem=''):
-        problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
-        if problem.is_accessible_by(self.request.user):
-            probprofile, _ = ProblemTestProfile.objects.get_or_create(problem=problem)
-            return probprofile 
-        raise PermissionDenied
+        method = self.request.method
+        if method == 'GET':
+            problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
+            if problem.is_accessible_by(self.request.user):
+                probprofile, _ = ProblemTestProfile.objects.get_or_create(problem=problem)
+                return probprofile 
+            raise PermissionDenied
+        else:
+            problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
+            if problem.is_editable_by(self.request.user):
+                probprofile, _ = ProblemTestProfile.objects.get_or_create(problem=problem)
+                return probprofile 
+            raise PermissionDenied
 
     def get(self, request, problem, *args, **kwargs):
         probprofile = self.get_object(problem)
@@ -59,38 +68,46 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
     def patch(self, *args, **kwargs):
         return self.put(*args, **kwargs)
 
+    @parser_classes([MultiPartParser])
     def put(self, request, problem, *args, **kwargs):
-        FILE_FIELDS = ('zipfile', 'generator')
+        print(request.data.get('output_limit'))
+        print(request.FILES)
+        return response.Response({})
+        FILE_FIELDS = ('zipfile', 'generator', 'custom_checker')
         obj = self.get_object(problem)
         data = request.data.copy()
         data.pop('problem', None)
 
+        is_zipfile_changed = False
+
         for k, v in data.items():
             # k is file key but the file is empty
-            if (k in FILE_FIELDS) and not v:
-                continue
+            if (k in FILE_FIELDS) and not v: continue
             if k == 'generator' and v:
                 obj.generator = v
-                continue
-            if k == 'zipfile' and v:
+            elif k == 'zipfile' and v:
+                is_zipfile_changed = True
                 obj.set_zipfile(v)
-                continue
-            if k == 'zipfile_remove' and v == True:
+            elif k == 'zipfile_remove' and v == True:
                 if obj.zipfile:
+                    is_zipfile_changed = True
                     obj.delete_zipfile(save=False)
-                continue
-            if k == 'generator_remove' and v == True:
-                if obj.generator:
-                    obj.generator.delete(save=False)
-                continue
-            setattr(obj, k, v)
+            elif k == 'generator_remove' and v == True:
+                if obj.generator: obj.generator.delete(save=False)
+            else:
+                setattr(obj, k, v)
 
         # # # Currently not in-use
         # # output_prefix and output_length wasn't updated yet
         # obj.save(update_fields=['output_limit', 'output_prefix'])
-        obj.generate_test_cases()
-        obj.update_pdf_within_zip()
         obj.save()
+        obj.update_pdf_within_zip()
+        if is_zipfile_changed:
+            obj.generate_test_cases()
+        else:
+            obj.update_test_cases()
+        # obj will be saved because both ended with ProblemDataCompile.gen
+        # and it calls obj.save
 
         return response.Response(
             ProblemTestProfileSerializer(obj, context={'request': request}).data,
