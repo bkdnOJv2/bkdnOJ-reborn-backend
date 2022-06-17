@@ -113,7 +113,7 @@ class Problem(TimeStampedModel):
               "option was True, this problem is public (anyone can see and submit)."
     ),
   )
-  date = models.DateTimeField(auto_now=True, null=True, blank=True, db_index=True,
+  date = models.DateTimeField(auto_now_add=True, null=True, blank=True, db_index=True,
     help_text=_("Publish date of problem"),
   )
 
@@ -316,6 +316,25 @@ class Problem(TimeStampedModel):
   def save(self, *args, **kwargs):
     self.shortname = self.shortname.upper()
     super().save(*args, **kwargs)
+    if self.shortname != self.__original_shortname:
+        original = self.__original_shortname
+        try:
+            problem_data = self.test_profile
+        except AttributeError:
+            pass
+        else:
+            problem_data._update_code(original, self.shortname)
+            try:
+              problem_pdf_storage.rename(original, self.shortname)
+            except OSError as e:
+              if e.errno != errno.ENOENT:
+                raise
+            if self.pdf:
+              self.pdf.name = problem_directory_pdf(
+                self, self.pdf.name)
+            ## Change instance var to avoid recursion
+            self.__original_shortname = self.shortname
+            self.save(update_fields=['pdf'])
 
   class Meta:
     ordering = ['-created']

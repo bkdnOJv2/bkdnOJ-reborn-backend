@@ -1,9 +1,10 @@
-from django.utils.translation import gettext_lazy as _
-
-from django.conf import settings
+import errno
+from django.core.validators import FileExtensionValidator
 from django.db import models, IntegrityError, transaction
-from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from django.conf import settings
+from django.urls import reverse
 User = get_user_model()
 
 from django.utils.functional import cached_property
@@ -36,6 +37,8 @@ CHECKERS = (
   ('sorted', _('Unordered')),
   ('identical', _('Byte identical')),
   ('linecount', _('Line-by-line')),
+
+  ('custom', _("Custom checker (Py3)")),
 )
 
 from zipfile import BadZipfile, ZipFile
@@ -83,6 +86,14 @@ class ProblemTestProfile(TimeStampedModel):
   checker_args = models.TextField(
     verbose_name=_('checker arguments'), blank=True,
     help_text=_('checker arguments as a JSON object'))
+
+  custom_checker = models.FileField(
+    verbose_name=_("Custom checker script/code"),
+    storage=problem_data_storage,
+    null=True, blank=True,
+    upload_to=problem_data_storage,
+    validators=[FileExtensionValidator(allowed_extensions=["py"])],
+  )
 
   _original_zipfile = None
   _zipfile_changed = False
@@ -203,6 +214,23 @@ class ProblemTestProfile(TimeStampedModel):
     return list(zip(
       *self.valid_in_ans_files
     ))
+
+  def _update_code(self, original, new):
+    try:
+      problem_data_storage.rename(original, new)
+    except OSError as e:
+      if e.errno != errno.ENOENT:
+        raise
+
+    if self.zipfile:
+      self.zipfile.name = _problem_directory_file(new, self.zipfile.name)
+    if self.generator:
+      self.generator.name = _problem_directory_file(new, self.generator.name)
+    if self.custom_checker:
+      self.custom_checker.name = _problem_directory_file(
+          new, self.custom_checker.name
+      )
+    self.save()
 
   class Meta:
     verbose_name = _('problem data profile')
