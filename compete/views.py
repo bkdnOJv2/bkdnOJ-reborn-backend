@@ -17,7 +17,11 @@ from operator import attrgetter, itemgetter
 from problem.serializers import ProblemSerializer
 from .serializers import *
 
+from userprofile.models import UserProfile as Profile
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
+
+from .exceptions import *
+
 from helpers.custom_pagination import BigPageCountPagination
 
 __all__ = [
@@ -25,7 +29,10 @@ __all__ = [
     'AllContestListView', 'ContestListView', 'ContestDetailView',
     'ContestProblemListView', 'ContestProblemDetailView', 'ContestProblemSubmitView',
     'ContestSubmissionListView',
+
     'ContestParticipationListView', 'ContestParticipationDetailView',
+    'contest_participation_add_many',
+
     'ContestProblemSubmissionListView', 'ContestProblemSubmissionDetailView',
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
 ]
@@ -106,8 +113,23 @@ class ContestListView(generics.ListCreateAPIView):
             'future': ContestBriefSerializer(future, many=True, context=context).data,
         }, status=status.HTTP_200_OK)
 
-    #def create(self, request):
-    #    raise ViewDoesNotExist
+    def post(self, request):
+        # TODO: check perms
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        data = request.data.copy()
+        data['authors'] = [request.user.username]
+
+        seri = ContestBriefSerializer(data=data, context={'request':request})
+        if not seri.is_valid():
+            return Response({ 'detail': seri.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            seri.save()
+        except Exception as excp:
+            return Response({ 'detail': excp,
+                }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(seri.data, status=status.HTTP_201_CREATED)
 
 
 class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -123,7 +145,7 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
         contest = super().get_object(*a)
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise PermissionDenied
+            raise ContestNotAccessible
         # if (not contest.started) and (not contest.is_testable_by(user)):
         #     raise PermissionDenied
         return contest
@@ -158,9 +180,9 @@ class ContestProblemListView(generics.ListCreateAPIView):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise PermissionDenied
+            raise ContestNotAccessible
         if (not contest.started) and (not contest.is_testable_by(user)):
-            raise PermissionDenied
+            raise ContestNotStarted
         return contest
 
     def get_queryset(self):
@@ -207,9 +229,9 @@ class ContestProblemDetailView(generics.RetrieveAPIView):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise PermissionDenied
+            raise ContestNotAccessible
         if (not contest.started) and (not contest.is_testable_by(user)):
-            raise PermissionDenied
+            raise ContestNotStarted
         return contest
 
     def get_object(self):
@@ -229,9 +251,9 @@ class ContestSubmissionListView(generics.ListAPIView):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise PermissionDenied
+            raise ContestNotAccessible
         if (not contest.started) and (not contest.is_testable_by(user)):
-            raise PermissionDenied
+            raise ContestNotStarted
         return contest
 
     def get_queryset(self):
@@ -266,9 +288,9 @@ class ContestProblemSubmissionListView(generics.ListAPIView):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise PermissionDenied
+            raise ContestNotAccessible
         if (not contest.started) and (not contest.is_testable_by(user)):
-            raise PermissionDenied
+            raise ContestNotStarted
         return contest
 
     def get_queryset(self):
@@ -292,9 +314,9 @@ class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise PermissionDenied
+            raise ContestNotAccessible
         if (not contest.started) and (not contest.is_testable_by(user)):
-            raise PermissionDenied
+            raise ContestNotStarted
         return contest
 
     def get_queryset(self):
@@ -329,9 +351,9 @@ class ContestProblemSubmitView(generics.CreateAPIView):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise PermissionDenied
+            raise ContestNotAccessible
         if (not contest.started) and (not contest.is_testable_by(user)):
-            raise PermissionDenied
+            raise ContestNotStarted
         return contest
 
     def create(self, request, *args, **kwargs):
@@ -530,9 +552,10 @@ def contest_standing_view(request, key):
     }, status=status.HTTP_200_OK)
 
 
-class ContestParticipationListView(generics.ListCreateAPIView):
+class ContestParticipationListView(generics.ListAPIView):
     """
-        Submissions within contests view
+        ADMIN ONLY:
+        Participations List View for Contest `key`
     """
     serializer_class = ContestParticipationSerializer
     permission_classes = [permissions.IsAdminUser]
@@ -566,6 +589,55 @@ class ContestParticipationListView(generics.ListCreateAPIView):
             queryset = queryset.filter(is_disqualified=is_disqualified)
 
         return queryset.all()
+
+@api_view(['POST'])
+def contest_participation_add_many(request, key):
+    contest = get_object_or_404(Contest, key=key)
+    if not request.user.is_staff or not contest.is_editable_by(request.user):
+        raise PermissionDenied
+
+    data = request.data
+    try:
+        part_type = data['participation_type']
+        if part_type not in ['LIVE', 'SPECTATE']:
+            raise ValueError(f"'participation_type' is unrecognizable ({part_type})")
+        if part_type == 'LIVE': part_type = 0
+        elif part_type == 'SPECTATE': part_type = -1
+
+        to_be_updated = []
+
+        users = set(data['users'])
+        p = Profile.objects.select_related('owner').filter(owner__username__in=users)
+        if p.count() != len(users):
+            notfound = [uname for uname in users
+                        if uname not in set(p.values_list('owner__username', flat=True))]
+            return Response({
+                'general': f"Cannot find some users.",
+                'detail': {'username': f"Users not found: {', '.join(notfound)}"}
+            }, status.HTTP_400_BAD_REQUEST)
+
+        for profile in p:
+            cp, _ = ContestParticipation.objects.get_or_create(
+                user=profile, contest=contest, virtual__in=[0, -1]
+            )
+            # If the participation has different virtual, set them to be updated
+            if cp.virtual != part_type:
+                cp.virtual = part_type
+                to_be_updated.append(cp)
+
+        ContestParticipation.objects.bulk_update(to_be_updated, ['virtual'])
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
+
+    except KeyError as ke:
+        return Response({ 'detail': f"Expecting '{ke.args[0]}' in request data"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except ValueError as ve:
+        return Response({ 'detail': str(ve),
+        }, status=status.HTTP_400_BAD_REQUEST)
+    # except Exception as e:
+    #     print(e)
+    #     return Response({ 'detail': "Something went wrong and we didn't expect it!"
+    #     }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):

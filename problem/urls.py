@@ -18,10 +18,16 @@ urlpatterns = [
         create_problem_from_archive, 
         name='problem-from-archive'
     ),
+
     path('problem/<str:shortname>/', 
         ProblemDetailView.as_view(), 
         name='problem-detail',
     ),
+    path('problem/<int:pk>/', 
+        ProblemDetailView.as_view(), 
+        name='problem-detail',
+    ),
+
     path('problem/<str:shortname>/submit/', 
         ProblemSubmitView.as_view(), 
         name='problem-submit',

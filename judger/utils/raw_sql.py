@@ -6,7 +6,7 @@ from django.db.models.expressions import RawSQL
 from django.db.models.sql.constants import INNER, LOUTER
 from django.db.models.sql.datastructures import Join
 
-from judge.utils.cachedict import CacheDict
+from judger.utils.cachedict import CacheDict
 
 
 def unique_together_left_join(queryset, model, link_field_name, filter_field_name, filter_value, parent_model=None):
@@ -55,7 +55,7 @@ def join_sql_subquery(queryset, subquery, params, join_fields, alias, join_type=
         parent_alias = parent_model._meta.db_table
     else:
         parent_alias = queryset.query.get_initial_alias()
-    queryset.query.external_aliases.add(alias)
+    #queryset.query.external_aliases.add(alias)
     join = RawSQLJoin(subquery, params, parent_alias, alias, join_type, FakeJoinField(join_fields), join_type == LOUTER)
     queryset.query.join(join)
     join.table_alias = alias

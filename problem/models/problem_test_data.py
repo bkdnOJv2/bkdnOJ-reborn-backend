@@ -49,9 +49,9 @@ def problem_directory_file(data, filename):
 class ProblemTestProfile(TimeStampedModel):
   problem = models.OneToOneField(
     'problem.Problem',
-    primary_key=True,
+    #primary_key=True,
     on_delete=models.CASCADE,
-    to_field='shortname',
+    #to_field='shortname',
     related_name='test_profile',
   )
   zipfile = models.FileField(

@@ -15,8 +15,8 @@ class TestCaseListView(generics.ListCreateAPIView):
     serializer_class = TestCaseSerializer
     
     def get_queryset(self):
-        problem = self.kwargs['problem']
-        queryset = TestCase.objects.filter(test_profile__problem=problem)
+        problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
+        queryset = problem.test_profile.cases
         return queryset
 
     def create(self, request, *args, **kwargs):

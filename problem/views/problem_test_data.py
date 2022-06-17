@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
+from django.core.exceptions import PermissionDenied
 
 from rest_framework.decorators import api_view
 from rest_framework import views, permissions, generics, viewsets, response, status
@@ -30,6 +31,7 @@ class ProblemTestProfileListView(generics.ListAPIView):
     """
     queryset = ProblemTestProfile.objects.all()
     serializer_class = ProblemTestProfileSerializer
+    permission_classes = [permissions.IsAdminUser]
 
 class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
     """
@@ -38,10 +40,17 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
     queryset = ProblemTestProfile.objects.all()
     serializer_class = ProblemTestProfileSerializer
     lookup_field = 'problem'
+    permission_classes = [permissions.IsAdminUser]
 
-    def get(self, request, *args, **kwargs):
+    def get_object(self, problem=''):
         problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
-        probprofile, probprofile_created = ProblemTestProfile.objects.get_or_create(problem=problem)
+        if problem.is_accessible_by(self.request.user):
+            probprofile, _ = ProblemTestProfile.objects.get_or_create(problem=problem)
+            return probprofile 
+        raise PermissionDenied
+
+    def get(self, request, problem, *args, **kwargs):
+        probprofile = self.get_object(problem)
         return response.Response(
             ProblemTestProfileSerializer(probprofile, context={'request': request}).data,
             status=status.HTTP_200_OK,
@@ -52,9 +61,11 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
 
     def put(self, request, problem, *args, **kwargs):
         FILE_FIELDS = ('zipfile', 'generator')
-        obj = self.get_object()
+        obj = self.get_object(problem)
+        data = request.data.copy()
+        data.pop('problem', None)
 
-        for k, v in request.data.items():
+        for k, v in data.items():
             # k is file key but the file is empty
             if (k in FILE_FIELDS) and not v:
                 continue

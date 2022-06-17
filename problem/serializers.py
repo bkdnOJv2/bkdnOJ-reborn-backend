@@ -23,8 +23,11 @@ class ProblemBasicSerializer(serializers.ModelSerializer):
 class ProblemBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem 
-        fields = ['shortname', 'title', 'solved_count', 
-            'attempted_count', 'points', 'is_public', 'is_organization_private']
+        fields = [
+            'shortname', 'title', 'solved_count', 
+            'attempted_count', 'points', 'is_public', 'is_organization_private',
+            'date',
+        ]
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
@@ -33,7 +36,7 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
 # from judger.restful.serializers import LanguageSerializer
 # The line above causes Circular Import, and I have been trying to fix 
 # this for 30+ mins...
-# Fuck it, lets redefine it for now. 
+# F*** it, lets redefine it for now. 
 from judger.models import Language
 class LanguageBasicSerializer(serializers.ModelSerializer):
     class Meta:
@@ -100,7 +103,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             'authors', 'collaborators', 'reviewers',
 
             'allowed_languages',
-            'is_public',
+            'is_public', 'date',
             'is_organization_private', 'organizations',
             'points', 'short_circuit', 'partial',
 
@@ -138,13 +141,14 @@ class ProblemInContestSerializer(ProblemSerializer):
     def update(self, instance, validated_data):
         raise NotImplementedError
 
-class ProblemTestProfileSerializer(serializers.HyperlinkedModelSerializer):
+class ProblemTestProfileSerializer(serializers.ModelSerializer):
+    problem = serializers.SlugRelatedField(slug_field='shortname', read_only=True)
+
     class Meta:
         model = ProblemTestProfile
         # fields = '__all__'
         exclude = ('output_prefix', 'output_limit')
         read_only_fields = ('problem', 'created', 'modified', 'feedback')#'zipfile', 'generator')
-        lookup_field = 'problem'
         extra_kwargs = {
             'url': {'lookup_field': 'problem'}
         }

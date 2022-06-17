@@ -231,9 +231,19 @@ class ContestStandingSerializer(serializers.ModelSerializer):
 
 class ContestParticipationSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(
-        slug_field='username',
-        queryset=Profile.objects.all(),
+        slug_field='username', queryset=Profile.objects.all(),
     )
+
+    def to_internal_value(self, data):
+        data = data.copy()
+        usernames = data.pop('user', [])
+        qs = Profile.objects.filter(owner__username__in=usernames)
+        if not qs.exists():
+            raise ValidationError(f"User '{usernames[0]}' does not exist.")
+
+        data['user'] = qs.first()
+        val_data = super().to_internal_value(data)
+        return val_data
 
     class Meta:
         model = ContestParticipation

@@ -9,14 +9,20 @@ from rest_framework.response import Response
 from .serializers import SubmissionSerializer, SubmissionTestCaseSerializer, \
     SubmissionDetailSerializer, SubmissionResultSerializer
 from .models import Submission, SubmissionTestCase
+from problem.models import Problem
+
 
 class SubmissionListView(generics.ListAPIView):
     """
         Return a list of all submissions on the system
     """
-    queryset = Submission.objects.all()
     serializer_class = SubmissionSerializer
     permission_classes = []
+
+    def get_queryset(self):
+        probs = Problem.get_visible_problems(self.request.user)
+        return Submission.objects.filter(problem_id__in=probs)
+
 
 class SubmissionDetailView(generics.RetrieveUpdateAPIView):
     """

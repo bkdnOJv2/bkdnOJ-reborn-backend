@@ -168,6 +168,10 @@ class Submission(models.Model):
     profile = user.profile
     source_visibility = self.problem.submission_visibility_mode
 
+    ## Overwrite FOLLOW because we haven't set up this yet
+    if source_visibility == SubmissionSourceAccess.FOLLOW:
+        source_visibility = SubmissionSourceAccess.ONLY_OWN
+
     if self.problem.is_editable_by(user):
       return True
 

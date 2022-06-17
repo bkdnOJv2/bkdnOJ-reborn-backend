@@ -22,10 +22,19 @@ class ProblemListView(generics.ListCreateAPIView):
   """
   serializer_class = ProblemBriefSerializer
   permission_classes = []
+  lookup_field = 'shortname'
 
   def get_queryset(self):
       user = self.request.user
       return Problem.get_visible_problems(user)
+
+  def post(self, request):
+      try:
+          rs = super().post(request)
+          return rs
+      except IntegrityError as ie:
+          return Response({ 'detail': str(ie) }, 
+            status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):

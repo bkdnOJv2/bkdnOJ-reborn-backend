@@ -65,7 +65,7 @@ class Contest(models.Model):
     key = models.CharField(max_length=20, verbose_name=_('contest identifier'), unique=True,
         validators=[
             RegexValidator('^[a-z][a-z0-9]+$', 
-               _('Contest identifier must starts with a letter, contains only letters.')),
+               _('Contest identifier must starts with a letter, contains only lowercase letters.')),
             MinLengthValidator(4),
         ]
     )
@@ -115,7 +115,7 @@ class Contest(models.Model):
     use_clarifications = models.BooleanField(
         verbose_name=_('Allow clarification request'),
         help_text=_('Allow participants to use the clarification system.'),
-        default=True
+        default=False,
     )
 
     rating_floor = models.IntegerField(
