@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 
 from rest_framework import views, permissions, generics, viewsets, response, status
 from rest_framework.decorators import api_view, parser_classes
@@ -70,9 +70,6 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
 
     @parser_classes([MultiPartParser])
     def put(self, request, problem, *args, **kwargs):
-        print(request.data.get('output_limit'))
-        print(request.FILES)
-        return response.Response({})
         FILE_FIELDS = ('zipfile', 'generator', 'custom_checker')
         obj = self.get_object(problem)
         data = request.data.copy()
@@ -88,19 +85,22 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
             elif k == 'zipfile' and v:
                 is_zipfile_changed = True
                 obj.set_zipfile(v)
-            elif k == 'zipfile_remove' and v == True:
+            elif k == 'zipfile_remove' and v == 'true':
                 if obj.zipfile:
                     is_zipfile_changed = True
-                    obj.delete_zipfile(save=False)
-            elif k == 'generator_remove' and v == True:
+                    obj.zipfile.delete(save=False)
+            elif k == 'generator_remove' and v == 'true':
                 if obj.generator: obj.generator.delete(save=False)
             else:
                 setattr(obj, k, v)
 
-        # # # Currently not in-use
-        # # output_prefix and output_length wasn't updated yet
-        # obj.save(update_fields=['output_limit', 'output_prefix'])
-        obj.save()
+        try:
+            obj.save()
+        except ValidationError as ve:
+            return response.Response({
+                'errors': {'error': ve},
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         obj.update_pdf_within_zip()
         if is_zipfile_changed:
             obj.generate_test_cases()

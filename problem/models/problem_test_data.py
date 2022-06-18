@@ -1,5 +1,6 @@
 import errno
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 from django.db import models, IntegrityError, transaction
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
@@ -124,42 +125,40 @@ class ProblemTestProfile(TimeStampedModel):
   
   def update_test_cases(self):
       self.cases.update(
-        output_prefix=self.output_prefix, output_limit=self.output_limit,
-        checker=self.checker, checker_args=self.checker_args
+        output_prefix=self.output_prefix,
+        output_limit=self.output_limit,
+        #checker=self.checker,
+        #checker_args=self.checker_args
       )
       ProblemDataCompiler.generate(
         self.problem, self, self.cases.order_by('order'), self.valid_files
       )
 
   def generate_test_cases(self):
-    if self._zipfile_changed:
-      testcase_to_be_created = []
-      case_pairs = self.valid_pairs_of_cases
-      for in_file, ans_file in case_pairs:
-          testcase_to_be_created.append(
-              TestCase(test_profile=self,
-                  order=len(testcase_to_be_created),
-                  input_file=in_file,
-                  output_file=ans_file,
-                  generator_args=self.generator_args,
-                  points=1,
-                  is_pretest=False,
-                  output_prefix=self.output_prefix,
-                  output_limit=self.output_limit,
-                  checker=self.checker,
-                  checker_args=self.checker_args,
-              )
-          )
+    testcase_to_be_created = []
+    case_pairs = self.valid_pairs_of_cases
+    for in_file, ans_file in case_pairs:
+        testcase_to_be_created.append(
+            TestCase(test_profile=self,
+                order=len(testcase_to_be_created),
+                input_file=in_file,
+                output_file=ans_file,
+                points=1,
+                is_pretest=False,
+                output_prefix=self.output_prefix,
+                output_limit=self.output_limit,
+                #checker=self.checker,
+                #checker_args=self.checker_args,
+            )
+        )
 
-      with transaction.atomic():
-        self.cases.all().delete()
-        TestCase.objects.bulk_create(testcase_to_be_created)
+    with transaction.atomic():
+      self.cases.all().delete()
+      TestCase.objects.bulk_create(testcase_to_be_created)
 
-      ProblemDataCompiler.generate(
-        self.problem, self, self.cases.order_by('order'), self.valid_files
-      )
-      return True
-    return False
+    ProblemDataCompiler.generate(
+      self.problem, self, self.cases.order_by('order'), self.valid_files
+    )
 
   def update_pdf_within_zip(self):
     pdf_file = self.valid_statement_pdf
@@ -180,7 +179,17 @@ class ProblemTestProfile(TimeStampedModel):
   def get_absolute_url(self):
     return reverse('problemtestprofile_detail', args=(self.problem,))
 
+  def clean(self):
+      errors = {}
+      import json
+      try:
+          if self.checker_args:
+              json.loads(self.checker_args)
+      except json.JSONDecodeError as jde:
+          raise ValidationError("'checker_args' is not a valid JSON")
+
   def save(self, *args, **kwargs):
+    self.clean()
     obj = super(ProblemTestProfile, self).save(*args, **kwargs)
     # Don't call ProblemDataCompiler.generate() it causes infinite recursion
     return obj
@@ -216,7 +225,7 @@ class ProblemTestProfile(TimeStampedModel):
         ans_files.sort()
         return in_files, ans_files
     except BadZipfile:
-      return [], []
+        pass
     return [], []
 
   @cached_property

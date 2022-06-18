@@ -26,12 +26,20 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
         fields = [
             'shortname', 'title', 'solved_count', 
             'attempted_count', 'points', 'is_public', 'is_organization_private',
-            'date',
+            'created', 'modified',
         ]
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
         }
+
+    def create(self, validated_data):
+        inst = super().create(validated_data)
+        request = self.context.get('request')
+        if request is not None:
+            inst.authors.add(request.user.profile)
+            inst.save()
+        return inst
 
 # from judger.restful.serializers import LanguageSerializer
 # The line above causes Circular Import, and I have been trying to fix 
@@ -98,7 +106,9 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
         model = Problem 
         fields = [
             'url',
-            'shortname', 'title', 'content', 'pdf',
+            'shortname', 'title', 'content', 'pdf', 
+            'created', 'modified',
+
             'source', 'time_limit', 'memory_limit',
             'authors', 'collaborators', 'reviewers',
 

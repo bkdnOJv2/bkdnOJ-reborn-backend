@@ -25,11 +25,20 @@ class ProblemListView(generics.ListCreateAPIView):
   permission_classes = []
   lookup_field = 'shortname'
 
+  def check_perms(self, request):
+      if request.method == 'GET':
+          pass
+      else:
+          if not request.user.is_staff:
+              raise PermissionDenied
+      return True
+
   def get_queryset(self):
       user = self.request.user
       return Problem.get_visible_problems(user)
 
   def post(self, request):
+      self.check_perms(request)
       try:
           rs = super().post(request)
           return rs
