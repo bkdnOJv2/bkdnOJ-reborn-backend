@@ -39,7 +39,8 @@ CHECKERS = (
   ('identical', _('Byte identical')),
   ('linecount', _('Line-by-line')),
 
-  ('custom-py3', _("Custom checker (Py3)")),
+  ('custom-PY3', _("Custom checker (Py3)")),
+  ('custom-CPP17', _("Custom checker (C++17)")),
 )
 
 from zipfile import BadZipfile, ZipFile
@@ -83,7 +84,7 @@ class ProblemTestProfile(TimeStampedModel):
   feedback = models.TextField(
     verbose_name=_('init.yml generation feedback'), blank=True)
   checker = models.CharField(
-    max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
+    max_length=20, verbose_name=_('checker'), choices=CHECKERS, blank=True)
   checker_args = models.TextField(
     verbose_name=_('checker arguments'), blank=True,
     help_text=_('checker arguments as a JSON object'))
@@ -298,7 +299,7 @@ class TestCase(models.Model):
     blank=True, null=True, default=settings.BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_LIMIT,
   )
   checker = models.CharField(
-    max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
+    max_length=20, verbose_name=_('checker'), choices=CHECKERS, blank=True)
   checker_args = models.TextField(
     verbose_name=_('checker arguments'), blank=True,
     help_text=_('checker arguments as a JSON object'))

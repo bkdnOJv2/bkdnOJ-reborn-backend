@@ -127,8 +127,10 @@ class ContestListView(generics.ListCreateAPIView):
         try:
             seri.save()
         except Exception as excp:
-            return Response({ 'detail': excp,
-                }, status=status.HTTP_400_BAD_REQUEST)
+            raise excp
+            return Response({ 
+                'detail': str(excp),
+            }, status=status.HTTP_400_BAD_REQUEST)
         return Response(seri.data, status=status.HTTP_201_CREATED)
 
 
@@ -197,17 +199,31 @@ class ContestProblemListView(generics.ListCreateAPIView):
         visproblems = Problem.get_visible_problems(request.user)
         
         new_problem_ids = set()
-        for problem_kw in request.data:
-            cpf = cproblems.filter(problem__shortname=problem_kw['shortname'])
-            if cpf.exists():
-                cpf = cpf.first()
-            else:
-                p = get_object_or_404(visproblems, shortname=problem_kw['shortname'])
-                cpf = ContestProblem(contest=contest, problem=p)
-            for k, v in problem_kw.items(): 
-                if k in ContestProblemListView.NON_ASSOCIATE_FIELDS:
-                    setattr(cpf, k, v)
-            cpf.save()
+        for rowidx, problem_kw in enumerate(request.data):
+            try:
+                cpf = cproblems.filter(problem__shortname=problem_kw['shortname'])
+                if cpf.exists():
+                    cpf = cpf.first()
+                else:
+                    p = visproblems.get(shortname=problem_kw['shortname'])
+                    cpf = ContestProblem(contest=contest, problem=p)
+                for k, v in problem_kw.items(): 
+                    if k in ContestProblemListView.NON_ASSOCIATE_FIELDS:
+                        setattr(cpf, k, v)
+            except Problem.DoesNotExist:
+                return Response({ 'detail': _(f"Row {rowidx}: Problem '{problem_kw['shortname']}' "
+                                    "does not exist or you do not have permission to it.")},
+                    status=status.HTTP_400_BAD_REQUEST)
+            except KeyError as ke:
+                return Response({ 'detail': _(f"Row {rowidx}: Expecting key='{ke.args[0]}'")},
+                    status=status.HTTP_400_BAD_REQUEST)
+            try:
+                cpf.save()
+            except Exception as excp:
+                return Response({ 
+                    'detail': _(f"Row {rowidx} has the following errors:"),
+                    'errors': str(excp),
+                }, status=status.HTTP_400_BAD_REQUEST)
             new_problem_ids.add(cpf.id)
 
         cproblems.exclude(id__in=new_problem_ids).delete()
@@ -401,7 +417,7 @@ class ContestProblemSubmitView(generics.CreateAPIView):
         consub = ContestSubmission(
                 submission=sub_obj,
                 problem=contest.contest_problems.get(problem=problem),
-                participation=profile.current_contest,
+                participation=participation,
                 # is_pretest=contest. # TODO: is_pretest
         )
         consub.save()
@@ -529,12 +545,10 @@ def contest_standing_view(request, key):
         }, status=status.HTTP_403_FORBIDDEN)
 
     ## TODO: Scoreboard visibility
-
-    queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
-        order_by('-score', 'cumtime').all()
-
-    cache_key = f"contest-{contest.key}-problem-data"
-    if cache.get(cache_key) == None:
+    cache_duration = contest.scoreboard_cache_duration
+    cache_disabled = (cache_duration == 0)
+    cache_key = f"contest-{contest.key}-scoreboard"
+    if not cache_disabled or cache.get(cache_key) == None:
         cprobs = contest.contest_problems.all()
         problem_data = [{
             'id': p.id,
@@ -542,14 +556,20 @@ def contest_standing_view(request, key):
             'shortname': p.problem.shortname,
             'points': p.points,
         } for p in cprobs]
-        cache.set(cache_key, problem_data, 60)
-    else:
-        problem_data = cache.get(cache_key)
 
-    return Response({
-        'problems': problem_data,
-        'results': ContestStandingSerializer(queryset, many=True, context={'request': request}).data,
-    }, status=status.HTTP_200_OK)
+        queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
+            order_by('-score', 'cumtime').all()
+
+        dat = {
+            'problems': problem_data,
+            'results': ContestStandingSerializer(
+                queryset, many=True, context={'request': request}).data,
+        }
+        if not cache_disabled:
+            cache.set(cache_key, dat, cache_duration)
+    else:
+        dat = cache.get(cache_key)
+    return Response(dat, status=status.HTTP_200_OK)
 
 
 class ContestParticipationListView(generics.ListAPIView):
@@ -626,6 +646,8 @@ def contest_participation_add_many(request, key):
                 to_be_updated.append(cp)
 
         ContestParticipation.objects.bulk_update(to_be_updated, ['virtual'])
+        contest._updating_stats_only = True
+        contest.update_user_count()
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
     except KeyError as ke:

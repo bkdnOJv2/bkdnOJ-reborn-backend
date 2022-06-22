@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import connection
+from django.db.models import Max
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils.html import format_html
@@ -50,6 +51,13 @@ class ICPCContestFormat(DefaultContestFormat):
         last = 0
         penalty = 0
         score = 0
+
+        frozen_cumtime = 0
+        frozen_last = 0
+        frozen_penalty = 0
+        frozen_score = 0
+        frozen_time = participation.contest.frozen_time
+
         format_data = {}
 
         with connection.cursor() as cursor:
@@ -61,14 +69,21 @@ class ICPCContestFormat(DefaultContestFormat):
                         WHERE ccs.problem_id = cp.id AND ccs.participation_id = %s AND ccs.points = MAX(cs.points)
                 ) AS time, cp.id AS prob
                 FROM compete_contestproblem cp INNER JOIN
-                     compete_contestsubmission cs ON (cs.problem_id = cp.id AND cs.participation_id = %s) LEFT OUTER JOIN
+                     compete_contestsubmission cs ON 
+                        (cs.problem_id = cp.id AND cs.participation_id = %s) 
+                     LEFT OUTER JOIN
                      submission_submission sub ON (sub.id = cs.submission_id)
                 GROUP BY cp.id
             """, (participation.id, participation.id))
 
             for points, time, prob in cursor.fetchall():
                 time = from_database_time(time)
-                dt = (time - participation.start).total_seconds()
+                dt_seconds = (time - participation.start).total_seconds()
+                dt = int(dt_seconds // 60)
+                is_frozen_sub = (participation.is_frozen and time >= frozen_time)
+
+                frozen_points = 0
+                frozen_tries = 0
 
                 # Compute penalty
                 if self.config['penalty']:
@@ -77,44 +92,63 @@ class ICPCContestFormat(DefaultContestFormat):
                                                     .exclude(submission__result__in=['IE', 'CE']) \
                                                     .filter(problem_id=prob)
                     if points:
-                        prev = subs.filter(submission__date__lte=time).count() - 1
-                        penalty += prev * self.config['penalty'] * 60
+                        tries = subs.filter(submission__date__lte=time).count()
+                        penalty += (tries-1) * self.config['penalty'] * 60
+                        if not is_frozen_sub:
+                            # Not frozen so just calculate as normal
+                            frozen_penalty += (tries - 1) * self.config['penalty']
+                            frozen_tries = tries
+                        else:
+                            # For frozen sub always display number of attempts
+                            frozen_tries = subs.count()
                     else:
                         # We should always display the penalty, even if the user has a score of 0
-                        prev = subs.count()
+                        tries = subs.count()
+                        frozen_tries = tries
+                        # the raw SQL query above returns the first submission with the
+                        # largest points. However, for computing & showing frozen scoreboard,
+                        # if the largest points is 0, we need to get the last submission.
+                        time = subs.aggregate(time=Max('submission__date'))['time']
+                        # time can be None if there all of submissions are CE or IE.
+                        is_frozen_sub = (participation.is_frozen and time and time >= frozen_time)
                 else:
-                    prev = 0
+                    tries = 0
 
                 if points:
                     cumtime += dt
                     last = max(last, dt)
+                    score += points
 
-                format_data[str(prob)] = {'time': dt, 'points': points, 'penalty': prev}
+                    if not is_frozen_sub:
+                        frozen_points = points
+                        frozen_cumtime += dt
+                        frozen_last = max(frozen_last, dt)
+                        frozen_score += score
+
+                format_data[str(prob)] = {
+                        'time': dt_seconds, 
+                        'points': points, 
+                        'frozen_points': frozen_points,
+                        'tries': tries,
+                        'frozen_tries': frozen_tries,
+                        'penalty': tries,
+                }
+                format_data['is_frozen'] = is_frozen_sub
                 score += points
 
         participation.cumtime = cumtime + penalty
         participation.score = round(score, self.contest.points_precision)
         participation.tiebreaker = last  # field is sorted from least to greatest
+
+        participation.frozen_cumtime = frozen_cumtime + frozen_penalty
+        participation.frozen_score = round(frozen_score, self.contest.points_precision)
+        participation.frozen_tiebreaker = frozen_last
+
         participation.format_data = format_data
         participation.save()
 
     def display_user_problem(self, participation, contest_problem):
-        format_data = (participation.format_data or {}).get(str(contest_problem.id))
-        if format_data:
-            penalty = format_html('<small style="color:red"> ({penalty})</small>',
-                                  penalty=floatformat(format_data['penalty'])) if format_data['penalty'] else ''
-            return format_html(
-                '<td class="{state}"><a href="{url}">{points}{penalty}<div class="solving-time">{time}</div></a></td>',
-                state=(('pretest-' if self.contest.run_pretests_only and contest_problem.is_pretested else '') +
-                       self.best_solution_state(format_data['points'], contest_problem.points)),
-                url=reverse('contest_user_submissions',
-                            args=[self.contest.key, participation.user.user.username, contest_problem.problem.code]),
-                points=floatformat(format_data['points']),
-                penalty=penalty,
-                time=nice_repr(timedelta(seconds=format_data['time']), 'noday'),
-            )
-        else:
-            return mark_safe('<td></td>')
+        raise NotImplementedError
 
     def get_label_for_problem(self, index):
         index += 1
@@ -130,10 +164,20 @@ class ICPCContestFormat(DefaultContestFormat):
         penalty = self.config['penalty']
         if penalty:
             yield ungettext(
-                'Each submission before the first maximum score submission will incur a **penalty of %d minute**.',
-                'Each submission before the first maximum score submission will incur a **penalty of %d minutes**.',
+                'Each submission before the first maximum score '
+                    'submission will incur a **penalty of %d minute**.',
+                'Each submission before the first maximum score '
+                    'submission will incur a **penalty of %d minutes**.',
                 penalty,
             ) % penalty
+        else:
+            yield _('Ties will be broken by the sum of the last score '
+                    'altering submission time on problems with a non-zero '
+                    'score, followed by the time of the last score altering submission.')
 
-        yield _('Ties will be broken by the sum of the last score altering submission time on problems with a non-zero '
-                'score, followed by the time of the last score altering submission.')
+            if self.contest.enable_frozen:
+                yield ungettext(
+                    'The scoreboard will be frozen after ',
+                    str(self.contest.frozen_time),
+                )
+

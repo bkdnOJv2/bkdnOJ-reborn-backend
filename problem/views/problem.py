@@ -45,6 +45,9 @@ class ProblemListView(generics.ListCreateAPIView):
       except IntegrityError as ie:
           return Response({ 'detail': str(ie) }, 
             status=status.HTTP_400_BAD_REQUEST)
+      except Exception as e:
+          return Response({ 'detail': str(e) }, 
+            status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):

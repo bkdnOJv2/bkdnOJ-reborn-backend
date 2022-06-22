@@ -67,11 +67,37 @@ class ProblemDataCompiler(object):
       cases.append(batch)
 
     def make_checker(case):
-      if self.data.checker.startswith("custom"):
+      checker_name = self.data.checker
+      if checker_name.startswith("custom"):
         try:
           #custom_checker_path = split_path_first(self.data.custom_checker.name)
-          custom_checker_basename = os.path.basename(self.data.custom_checker.name)
-          return custom_checker_basename
+          if checker_name.endswith("PY3"):
+            custom_checker_basename = os.path.basename(self.data.custom_checker.name)
+            return custom_checker_basename
+
+          else:
+            pos = checker_name.find('-')
+            if pos < 0:
+                raise ValidationError("Invalid Checker type")
+            lang = checker_name[pos+1:]
+            if self.data.custom_checker is None:
+                raise ValidationError("Custom Checker is None");
+
+            chkargs = {
+                'files': os.path.basename(self.data.custom_checker.name),
+                'lang': lang,
+                'type': 'testlib',
+            }
+            if self.data.checker_args:
+                chkargsdict = json.loads(self.data.checker_args)
+                for k, v in chkargsdict.items():
+                    chkargs[k] = v
+            self.data.checker_args = json.dumps(chkargs)
+            self.data.save(update_fields=['checker_args'])
+            return {
+                'name': 'bridged',
+                'args': json.loads(self.data.checker_args),
+            }
         except OSError:
           raise ProblemDataError(
             _("How did the custom checker path get corrupted?")

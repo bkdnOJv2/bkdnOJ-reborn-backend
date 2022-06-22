@@ -1,3 +1,4 @@
+from django.utils.timezone import timedelta
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, \
     RegexValidator, MinLengthValidator
@@ -26,8 +27,13 @@ class MinValueOrNoneValidator(MinValueValidator):
 class ContestTag(models.Model):
     color_validator = RegexValidator('^#(?:[A-Fa-f0-9]{3}){1,2}$', _('Invalid colour.'))
 
-    name = models.CharField(max_length=20, verbose_name=_('tag name'), unique=True,
-                            validators=[RegexValidator(r'^[a-z-]+$', message=_('Lowercase letters and hyphens only.'))])
+    name = models.CharField(
+        max_length=20, verbose_name=_('tag name'), 
+        unique=True, db_index=True, #unique implies db_index=True
+        validators=[RegexValidator(r'^[a-z-]+$', 
+                    message=_('Lowercase letters and hyphens only.'))
+                    ]
+    )
     color = models.CharField(max_length=7, verbose_name=_('tag colour'), validators=[color_validator])
     description = models.TextField(verbose_name=_('tag description'), blank=True)
 
@@ -62,7 +68,8 @@ class Contest(models.Model):
         (SCOREBOARD_AFTER_PARTICIPATION, _('Hidden for duration of participation')),
     )
     # ---------------------
-    key = models.CharField(max_length=20, verbose_name=_('contest identifier'), unique=True,
+    key = models.CharField(max_length=20, verbose_name=_('contest identifier'), 
+        unique=True, db_index=True, #unique implies db_index=True
         validators=[
             RegexValidator('^[a-z][a-z0-9]+$', 
                _('Contest identifier must starts with a letter, contains only lowercase letters.')),
@@ -70,6 +77,20 @@ class Contest(models.Model):
         ]
     )
     name = models.CharField(max_length=100, verbose_name=_('contest name'), db_index=True)
+
+    description = models.TextField(verbose_name=_('description'), blank=True)
+    problems = models.ManyToManyField(Problem, verbose_name=_('problems'), through='ContestProblem')
+
+    start_time = models.DateTimeField(verbose_name=_('start time'), db_index=True)
+    end_time = models.DateTimeField(verbose_name=_('end time'), db_index=True)
+    time_limit = models.DurationField(verbose_name=_('time limit'), blank=True, null=True)
+
+    locked_after = models.DateTimeField(
+        verbose_name=_('contest lock'), null=True, blank=True,
+        help_text=_('Prevent submissions from this contest '
+                    'from being rejudged after this date.'))
+
+    ## Visibility/Accessibility
     authors = models.ManyToManyField(Profile, help_text=_('These users will be able to edit the contest.'),
                                      related_name='authors+')
     collaborators = models.ManyToManyField(Profile,
@@ -81,13 +102,6 @@ class Contest(models.Model):
                     'but not edit it.'),
         blank=True, related_name='reviewers+')
 
-    description = models.TextField(verbose_name=_('description'), blank=True)
-    problems = models.ManyToManyField(Problem, verbose_name=_('problems'), through='ContestProblem')
-
-    start_time = models.DateTimeField(verbose_name=_('start time'), db_index=True)
-    end_time = models.DateTimeField(verbose_name=_('end time'), db_index=True)
-    time_limit = models.DurationField(verbose_name=_('time limit'), blank=True, null=True)
-
     is_visible = models.BooleanField(
         verbose_name=_('publicly visible'), default=False,
         help_text=_('Should be set even for organization-private contests, where it '
@@ -95,9 +109,34 @@ class Contest(models.Model):
                     'specified organizations.')
     )
 
-    is_rated = models.BooleanField(
-        verbose_name=_('contest rated'), help_text=_('Whether this contest can be rated.'),
-        default=False
+    ## Private contestants/organizations
+    is_private = models.BooleanField(
+        verbose_name=_('private to specific users'), default=False
+    )
+    private_contestants = models.ManyToManyField(Profile,
+        blank=True, verbose_name=_('private contestants'),
+        help_text=_('If private, only these users may see the contest'),
+        related_name='private_contestants+'
+    )
+
+    is_organization_private = models.BooleanField(
+        verbose_name=_('private to organizations'), default=False)
+    organizations = models.ManyToManyField(Organization,
+        blank=True, verbose_name=_('organizations'),
+        help_text=_('If private, only these organizations may see the contest')
+    )
+
+    banned_users = models.ManyToManyField(Profile,
+        verbose_name=_('Banned users'), blank=True,
+        help_text=_('Bans the selected users from joining this contest.'))
+
+
+    ## Scoreboard
+    scoreboard_cache_duration = models.PositiveIntegerField(
+        verbose_name=_('scoreboard cache timeout'),
+        default=0,
+        help_text=_('How long (seconds) should scoreboard will be cached. '
+                    'Set to 0 to disable')
     )
 
     view_contest_scoreboard = models.ManyToManyField(Profile,
@@ -112,12 +151,30 @@ class Contest(models.Model):
         help_text=_('Scoreboard visibility through the duration of the contest')
     )
 
+    ## Freezing
+    enable_frozen = models.BooleanField(
+        verbose_name=_("enable contest freezing"),
+        help_text=_("Enable scoreboard/submission freezing, "
+            "stop showing actual results after 'frozen_time'."),
+        default=True, db_index=True,
+    )
+    frozen_time = models.DateTimeField(
+        verbose_name=_("freeze after"),
+        help_text=_("Timestamp to freeze results, if 'enable_frozen' is True"),
+        default=True, blank=True, null=True,
+    )
+
     use_clarifications = models.BooleanField(
         verbose_name=_('Allow clarification request'),
         help_text=_('Allow participants to use the clarification system.'),
         default=False,
     )
 
+    ## Rating
+    is_rated = models.BooleanField(
+        verbose_name=_('contest rated'), help_text=_('Whether this contest can be rated.'),
+        default=False
+    )
     rating_floor = models.IntegerField(
         verbose_name=('rating floor'), help_text=_('Rating floor for contest'),
         null=True, blank=True)
@@ -132,22 +189,17 @@ class Contest(models.Model):
         Profile, verbose_name=_('exclude from ratings'), blank=True,
         related_name='rate_exclude+'
     )
-    is_private = models.BooleanField(
-        verbose_name=_('private to specific users'), default=False
-    )
-    private_contestants = models.ManyToManyField(Profile,
-        blank=True, verbose_name=_('private contestants'),
-        help_text=_('If private, only these users may see the contest'),
-        related_name='private_contestants+'
-    )
+
     hide_problem_tags = models.BooleanField(
         verbose_name=_('hide problem tags'),
         help_text=_('Whether problem tags should be hidden by default.'),
         default=False)
+
     hide_problem_authors = models.BooleanField(
         verbose_name=_('hide problem authors'),
         help_text=_('Whether problem authors should be hidden by default.'),
         default=False)
+
     run_pretests_only = models.BooleanField(
         verbose_name=_('run pretests only'),
         default=False,
@@ -156,18 +208,11 @@ class Contest(models.Model):
                     'prior to rejudging user submissions when the contest ends.'),
     )
 
-    # show_short_display = models.BooleanField(
-    #     verbose_name=_('show short form settings display'),
-    #     help_text=_('Whether to show a section containing contest settings '
-    #                 'on the contest page or not.'),
-    #     default=False)
-
-    is_organization_private = models.BooleanField(
-        verbose_name=_('private to organizations'), default=False)
-    organizations = models.ManyToManyField(Organization,
-        blank=True, verbose_name=_('organizations'),
-        help_text=_('If private, only these organizations may see the contest')
-    )
+    show_short_display = models.BooleanField(
+        verbose_name=_('show short form settings display'),
+        help_text=_('Whether to show a section containing contest settings '
+                    'on the contest page or not.'),
+        default=False)
 
     # og_image = models.CharField(verbose_name=_('OpenGraph image'), default='', max_length=150, blank=True)
     # logo_override_image = models.CharField(
@@ -179,7 +224,6 @@ class Contest(models.Model):
     tags = models.ManyToManyField(ContestTag,
         verbose_name=_('contest tags'), blank=True, related_name='contests'
     )
-    user_count = models.IntegerField(verbose_name=_('the amount of live participants'), default=0)
 
     # summary = models.TextField(blank=True, verbose_name=_('contest summary'),
     #                            help_text=_('Plain-text, shown in meta description tag, e.g. for social media.'))
@@ -188,10 +232,6 @@ class Contest(models.Model):
         verbose_name=_('access code'), blank=True, default='', max_length=255,
         help_text=_('An optional code to prompt contestants before they are allowed '
                     'to join the contest. Leave it blank to disable.'))
-
-    banned_users = models.ManyToManyField(Profile,
-        verbose_name=_('Banned users'), blank=True,
-        help_text=_('Bans the selected users from joining this contest.'))
 
     format_name = models.CharField(
         verbose_name=_('contest format'), default='default', max_length=32,
@@ -203,14 +243,13 @@ class Contest(models.Model):
                     'module. Leave empty to use None. Exact format depends on the contest format '
                     'selected.')
     )
-    # problem_label_script = models.TextField(verbose_name='contest problem label script', blank=True,
-    #                                         help_text='A custom Lua function to generate problem labels. Requires a '
-    #                                                   'single function with an integer parameter, the zero-indexed '
-    #                                                   'contest problem index, and returns a string, the label.')
-    locked_after = models.DateTimeField(
-        verbose_name=_('contest lock'), null=True, blank=True,
-        help_text=_('Prevent submissions from this contest '
-                    'from being rejudged after this date.'))
+    user_count = models.IntegerField(verbose_name=_('the amount of live participants'), default=0)
+
+    # problem_label_script = models.TextField(
+    #   verbose_name='contest problem label script', blank=True,
+    #   help_text='A custom Lua function to generate problem labels. Requires a '
+    #             'single function with an integer parameter, the zero-indexed '
+    #             'contest problem index, and returns a string, the label.')
     points_precision = models.IntegerField(
         verbose_name=_('precision points'), default=3,
         validators=[MinValueValidator(0), MaxValueValidator(10)],
@@ -227,6 +266,23 @@ class Contest(models.Model):
     @cached_property
     def get_label_for_problem(self):
         return self.format.get_label_for_problem
+
+    @cached_property
+    def author_ids(self):
+        return Contest.authors.through.objects.filter(contest=self).\
+                values_list('userprofile_id', flat=True)
+
+    @cached_property
+    def editor_ids(self):
+        return self.author_ids.union(
+            Contest.collaborators.through.objects.filter(contest=self).\
+            values_list('userprofile_id', flat=True)
+        )
+
+    @cached_property
+    def tester_ids(self):
+        return Contest.reviewers.through.objects.filter(contest=self).\
+                values_list('userprofile_id', flat=True)
 
     def is_in_contest(self, user):
         if user.is_authenticated:
@@ -248,19 +304,22 @@ class Contest(models.Model):
             return True
         if not user.is_authenticated:
             return False
-        if user.has_perm('judge.see_private_contest') or user.has_perm('judge.edit_all_contest'):
+        if user.is_superuser or user.has_perm('compete.see_private_contest') or \
+            user.has_perm('compete.edit_all_contest'):
             return True
         if user.profile.id in self.editor_ids:
             return True
         if self.view_contest_scoreboard.filter(id=user.profile.id).exists():
             return True
-        if self.scoreboard_visibility == self.SCOREBOARD_AFTER_PARTICIPATION and self.has_completed_contest(user):
+        if self.scoreboard_visibility == self.SCOREBOARD_AFTER_PARTICIPATION and \
+            self.has_completed_contest(user):
             return True
         return False
 
     def has_completed_contest(self, user):
         if user.is_authenticated:
-            participation = self.users.filter(virtual=ContestParticipation.LIVE, user=user.profile).first()
+            participation = self.users.filter(virtual=ContestParticipation.LIVE, 
+                                                user=user.profile).first()
             if participation and participation.ended:
                 return True
         return False
@@ -269,8 +328,9 @@ class Contest(models.Model):
     def show_scoreboard(self):
         if not self.can_join:
             return False
-        if (self.scoreboard_visibility in (self.SCOREBOARD_AFTER_CONTEST, self.SCOREBOARD_AFTER_PARTICIPATION) and
-                not self.ended):
+        if (self.scoreboard_visibility in \
+             (self.SCOREBOARD_AFTER_CONTEST, self.SCOREBOARD_AFTER_PARTICIPATION) and
+             not self.ended):
             return False
         return True
 
@@ -305,22 +365,15 @@ class Contest(models.Model):
     def ended(self):
         return self.end_time < self._now
 
-    @property
+    @cached_property
     def started(self):
         return self.start_time <= self._now
 
     @cached_property
-    def author_ids(self):
-        return Contest.authors.through.objects.filter(contest=self).values_list('userprofile_id', flat=True)
-
-    @cached_property
-    def editor_ids(self):
-        return self.author_ids.union(
-            Contest.collaborators.through.objects.filter(contest=self).values_list('userprofile_id', flat=True))
-
-    @cached_property
-    def tester_ids(self):
-        return Contest.reviewers.through.objects.filter(contest=self).values_list('userprofile_id', flat=True)
+    def is_frozen(self):
+        if self.enable_frozen:
+            return self.frozen_time <= self._now
+        return False
 
     def get_absolute_url(self):
         return reverse('contest_view', args=(self.key,))
@@ -495,6 +548,13 @@ class Contest(models.Model):
                 _("Contest cannot have `end_time` <= `start_time`."),
                 code='invalid')
         self.format_class.validate(self.format_config)
+        
+        if self.frozen_time is None:
+            _frozen_after = self.end_time - timedelta(hours=1)
+            if _frozen_after <= self.start_time:
+                delta = self.end_time - self.start_time
+                _frozen_after = self.start_time + delta/3*2
+            self.frozen_time = _frozen_after
 
         try:
             # a contest should have at least one problem, with contest problem index 0
@@ -542,15 +602,25 @@ class ContestParticipation(models.Model):
         verbose_name=_('user'), related_name='contest_history', on_delete=CASCADE)
     real_start = models.DateTimeField(
         verbose_name=_('start time'), default=timezone.now, db_column='start')
+
     score = models.FloatField(
         verbose_name=_('score'), default=0, db_index=True)
     cumtime = models.PositiveIntegerField(
         verbose_name=_('cumulative time'), default=0)
+    tiebreaker = models.FloatField(
+        verbose_name=_('tie-breaking field'), default=0.0)
+
+    frozen_score = models.FloatField(
+        verbose_name=_('frozen score'), default=0, db_index=True)
+    frozen_cumtime = models.PositiveIntegerField(
+        verbose_name=_('frozen cumulative time'), default=0)
+    frozen_tiebreaker = models.FloatField(
+        verbose_name=_('frozen tie-breaking field'), default=0.0)
+
     is_disqualified = models.BooleanField(
         verbose_name=_('is disqualified'), default=False,
         help_text=_('Whether this participation is disqualified.'))
-    tiebreaker = models.FloatField(
-        verbose_name=_('tie-breaking field'), default=0.0)
+
     virtual = models.IntegerField(
         verbose_name=_('virtual participation id'), default=LIVE,
         help_text=_('0 means non-virtual, otherwise the n-th virtual participation.'))
@@ -593,7 +663,7 @@ class ContestParticipation(models.Model):
         contest = self.contest
         return contest.start_time if contest.time_limit is None and (self.live or self.spectate) else self.real_start
 
-    @cached_property
+    @property
     def end_time(self):
         contest = self.contest
         if self.spectate:
@@ -621,12 +691,16 @@ class ContestParticipation(models.Model):
         if end is not None and end >= self._now:
             return end - self._now
 
+    @property
+    def is_frozen(self):
+        return self.contest.is_frozen
+
     def __str__(self):
         if self.spectate:
-            return gettext('%s spectating in %s') % (self.user.username, self.contest.name)
+            return _('%s spectating in %s') % (self.user.username, self.contest.name)
         if self.virtual:
-            return gettext('%s in %s, v%d') % (self.user.username, self.contest.name, self.virtual)
-        return gettext('%s in %s') % (self.user.username, self.contest.name)
+            return _('%s in %s, v%d') % (self.user.username, self.contest.name, self.virtual)
+        return _('%s in %s') % (self.user.username, self.contest.name)
 
     class Meta:
         verbose_name = _('contest participation')
@@ -678,9 +752,16 @@ class ContestProblem(models.Model):
         self.attempted_count = totals
         self.save()
 
+    def clean(self):
+        try:
+            if self.order is None or int(self.order) < 0: raise 
+        except Exception:
+            raise ValidationError(_("'order' must be a positive integer"))
+
     def save(self, *args, **kwargs):
+        self.clean()
         super().save(args, kwargs)
-        cache_key = f"contest-{self.contest.key}-problem-data"
+        cache_key = f"contest-{self.contest.key}-scoreboard"
         cache.delete(cache_key)
 
     def __str__(self):

@@ -52,7 +52,10 @@ class ContestBriefSerializer(serializers.ModelSerializer):
         model = Contest
         fields = [
             'spectate_allow', 'register_allow', 'is_registered',
-            'key', 'name', 'start_time', 'end_time', 'time_limit', 'user_count',
+            'key', 'name', 
+            'start_time', 'end_time', 'time_limit', 
+            'enable_frozen', 'frozen_time', 'is_frozen',
+            'user_count',
         ]
 
 class ContestSerializer(serializers.ModelSerializer):
@@ -219,9 +222,19 @@ class ContestStandingSerializer(serializers.ModelSerializer):
         return user_ser.data
 
     format_data = serializers.SerializerMethodField()
-
     def get_format_data(self, obj):
-        return json.dumps(obj.format_data)
+        data = obj.format_data
+        if data is not None: 
+            user = self.context['request'].user
+            #if data.get('is_frozen', False) and not obj.contest.can_see_full_scoreboard(user):
+            ## TODO: special access to frozen board
+            if data.get('is_frozen', False):
+                for k, v in data.items():
+                    if type(v).__name__ != 'dict': continue
+                    if v.get('time'): del v['time']
+                    if v.get('points'): del v['points']
+        data = json.dumps(data)
+        return data
 
     class Meta:
         model = ContestParticipation

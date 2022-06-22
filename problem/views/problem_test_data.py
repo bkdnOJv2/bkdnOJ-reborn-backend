@@ -80,11 +80,15 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
         for k, v in data.items():
             # k is file key but the file is empty
             if (k in FILE_FIELDS) and not v: continue
+            if k == 'custom_checker' and v:
+                obj.custom_checker = v
             if k == 'generator' and v:
                 obj.generator = v
             elif k == 'zipfile' and v:
                 is_zipfile_changed = True
                 obj.set_zipfile(v)
+            elif k == 'custom_checker_remove' and v == 'true':
+                if obj.custom_checker: obj.custom_checker.delete(save=False)
             elif k == 'zipfile_remove' and v == 'true':
                 if obj.zipfile:
                     is_zipfile_changed = True
