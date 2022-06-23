@@ -11,6 +11,7 @@ from django.core.exceptions import PermissionDenied, ViewDoesNotExist, Validatio
 from rest_framework import views, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.serializers import DateTimeField
 
 from operator import attrgetter, itemgetter
 
@@ -22,7 +23,7 @@ from .models import Contest, ContestProblem, ContestSubmission, ContestParticipa
 
 from .exceptions import *
 
-from helpers.custom_pagination import BigPageCountPagination
+from helpers.custom_pagination import Page100Pagination, Page10Pagination
 
 __all__ = [
     'PastContestListView',
@@ -127,9 +128,8 @@ class ContestListView(generics.ListCreateAPIView):
         try:
             seri.save()
         except Exception as excp:
-            raise excp
             return Response({ 
-                'detail': str(excp),
+                'errors': str(excp),
             }, status=status.HTTP_400_BAD_REQUEST)
         return Response(seri.data, status=status.HTTP_201_CREATED)
 
@@ -175,7 +175,7 @@ class ContestProblemListView(generics.ListCreateAPIView):
         Problems within contests view
     """
     serializer_class = ContestProblemBriefSerializer
-    pagination_class = BigPageCountPagination
+    pagination_class = Page100Pagination
     lookup_field = 'shortname'
 
     def get_contest(self):
@@ -262,8 +262,10 @@ class ContestSubmissionListView(generics.ListAPIView):
         All Submissions within contest view
     """
     serializer_class = ContestSubmissionSerializer
+    pagination_class = Page10Pagination
 
-    def get_contest(self):
+    @cached_property
+    def contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
         if not (contest.is_visible or contest.is_accessible_by(user)):
@@ -273,27 +275,45 @@ class ContestSubmissionListView(generics.ListAPIView):
         return contest
 
     def get_queryset(self):
-        cps = ContestProblem.objects.filter(contest=self.get_contest()).all()
-        css = ContestSubmission.objects.select_related('participation', 'problem')\
-                .filter(problem__in=cps)
+        contest = self.contest
 
+        cps = ContestProblem.objects.filter(contest=contest).all()
+        css = ContestSubmission.objects.select_related(
+                'participation', 'participation__contest', 'problem', 'submission'
+            ).filter(problem__in=cps)
+
+        ## Visible subs
         if not self.request.user.is_superuser:
             css = css.filter(participation__virtual=ContestParticipation.LIVE)
 
+        ## Query params
         username = self.request.query_params.get('user')
         if username is not None:
             css = css.filter(participation__user__owner__username=username)
+
         prob_shortname = self.request.query_params.get('problem')
         if prob_shortname is not None:
             css = css.filter(problem__problem__shortname=prob_shortname)
         return css
 
-    #def get(self, request, key):
-    #    css = self.get_queryset()
-    #    return Response(ContestSubmissionSerializer(css, many=True).data,
-    #        status=status.HTTP_200_OK)
 
+    def get_serializer_context(self):
+        should_freeze_result = self.contest.is_frozen 
+        # and not self.contest.can_see_full_scoreboard(request.user)
+        context = {
+            'request': self.request,
+            'should_freeze_result': should_freeze_result,
+        }
+        return context
 
+    def get(self, request, key):
+        css = self.get_queryset()
+        page = self.paginate_queryset(css)
+        data = ContestSubmissionSerializer(page, 
+                context=self.get_serializer_context(), many=True).data
+        return self.get_paginated_response(data)
+
+## SHOULD NOT USE
 class ContestProblemSubmissionListView(generics.ListAPIView):
     """
         Submissions within contests view
@@ -310,6 +330,7 @@ class ContestProblemSubmissionListView(generics.ListAPIView):
         return contest
 
     def get_queryset(self):
+        raise NotImplementedError
         cp = get_object_or_404( ContestProblem,
             contest=self.get_contest(),
             problem__shortname=self.kwargs['shortname']
@@ -319,7 +340,7 @@ class ContestProblemSubmissionListView(generics.ListAPIView):
             raise Http404
         return queryset
 
-
+## SHOULD NOT USE
 class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
         Certain Submission within Contest view
@@ -336,6 +357,7 @@ class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
         return contest
 
     def get_queryset(self):
+        raise NotImplementedError
         cp = get_object_or_404( ContestProblem,
             contest=self.get_contest(),
             problem__shortname=self.kwargs['shortname']
@@ -544,11 +566,23 @@ def contest_standing_view(request, key):
             'detail': "Contest is not public to view."
         }, status=status.HTTP_403_FORBIDDEN)
 
-    ## TODO: Scoreboard visibility
     cache_duration = contest.scoreboard_cache_duration
     cache_disabled = (cache_duration == 0)
-    cache_key = f"contest-{contest.key}-scoreboard"
-    if not cache_disabled or cache.get(cache_key) == None:
+
+    ## TODO: Scoreboard visibility
+    can_break_ice = (contest.is_frozen and contest.can_see_full_scoreboard(user)) 
+    if not can_break_ice or (not (request.GET.get('view_full')=='1')):
+        scoreboard_view_mode = 'froze'
+        scoreboard_serializer = ContestStandingFrozenSerializer
+    else:
+        scoreboard_view_mode = 'full'
+        scoreboard_serializer = ContestStandingSerializer
+
+    print( scoreboard_view_mode )
+
+    cache_key = f"contest-{contest.key}-scoreboard-{scoreboard_view_mode}"
+
+    if cache_disabled or cache.get(cache_key) == None:
         cprobs = contest.contest_problems.all()
         problem_data = [{
             'id': p.id,
@@ -557,18 +591,28 @@ def contest_standing_view(request, key):
             'points': p.points,
         } for p in cprobs]
 
-        queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
-            order_by('-score', 'cumtime').all()
+        if scoreboard_view_mode == 'froze':
+            queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
+                order_by('-frozen_score', 'frozen_cumtime', 'frozen_tiebreaker').all()
+        else:
+            queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
+                order_by('-score', 'cumtime', 'tiebreaker').all()
 
         dat = {
             'problems': problem_data,
-            'results': ContestStandingSerializer(
+            'results': scoreboard_serializer(
                 queryset, many=True, context={'request': request}).data,
+            'is_frozen': (scoreboard_view_mode == 'froze'),
+            'is_frozen_enabled': contest.enable_frozen,
+            'frozen_time': DateTimeField().to_representation(contest.frozen_time),
         }
         if not cache_disabled:
             cache.set(cache_key, dat, cache_duration)
     else:
         dat = cache.get(cache_key)
+
+    if can_break_ice:
+        dat['can_break_ice'] = True
     return Response(dat, status=status.HTTP_200_OK)
 
 

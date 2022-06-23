@@ -2,6 +2,7 @@ from django.utils.timezone import timedelta
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, \
     RegexValidator, MinLengthValidator
+
 from django.core.cache import cache
 from django.db import models, transaction
 from django.db.models import CASCADE, SET_NULL, Q
@@ -10,6 +11,8 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext, gettext_lazy as _
 from jsonfield import JSONField
+
+from helpers.custom_pagination import Page10Pagination
 
 from problem.models import Problem
 from organization.models import Organization
@@ -161,7 +164,7 @@ class Contest(models.Model):
     frozen_time = models.DateTimeField(
         verbose_name=_("freeze after"),
         help_text=_("Timestamp to freeze results, if 'enable_frozen' is True"),
-        default=True, blank=True, null=True,
+        blank=True, null=True,
     )
 
     use_clarifications = models.BooleanField(
@@ -299,21 +302,23 @@ class Contest(models.Model):
             return False
         return True
 
+    """ 
+        See full scoreboard means: Seeing pass the frozen, or hidden scoreboard
+    """
     def can_see_full_scoreboard(self, user):
-        if self.show_scoreboard:
-            return True
-        if not user.is_authenticated:
+        ## Scoreboard is private, or frozen then only added users can see, check for them
+        if not self.show_scoreboard or self.is_frozen:
+            if not user.is_authenticated:
+                return False
+            ### TODO check for perms
+            ## Only reveal hidden scoreboard to editors
+            if user.is_superuser or user.profile.id in self.editor_ids:
+                return True
+            ## And added individuals
+            if self.view_contest_scoreboard.filter(owner__id=user.profile.id).exists():
+                return True
             return False
-        if user.is_superuser or user.has_perm('compete.see_private_contest') or \
-            user.has_perm('compete.edit_all_contest'):
-            return True
-        if user.profile.id in self.editor_ids:
-            return True
-        if self.view_contest_scoreboard.filter(id=user.profile.id).exists():
-            return True
-        if self.scoreboard_visibility == self.SCOREBOARD_AFTER_PARTICIPATION and \
-            self.has_completed_contest(user):
-            return True
+
         return False
 
     def has_completed_contest(self, user):
@@ -549,6 +554,7 @@ class Contest(models.Model):
                 code='invalid')
         self.format_class.validate(self.format_config)
         
+        print('Frozen Time', self.frozen_time)
         if self.frozen_time is None:
             _frozen_after = self.end_time - timedelta(hours=1)
             if _frozen_after <= self.start_time:
@@ -761,8 +767,11 @@ class ContestProblem(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(args, kwargs)
-        cache_key = f"contest-{self.contest.key}-scoreboard"
-        cache.delete(cache_key)
+
+        ## Delete related cache
+        for view_mode in ['full', 'froze']:
+            cache_key = f"contest-{self.contest.key}-scoreboard-{view_mode}"
+            cache.delete(cache_key)
 
     def __str__(self):
         return f"Problem {self.problem.shortname} in Contest {self.contest.key}"

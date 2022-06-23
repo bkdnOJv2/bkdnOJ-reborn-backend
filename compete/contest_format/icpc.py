@@ -59,6 +59,9 @@ class ICPCContestFormat(DefaultContestFormat):
         frozen_time = participation.contest.frozen_time
 
         format_data = {}
+        old_format_data = json.loads(participation.format_data)
+        if old_format_data is None:
+            old_format_data = {}
 
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -66,7 +69,8 @@ class ICPCContestFormat(DefaultContestFormat):
                     SELECT MIN(csub.date)
                         FROM compete_contestsubmission ccs LEFT OUTER JOIN
                              submission_submission csub ON (csub.id = ccs.submission_id)
-                        WHERE ccs.problem_id = cp.id AND ccs.participation_id = %s AND ccs.points = MAX(cs.points)
+                        WHERE ccs.problem_id = cp.id 
+                            AND ccs.participation_id = %s AND ccs.points = MAX(cs.points)
                 ) AS time, cp.id AS prob
                 FROM compete_contestproblem cp INNER JOIN
                      compete_contestsubmission cs ON 
@@ -82,8 +86,8 @@ class ICPCContestFormat(DefaultContestFormat):
                 dt = int(dt_seconds // 60)
                 is_frozen_sub = (participation.is_frozen and time >= frozen_time)
 
-                frozen_points = 0
-                frozen_tries = 0
+                frozen_points = old_format_data.get(str(prob), {}).get('frozen_points', 0)
+                frozen_tries = old_format_data.get(str(prob), {}).get('frozen_points', 0)
 
                 # Compute penalty
                 if self.config['penalty']:
@@ -91,28 +95,9 @@ class ICPCContestFormat(DefaultContestFormat):
                     subs = participation.submissions.exclude(submission__result__isnull=True) \
                                                     .exclude(submission__result__in=['IE', 'CE']) \
                                                     .filter(problem_id=prob)
+                    tries = subs.filter(submission__date__lte=time).count()
                     if points:
-                        tries = subs.filter(submission__date__lte=time).count()
-                        penalty += (tries-1) * self.config['penalty'] * 60
-                        if not is_frozen_sub:
-                            # Not frozen so just calculate as normal
-                            frozen_penalty += (tries - 1) * self.config['penalty']
-                            frozen_tries = tries
-                        else:
-                            # For frozen sub always display number of attempts
-                            frozen_tries = subs.count()
-                    else:
-                        # We should always display the penalty, even if the user has a score of 0
-                        tries = subs.count()
-                        frozen_tries = tries
-                        # the raw SQL query above returns the first submission with the
-                        # largest points. However, for computing & showing frozen scoreboard,
-                        # if the largest points is 0, we need to get the last submission.
-                        time = subs.aggregate(time=Max('submission__date'))['time']
-                        # time can be None if there all of submissions are CE or IE.
-                        is_frozen_sub = (participation.is_frozen and time and time >= frozen_time)
-                else:
-                    tries = 0
+                        penalty += (tries-1) * self.config['penalty']
 
                 if points:
                     cumtime += dt
@@ -121,20 +106,20 @@ class ICPCContestFormat(DefaultContestFormat):
 
                     if not is_frozen_sub:
                         frozen_points = points
-                        frozen_cumtime += dt
-                        frozen_last = max(frozen_last, dt)
-                        frozen_score += score
+                        frozen_cumtime = cumtime
+                        frozen_last = last
+                        frozen_score = score
 
                 format_data[str(prob)] = {
-                        'time': dt_seconds, 
-                        'points': points, 
-                        'frozen_points': frozen_points,
-                        'tries': tries,
-                        'frozen_tries': frozen_tries,
-                        'penalty': tries,
+                    'time': dt_seconds, 
+                    'points': points, 
+                    'frozen_points': frozen_points,
+                    'tries': tries,
+                    'frozen_tries': frozen_tries,
+                    'cumtime': cumtime,
+                    'frozen_cumtime': frozen_cumtime,
+                    'is_frozen': is_frozen_sub,
                 }
-                format_data['is_frozen'] = is_frozen_sub
-                score += points
 
         participation.cumtime = cumtime + penalty
         participation.score = round(score, self.contest.points_precision)

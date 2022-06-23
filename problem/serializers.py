@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class ProblemBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem 
-        fields = ['shortname', 'title']
+        fields = ['shortname', 'title', 'points', 'time_limit', 'memory_limit']
         lookup_field = 'shortname'
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'}
@@ -24,7 +24,7 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem 
         fields = [
-            'shortname', 'title', 'solved_count', 
+            'shortname', 'title', 'solved_count', 'points', 'time_limit', 'memory_limit',
             'attempted_count', 'points', 'is_public', 'is_organization_private',
             'created', 'modified',
         ]

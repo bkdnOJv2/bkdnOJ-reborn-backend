@@ -150,6 +150,24 @@ class Submission(models.Model):
   def is_locked(self):
     return self.locked_after is not None and self.locked_after < timezone.now()
 
+  def is_frozen_to(self, user):
+    """ 
+    Submission is_frozen when:
+      - Sub is in contest
+      - User who is viewing doesn't have see_detail permission
+      - Contest has enable_frozen on AND
+          submission time is after frozen_time
+    """
+    if self.contest_object is None or not self.contest_object.enable_frozen:
+        return False
+
+    if self.can_see_detail(user):
+        return False
+    
+    if self.date < self.contest_object.frozen_time:
+        return False
+    return True
+
   def judge(self, *args, rejudge=False, force_judge=False, rejudge_user=None, **kwargs):
     if force_judge or not self.is_locked:
       judged_succeeded = judge_submission(self, *args, rejudge=rejudge, **kwargs)

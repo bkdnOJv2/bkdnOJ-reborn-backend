@@ -15,8 +15,14 @@ class SubmissionSourceSerializer(serializers.ModelSerializer):
 
 class SubmissionSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source='user.owner.username')
-    problem = ProblemBasicSerializer(read_only=True)#serializers.CharField(source='problem.shortname')
+    problem = ProblemBasicSerializer(read_only=True)
     language = serializers.CharField(source='language.name')
+
+    contest_object = serializers.SerializerMethodField()
+    def get_contest_object(self, sub):
+        if sub.contest_object:
+            return sub.contest_object.key
+        return None
 
     class Meta:
         model = Submission
@@ -48,10 +54,20 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
     source = serializers.CharField(source='source.source')
     test_cases = SubmissionTestCaseSerializer(many=True)
 
+    contest_object = serializers.SerializerMethodField()
+    def get_contest_object(self, sub):
+        if sub.contest_object:
+            return sub.contest_object.key
+        return None
+
     class Meta:
         model = Submission
         fields = ("id", "date", "time", "memory", "points", "status", "result",
-            "error", "current_testcase", "batch", "case_points", "case_total", "judged_date", "rejudged_date",
+            "error", "current_testcase", "batch", "case_points", "case_total", 
+            "judged_date", "rejudged_date",
+
+            "contest_object",
+
             "is_pretested", "locked_after",
             "user", "problem", "language", "language_ace", 
             "source",

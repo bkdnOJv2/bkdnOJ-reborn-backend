@@ -1,3 +1,5 @@
+from functools import lru_cache as cache
+
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
@@ -17,7 +19,7 @@ __all__ = [
     'ContestProblemSerializer', 
     'ContestProblemBriefSerializer',
     'ContestSubmissionSerializer',
-    'ContestStandingSerializer',
+    'ContestStandingFrozenSerializer', 'ContestStandingSerializer',
     'ContestParticipationSerializer', 
     'ContestParticipationDetailSerializer',
 ]
@@ -74,13 +76,16 @@ class ContestSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'key', 'name', 'start_time', 'end_time', 'time_limit', 
+
+            'frozen_time', 
+            'is_frozen',
+
+
             'authors', 'collaborators', 'reviewers',
 
             'is_visible', 
             'is_private', 'private_contestants',
-
             'is_organization_private', 'organizations',
-
 
             'tags', 'user_count', 'format_name',
             'is_rated', 
@@ -91,6 +96,29 @@ class ContestSerializer(serializers.ModelSerializer):
             'url': {'lookup_field': 'key'}
         }
 
+class ContestProblemBasicSerializer(serializers.ModelSerializer):
+    shortname = serializers.SlugRelatedField(
+        source='problem',
+        slug_field='shortname',
+        queryset=Problem.objects.all(),
+    )
+    title = serializers.ReadOnlyField(source='problem.title')
+
+    time_limit = serializers.SerializerMethodField()
+    def get_time_limit(self, cp):
+        return cp.problem.time_limit
+
+    memory_limit = serializers.SerializerMethodField()
+    def get_memory_limit(self, cp):
+        return cp.problem.memory_limit
+
+    class Meta:
+        model = ContestProblem
+        fields = [
+            'id',
+            'shortname', 'title', 'time_limit', 'memory_limit',
+            'points', 'order', 'label',
+        ]
 
 class ContestProblemBriefSerializer(serializers.ModelSerializer):
     shortname = serializers.SlugRelatedField(
@@ -104,11 +132,20 @@ class ContestProblemBriefSerializer(serializers.ModelSerializer):
         queryset=Contest.objects.all(),
     )
 
+    time_limit = serializers.SerializerMethodField()
+    def get_time_limit(self, cp):
+        return cp.problem.time_limit
+
+    memory_limit = serializers.SerializerMethodField()
+    def get_memory_limit(self, cp):
+        return cp.problem.memory_limit
+
     class Meta:
         model = ContestProblem
         fields = [
             'id',
             'shortname', 'title', 'solved_count', 'attempted_count',
+            'time_limit', 'memory_limit',
             'contest', 'points', 'partial', 'is_pretested',
             'order', 'output_prefix_override', 'max_submissions',
             'label',
@@ -184,36 +221,61 @@ class ContestDetailSerializer(ContestBriefSerializer):
             'url': {'lookup_field': 'key'}
         }
 
+from django.utils.functional import cached_property
 
 class ContestSubmissionSerializer(serializers.ModelSerializer):
-    #submission = SubmissionSerializer()
-    #shortname = serializers.SlugRelatedField(
-    #    source='problem',
-    #    slug_field='shortname',
-    #    queryset=Problem.objects.all(),
-    #)
     id = serializers.ReadOnlyField(source='submission.id')
     date = serializers.ReadOnlyField(source='submission.date')
-    time = serializers.ReadOnlyField(source='submission.time')
-    memory = serializers.ReadOnlyField(source='submission.memory')
-    status = serializers.ReadOnlyField(source='submission.status')
-    result = serializers.ReadOnlyField(source='submission.result')
+
+    is_frozen = serializers.SerializerMethodField()
+    @cache
+    def get_is_frozen(self, obj):
+        user = self.context['request'].user
+        return obj.submission.is_frozen_to(user)
+
+    def _get_result(self, obj, key, default=None):
+        if self.get_is_frozen(obj):
+            return default 
+        return getattr(obj.submission, key, default)
+
+    time = serializers.SerializerMethodField()
+    def get_time(self, cs):
+        return self._get_result(cs, 'time')
+
+    memory = serializers.SerializerMethodField()
+    def get_memory(self, cs):
+        return self._get_result(cs, 'memory')
+
+    status = serializers.SerializerMethodField()
+    def get_status(self, cs):
+        return self._get_result(cs, 'status', 'FR')
+
+    result = serializers.SerializerMethodField()
+    def get_result(self, cs):
+        return self._get_result(cs, 'result', 'FR')
+
+    points = serializers.SerializerMethodField()
+    def get_points(self, cs):
+        if self.get_is_frozen(cs):
+            return None
+        return cs.points
+
     user = serializers.ReadOnlyField(source='submission.user.username')
     language = serializers.ReadOnlyField(source='submission.language.name')
 
     # # Problems
-    problem = ProblemBasicSerializer(read_only=True, source='problem.problem')
+    problem = ContestProblemBasicSerializer(read_only=True)
 
     class Meta:
         model = ContestSubmission
-        #fields = '__all__'
-        exclude = [
-            'participation', 'submission',
+        fields = ['id', 'date', 'is_frozen',
+            'time', 'memory', 'status', 'result', 'user', 'language', 'problem',
+            'points'
         ]
 
 import json
 
-class ContestStandingSerializer(serializers.ModelSerializer):
+class ContestStandingFrozenSerializer(serializers.ModelSerializer):
     #user = ProfileSerializer(required=False)
     user = serializers.SerializerMethodField()
     def get_user(self, obj):
@@ -228,19 +290,53 @@ class ContestStandingSerializer(serializers.ModelSerializer):
             user = self.context['request'].user
             #if data.get('is_frozen', False) and not obj.contest.can_see_full_scoreboard(user):
             ## TODO: special access to frozen board
-            if data.get('is_frozen', False):
+            if obj.is_frozen:
                 for k, v in data.items():
                     if type(v).__name__ != 'dict': continue
-                    if v.get('time'): del v['time']
-                    if v.get('points'): del v['points']
+
+                    if v.get('frozen_cumtime', None) is not None:
+                        del v['cumtime']
+                    if v.get('frozen_points', None) is not None:
+                        del v['points']
+                    if v.get('frozen_tiebreaker', None) is not None:
+                        del v['tiebreaker']
+
+                    # to_del = []
+                    # for pkey in v.keys():
+                    #     if pkey.startswith('frozen_'):
+                    #         pkey_without_frozen = pkey[7:]
+                    #         to_del.append(pkey_without_frozen)
+                    # for key_to_del in to_del:
+                    #     del v[key_to_del]
         data = json.dumps(data)
         return data
 
     class Meta:
         model = ContestParticipation
-        fields = ['user', 'score', 'cumtime', 'is_disqualified',
-            'tiebreaker', 'virtual', 'format_data',
+        fields = [
+            'user', 
+            'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker', 
+            'virtual', 'is_disqualified', 'is_frozen',
+            'format_data',
         ]
+
+class ContestStandingSerializer(ContestStandingFrozenSerializer):
+    format_data = serializers.SerializerMethodField()
+    def get_format_data(self, obj):
+        data = obj.format_data
+        data = json.dumps(data)
+        return data
+
+    class Meta:
+        model = ContestParticipation
+        fields = [
+            'user', 
+            'score', 'cumtime', 'tiebreaker',
+            'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker', 
+            'virtual', 'is_disqualified', 'is_frozen',
+            'format_data',
+        ]
+
 
 class ContestParticipationSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(
