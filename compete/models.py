@@ -540,6 +540,12 @@ class Contest(models.Model):
             prob.save(update_fields=['order'])
             numbering += 1
 
+    ## Clear scoreboard cache
+    def clear_scoreboard_cache(self):
+        for view_mode in ['full', 'froze']:
+            cache_key = f"contest-{self.key}-scoreboard-{view_mode}"
+            cache.delete(cache_key)
+
     ## Django model methods
     def clean(self):
         if self.time_limit != None and self.time_limit.total_seconds() < 0:
@@ -554,7 +560,6 @@ class Contest(models.Model):
                 code='invalid')
         self.format_class.validate(self.format_config)
         
-        print('Frozen Time', self.frozen_time)
         if self.frozen_time is None:
             _frozen_after = self.end_time - timedelta(hours=1)
             if _frozen_after <= self.start_time:
@@ -574,7 +579,9 @@ class Contest(models.Model):
 
     def save(self, *args, **kwargs):
         self.clean()
-        return super().save(*args, **kwargs)
+        cont = super().save(*args, **kwargs)
+        self.clear_scoreboard_cache()
+        return cont
 
     def __str__(self):
         return self.name
@@ -769,9 +776,7 @@ class ContestProblem(models.Model):
         super().save(args, kwargs)
 
         ## Delete related cache
-        for view_mode in ['full', 'froze']:
-            cache_key = f"contest-{self.contest.key}-scoreboard-{view_mode}"
-            cache.delete(cache_key)
+        self.contest.clear_scoreboard_cache();
 
     def __str__(self):
         return f"Problem {self.problem.shortname} in Contest {self.contest.key}"

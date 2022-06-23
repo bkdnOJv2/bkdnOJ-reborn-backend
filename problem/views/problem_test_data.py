@@ -25,6 +25,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import json
+from zipfile import BadZipFile
 
 class ProblemTestProfileListView(generics.ListAPIView):
     """
@@ -105,13 +106,18 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
                 'errors': {'error': ve},
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        obj.update_pdf_within_zip()
-        if is_zipfile_changed:
-            obj.generate_test_cases()
-        else:
-            obj.update_test_cases()
-        # obj will be saved because both ended with ProblemDataCompile.gen
-        # and it calls obj.save
+        try:
+            obj.update_pdf_within_zip()
+            if is_zipfile_changed:
+                obj.generate_test_cases()
+            else:
+                obj.update_test_cases()
+            # obj will be saved because both ended with ProblemDataCompile.gen
+            # and it calls obj.save
+        except BadZipFile as bzfe:
+            return response.Response({
+                'details': 'BadZipFile: your Archive is corrupted or is not a valid zipfile'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         return response.Response(
             ProblemTestProfileSerializer(obj, context={'request': request}).data,

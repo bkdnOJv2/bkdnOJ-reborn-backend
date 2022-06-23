@@ -59,9 +59,6 @@ class ICPCContestFormat(DefaultContestFormat):
         frozen_time = participation.contest.frozen_time
 
         format_data = {}
-        old_format_data = json.loads(participation.format_data)
-        if old_format_data is None:
-            old_format_data = {}
 
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -86,8 +83,8 @@ class ICPCContestFormat(DefaultContestFormat):
                 dt = int(dt_seconds // 60)
                 is_frozen_sub = (participation.is_frozen and time >= frozen_time)
 
-                frozen_points = old_format_data.get(str(prob), {}).get('frozen_points', 0)
-                frozen_tries = old_format_data.get(str(prob), {}).get('frozen_points', 0)
+                frozen_points = 0
+                frozen_tries = 0
 
                 # Compute penalty
                 if self.config['penalty']:
@@ -95,9 +92,32 @@ class ICPCContestFormat(DefaultContestFormat):
                     subs = participation.submissions.exclude(submission__result__isnull=True) \
                                                     .exclude(submission__result__in=['IE', 'CE']) \
                                                     .filter(problem_id=prob)
-                    tries = subs.filter(submission__date__lte=time).count()
                     if points:
-                        penalty += (tries-1) * self.config['penalty']
+                        # Submissions after the first AC does not count toward number of tries
+                        tries = subs.filter(submission__date__lte=time).count()
+                        penalty += (tries - 1) * self.config['penalty']
+                        
+                        if not is_frozen_sub:
+                            # Because this sub is not frozen yet, we update frozen_penalty
+                            # just like the normal penalty
+                            frozen_penalty += (tries - 1) * self.config['penalty']
+                            frozen_tries = tries
+                        else:
+                            # For frozen sub, we should always display the number of tries
+                            frozen_tries = subs.count
+                    else:
+                        # We should always display the penalty, even if the user has a score of 0
+                        tries = subs.count()
+                        frozen_tries= tries
+
+                        # The raw SQL query above returns the first submission with the
+                        # highest points. However, for computing & showing frozen scoreboard
+                        # if the largest points is 0, we need to get the last submission.
+                        time = subs.aggregate(time=Max('submission__date'))['time']
+                        # time can be None if all submissions are CE or IE
+                        is_frozen_sub = (participation.is_frozen and time and time >= frozen_time)
+                else:
+                    tries = 0
 
                 if points:
                     cumtime += dt
@@ -106,9 +126,9 @@ class ICPCContestFormat(DefaultContestFormat):
 
                     if not is_frozen_sub:
                         frozen_points = points
-                        frozen_cumtime = cumtime
-                        frozen_last = last
-                        frozen_score = score
+                        frozen_cumtime += dt
+                        frozen_last = max(frozen_last, dt)
+                        frozen_score += points
 
                 format_data[str(prob)] = {
                     'time': dt_seconds, 

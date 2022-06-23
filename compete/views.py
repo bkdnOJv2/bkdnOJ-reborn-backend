@@ -570,15 +570,14 @@ def contest_standing_view(request, key):
     cache_disabled = (cache_duration == 0)
 
     ## TODO: Scoreboard visibility
-    can_break_ice = (contest.is_frozen and contest.can_see_full_scoreboard(user)) 
-    if not can_break_ice or (not (request.GET.get('view_full')=='1')):
-        scoreboard_view_mode = 'froze'
-        scoreboard_serializer = ContestStandingFrozenSerializer
+    can_break_ice = (contest.can_see_full_scoreboard(user)) 
+    if contest.is_frozen and \
+        ((not can_break_ice) or (not (request.GET.get('view_full')=='1'))):
+            scoreboard_view_mode = 'froze'
+            scoreboard_serializer = ContestStandingFrozenSerializer
     else:
         scoreboard_view_mode = 'full'
         scoreboard_serializer = ContestStandingSerializer
-
-    print( scoreboard_view_mode )
 
     cache_key = f"contest-{contest.key}-scoreboard-{scoreboard_view_mode}"
 
@@ -593,10 +592,11 @@ def contest_standing_view(request, key):
 
         if scoreboard_view_mode == 'froze':
             queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
-                order_by('-frozen_score', 'frozen_cumtime', 'frozen_tiebreaker').all()
+                order_by('-frozen_score', 'frozen_cumtime', 'frozen_tiebreaker', 
+                        'user__id').all()
         else:
             queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
-                order_by('-score', 'cumtime', 'tiebreaker').all()
+                order_by('-score', 'cumtime', 'tiebreaker', 'user__id').all()
 
         dat = {
             'problems': problem_data,

@@ -356,7 +356,8 @@ class ContestParticipationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContestParticipation
-        fields = ['id', 'real_start', 'virtual', 'is_disqualified',
+        fields = [
+            'id', 'real_start', 'virtual', 'is_disqualified',
             'user',]
 
 

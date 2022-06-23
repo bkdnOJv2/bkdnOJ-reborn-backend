@@ -25,6 +25,7 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
         model = Problem 
         fields = [
             'shortname', 'title', 'solved_count', 'points', 'time_limit', 'memory_limit',
+            'partial', 'short_circuit',
             'attempted_count', 'points', 'is_public', 'is_organization_private',
             'created', 'modified',
         ]
