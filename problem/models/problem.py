@@ -169,14 +169,14 @@ class Problem(TimeStampedModel):
   def languages_list(self):
     return self.allowed_languages. \
       values_list('common_name', flat=True).distinct().order_by('common_name')
-  
+
   def is_editor(self, user):
-    return (self.authors.filter(id=user.profile.id) | 
+    return (self.authors.filter(id=user.profile.id) |
         self.collaborators.filter(id=user.profile.id)).exists()
 
   def is_tester(self, user):
     return self.reviewers.filter(id=user.profile.id).eixsts()
-  
+
   def is_editable_by(self, user):
       if not user.is_authenticated: return False
       if user.is_superuser: return True
@@ -189,7 +189,7 @@ class Problem(TimeStampedModel):
       if self.is_organization_private and self.organizations.filter(admins=user.profile).exists():
           return True
       return False
-  
+
   def is_accessible_by(self, user, contest=None):
     if contest != None and user.is_authenticated:
         from compete.models import ContestParticipation
@@ -227,14 +227,14 @@ class Problem(TimeStampedModel):
 
     if self.reviewers.filter(owner_id=user.profile.id).exists():
         return True
-    
+
     return False
 
   @classmethod
   def get_visible_problems(cls, user):
     if not user.is_authenticated:
         return cls.get_public_problems()
-    
+
     queryset = cls.objects.defer('content')
 
     edit_own_problem = user.has_perm('problem.edit_own_problem')
@@ -255,9 +255,9 @@ class Problem(TimeStampedModel):
         q |= Q(collaborators=user.profile)
         q |= Q(reviewers=user.profile)
         queryset = queryset.filter(q)
-    
+
     return queryset
-  
+
   @classmethod
   def get_public_problems(cls):
     return cls.objects.filter(is_public=True, is_organization_private=False).defer('content')
@@ -268,7 +268,7 @@ class Problem(TimeStampedModel):
       #     return cls.objects.none()
       # if user.has_perm('problem.edit_all_problem'):
       #     return cls.objects.all()
-      
+
       q = Q(authors=user.profile) | Q(collaborators=user.profile)
       # q |= Q(is_organization_private=True, organizations__in=user.profile.admin_of.all())
 
@@ -285,11 +285,12 @@ class Problem(TimeStampedModel):
 
   def expensive_recompute_stats(self):
     # TODO
-    solves = self.submission_set.filter(result='AC').order_by('user').\
-      values_list('user', flat=True).distinct().count()
-    total = self.submission_set.order_by('user').\
-      values_list('user', flat=True).distinct().count()
-    
+    queryset = self.submission_set.select_related('user')
+
+    solves = queryset.filter(points__gte=self.points, result='AC').order_by('user').\
+              values_list('user', flat=True).distinct().count()
+    total = queryset.order_by('user').values_list('user', flat=True).distinct().count()
+
     self.solved_count = solves
     self.attempted_count = total
     self.save()
@@ -298,18 +299,18 @@ class Problem(TimeStampedModel):
   def author_ids(self):
     return Problem.authors.through.objects.filter(problem=self).\
             values_list('userprofile_id', flat=True)
-  
+
   @cached_property
   def editor_ids(self):
     return self.author_ids.union(
         Problem.collaborators.through.objects.filter(problem=self).\
         values_list('userprofile_id', flat=True))
-  
+
   @cached_property
   def tester_ids(self):
     return Problem.reviewers.through.objects.filter(problem=self).\
             values_list('userprofile_id', flat=True)
-  
+
   @cached_property
   def usable_common_names(self):
     return set(self.usable_languages.values_list('common_name', flat=True))
@@ -351,9 +352,9 @@ class Problem(TimeStampedModel):
 
 
 class LanguageLimit(models.Model):
-  problem = models.ForeignKey(Problem, 
+  problem = models.ForeignKey(Problem,
     verbose_name=_('problem'), related_name='language_limits', on_delete=models.CASCADE)
-  language = models.ForeignKey(Language, 
+  language = models.ForeignKey(Language,
     verbose_name=_('language'), on_delete=models.CASCADE)
   time_limit = models.FloatField(verbose_name=_('time limit'),
     validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_TIME_LIMIT),
@@ -366,4 +367,3 @@ class LanguageLimit(models.Model):
     unique_together = ('problem', 'language')
     verbose_name = _('Language-specific resource limit')
     verbose_name_plural = _('Language-specific resource limits')
-

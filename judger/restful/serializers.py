@@ -9,6 +9,11 @@ __all__ = [
     'LanguageBasicSerializer', 'LanguageSerializer'
 ]
 
+class JudgeBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Judge
+        fields = ['id', 'name',]
+
 class JudgeSerializer(serializers.ModelSerializer):
     problems = serializers.SlugRelatedField(
         queryset=Problem.objects.all(), many=True, slug_field="shortname",

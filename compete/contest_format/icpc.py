@@ -52,13 +52,15 @@ class ICPCContestFormat(DefaultContestFormat):
         penalty = 0
         score = 0
 
+        format_data = {}
+
         frozen_cumtime = 0
         frozen_last = 0
         frozen_penalty = 0
         frozen_score = 0
         frozen_time = participation.contest.frozen_time
 
-        format_data = {}
+        frozen_format_data = {}
 
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -66,12 +68,12 @@ class ICPCContestFormat(DefaultContestFormat):
                     SELECT MIN(csub.date)
                         FROM compete_contestsubmission ccs LEFT OUTER JOIN
                              submission_submission csub ON (csub.id = ccs.submission_id)
-                        WHERE ccs.problem_id = cp.id 
+                        WHERE ccs.problem_id = cp.id
                             AND ccs.participation_id = %s AND ccs.points = MAX(cs.points)
                 ) AS time, cp.id AS prob
                 FROM compete_contestproblem cp INNER JOIN
-                     compete_contestsubmission cs ON 
-                        (cs.problem_id = cp.id AND cs.participation_id = %s) 
+                     compete_contestsubmission cs ON
+                        (cs.problem_id = cp.id AND cs.participation_id = %s)
                      LEFT OUTER JOIN
                      submission_submission sub ON (sub.id = cs.submission_id)
                 GROUP BY cp.id
@@ -81,10 +83,15 @@ class ICPCContestFormat(DefaultContestFormat):
                 time = from_database_time(time)
                 dt_seconds = (time - participation.start).total_seconds()
                 dt = int(dt_seconds // 60)
+                # Frozen and sub_time after frozen
                 is_frozen_sub = (participation.is_frozen and time >= frozen_time)
 
+                sub_time = dt
+
+                frozen_sub_time = sub_time
                 frozen_points = 0
                 frozen_tries = 0
+                _tries = None
 
                 # Compute penalty
                 if self.config['penalty']:
@@ -92,30 +99,43 @@ class ICPCContestFormat(DefaultContestFormat):
                     subs = participation.submissions.exclude(submission__result__isnull=True) \
                                                     .exclude(submission__result__in=['IE', 'CE']) \
                                                     .filter(problem_id=prob)
-                    if points:
+
+                    if points: ## Acceptted
                         # Submissions after the first AC does not count toward number of tries
                         tries = subs.filter(submission__date__lte=time).count()
+                        _tries = tries
                         penalty += (tries - 1) * self.config['penalty']
-                        
-                        if not is_frozen_sub:
-                            # Because this sub is not frozen yet, we update frozen_penalty
-                            # just like the normal penalty
+
+                        if not is_frozen_sub: ## AC BEFORE FROZEN
+                            # frozen_XX == XX
                             frozen_penalty += (tries - 1) * self.config['penalty']
                             frozen_tries = tries
+                            # frozen_sub_time = sub_time # Already set
                         else:
-                            # For frozen sub, we should always display the number of tries
-                            frozen_tries = subs.count
-                    else:
-                        # We should always display the penalty, even if the user has a score of 0
-                        tries = subs.count()
-                        frozen_tries= tries
+                            ## AC_AFTER FROZEN
+                            # Tries should be number of attempts
+                            tries = subs.count()
+                            if tries > 0:
+                                frozen_tries = subs.filter(submission__date__lt=frozen_time).count()
 
-                        # The raw SQL query above returns the first submission with the
-                        # highest points. However, for computing & showing frozen scoreboard
-                        # if the largest points is 0, we need to get the last submission.
-                        time = subs.aggregate(time=Max('submission__date'))['time']
-                        # time can be None if all submissions are CE or IE
-                        is_frozen_sub = (participation.is_frozen and time and time >= frozen_time)
+                                # We should always display latest sub time to hide the fact that this participant
+                                # has solved this problem if they were to sub more after AC
+                                frozen_sub_time = subs.aggregate(time=Max('submission__date'))['time']
+                                frozen_sub_time = from_database_time(frozen_sub_time)
+                                # number of minutes from start to last submission
+                                frozen_sub_time = int((frozen_sub_time - participation.start).total_seconds() // 60)
+                    else:
+                        # Not acceptted in anyway, points == frozen_points == 0
+                        tries = subs.count()
+                        if tries > 0:
+                            frozen_tries = subs.filter(submission__date__lt=frozen_time).count()
+
+                            sub_time = subs.aggregate(time=Max('submission__date'))['time']
+                            sub_time = from_database_time(sub_time)
+                            sub_time = int((sub_time - participation.start).total_seconds() // 60)
+                            frozen_sub_time = sub_time
+                        else:
+                            is_frozen_sub = False
                 else:
                     tries = 0
 
@@ -131,25 +151,30 @@ class ICPCContestFormat(DefaultContestFormat):
                         frozen_score += points
 
                 format_data[str(prob)] = {
-                    'time': dt_seconds, 
-                    'points': points, 
-                    'frozen_points': frozen_points,
-                    'tries': tries,
-                    'frozen_tries': frozen_tries,
-                    'cumtime': cumtime,
-                    'frozen_cumtime': frozen_cumtime,
-                    'is_frozen': is_frozen_sub,
+                    'sub_time': sub_time, ## Submission time
+                    'points': points, ## AC or Not
+                    'tries': _tries if _tries is not None else tries, ## Tries
+                }
+                frozen_format_data[str(prob)] = {
+                    'sub_time': frozen_sub_time,
+                    'points': frozen_points, ## AC or Not before Frozen
+                    'tries': frozen_tries, ## Tries
+
+                    'tries_after_frozen': tries-frozen_tries, ## Tries before frozen
+                    # 'is_frozen': is_frozen_sub, ## If participant submit after frozen
                 }
 
         participation.cumtime = cumtime + penalty
         participation.score = round(score, self.contest.points_precision)
         participation.tiebreaker = last  # field is sorted from least to greatest
+        participation.format_data = format_data
 
         participation.frozen_cumtime = frozen_cumtime + frozen_penalty
         participation.frozen_score = round(frozen_score, self.contest.points_precision)
         participation.frozen_tiebreaker = frozen_last
+        participation.frozen_format_data = frozen_format_data
+        participation.frozen_time = frozen_time
 
-        participation.format_data = format_data
         participation.save()
 
     def display_user_problem(self, participation, contest_problem):
@@ -185,4 +210,3 @@ class ICPCContestFormat(DefaultContestFormat):
                     'The scoreboard will be frozen after ',
                     str(self.contest.frozen_time),
                 )
-

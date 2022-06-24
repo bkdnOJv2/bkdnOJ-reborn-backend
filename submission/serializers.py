@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from submission.models import Submission, SubmissionSource, SubmissionTestCase
 
-from userprofile.serializers import UserProfileSerializer
+from userprofile.serializers import UserProfileSerializer, UserProfileSerializer
 from problem.serializers import ProblemBriefSerializer, ProblemBasicSerializer
-from judger.restful.serializers import LanguageSerializer
+from judger.restful.serializers import JudgeBasicSerializer, LanguageSerializer
 
 import logging
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
         fields = (
             "id", "date", "time", "memory", "points", "status", "result",
             "user", "problem", "language", "contest_object",
-            #"judged_on", "judged_date", "rejudged_date", "case_points", "case_total", 
+            #"judged_on", "judged_date", "rejudged_date", "case_points", "case_total",
         )
         read_only_fields = ('id',)
 
@@ -54,6 +54,8 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
     source = serializers.CharField(source='source.source')
     test_cases = SubmissionTestCaseSerializer(many=True)
 
+    judged_on = JudgeBasicSerializer(read_only=True)
+
     contest_object = serializers.SerializerMethodField()
     def get_contest_object(self, sub):
         if sub.contest_object:
@@ -63,13 +65,13 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Submission
         fields = ("id", "date", "time", "memory", "points", "status", "result",
-            "error", "current_testcase", "batch", "case_points", "case_total", 
+            "error", "current_testcase", "batch", "case_points", "case_total",
             "judged_date", "rejudged_date",
 
             "contest_object",
 
             "is_pretested", "locked_after",
-            "user", "problem", "language", "language_ace", 
+            "user", "problem", "language", "language_ace",
             "source",
             "judged_on", "contest_object",
 
@@ -90,9 +92,8 @@ class SubmissionSubmitSerializer(serializers.ModelSerializer):
             'problem','language','source',
         )
         read_only_fields = ('problem',)
-    
+
     def create(self, validated_data):
-        logger.warn("Validated Data:", validated_data)
         src = validated_data.pop('source')
         sub = Submission.objects.create(**validated_data)
 

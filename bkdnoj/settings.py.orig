@@ -185,8 +185,7 @@ LOGGING = {
 
 ## Celery
 CELERY_BROKER_URL = 'redis://localhost:6379'
-# CELERY_RESULT_BACKEND = 'redis://localhost:6379'
-result_backend = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 
 ## --------- Credits to DMOJ
 ## Refer to dmoj.ca/post/103-point-system-rework

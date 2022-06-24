@@ -3,11 +3,11 @@ from django.core.exceptions import PermissionDenied, ViewDoesNotExist, Validatio
 
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
-from rest_framework import views, generics, status
+from rest_framework import views, generics, status, permissions
 from rest_framework.response import Response
 
 from .serializers import SubmissionSerializer, SubmissionTestCaseSerializer, \
-    SubmissionDetailSerializer, SubmissionResultSerializer
+    SubmissionDetailSerializer, SubmissionResultSerializer, SubmissionBasicSerializer
 from .models import Submission, SubmissionTestCase
 from problem.models import Problem
 
@@ -39,6 +39,35 @@ class SubmissionDetailView(generics.RetrieveUpdateAPIView):
             return sub
         raise PermissionDenied
 
+class SubmissionRejudgeView(views.APIView):
+    """
+        View for rejudge submission
+    """
+    queryset = Submission.objects.all()
+    serializer_class = SubmissionBasicSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_object(self, pk):
+        sub = get_object_or_404(Submission, id=pk)
+        user = self.request.user
+        if sub.can_see_detail(user):
+            return sub
+        raise PermissionDenied
+
+    def post(self, request, pk):
+        sub = self.get_object(pk)
+        try:
+            sub.judge(force_judge=True, rejudge=True)
+        except Exception as e:
+            return Response({
+                'error': f"Rejudge submission {sub.id} failed.",
+                'details': str(e),
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            SubmissionBasicSerializer(sub, context={'request': request}).data,
+            status=status.HTTP_200_OK
+        )
+
 class SubmissionResultView(views.APIView):
     """
         Return a list of test case results for that submission
@@ -48,7 +77,7 @@ class SubmissionResultView(views.APIView):
     def get_queryset(self):
         return SubmissionDetailTestCase.objects.filter(
             submission=self.kwargs['pk'])
-    
+
     def get(self, request, pk):
         submission = get_object_or_404(Submission, pk=pk)
         serial = SubmissionResultSerializer(submission)
@@ -62,7 +91,7 @@ class SubmissionResultTestCaseView(views.APIView):
     queryset = SubmissionTestCase.objects.none()
     serializer_class = SubmissionTestCaseSerializer
     permission_classes = []
-    
+
     def get(self, request, pk, case_num):
         Qfilter = Q(submission=pk) & Q(case=case_num)
         inst = get_object_or_404(SubmissionTestCase, Qfilter)

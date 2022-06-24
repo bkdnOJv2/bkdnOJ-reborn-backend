@@ -151,7 +151,7 @@ class Submission(models.Model):
     return self.locked_after is not None and self.locked_after < timezone.now()
 
   def is_frozen_to(self, user):
-    """ 
+    """
     Submission is_frozen when:
       - Sub is in contest
       - User who is viewing doesn't have see_detail permission
@@ -159,13 +159,13 @@ class Submission(models.Model):
           submission time is after frozen_time
     """
     if self.contest_object is None or not self.contest_object.enable_frozen:
-        return False
+      return False
 
-    if self.can_see_detail(user):
-        return False
-    
+    if self.user == user.profile or self.can_see_detail(user):
+      return False
+
     if self.date < self.contest_object.frozen_time:
-        return False
+      return False
     return True
 
   def judge(self, *args, rejudge=False, force_judge=False, rejudge_user=None, **kwargs):
@@ -208,7 +208,7 @@ class Submission(models.Model):
         self.problem.submission_set.filter(user_id=profile.id, result='AC').exists():
       return True
 
-    # # If user is an author or curator of the contest the 
+    # # If user is an author or curator of the contest the
     # # submission was made in, or they can see in-contest subs
     # contest = self.contest_object
     # if contest is not None and (

@@ -31,9 +31,9 @@ class ContestTag(models.Model):
     color_validator = RegexValidator('^#(?:[A-Fa-f0-9]{3}){1,2}$', _('Invalid colour.'))
 
     name = models.CharField(
-        max_length=20, verbose_name=_('tag name'), 
+        max_length=20, verbose_name=_('tag name'),
         unique=True, db_index=True, #unique implies db_index=True
-        validators=[RegexValidator(r'^[a-z-]+$', 
+        validators=[RegexValidator(r'^[a-z-]+$',
                     message=_('Lowercase letters and hyphens only.'))
                     ]
     )
@@ -71,10 +71,10 @@ class Contest(models.Model):
         (SCOREBOARD_AFTER_PARTICIPATION, _('Hidden for duration of participation')),
     )
     # ---------------------
-    key = models.CharField(max_length=20, verbose_name=_('contest identifier'), 
+    key = models.CharField(max_length=20, verbose_name=_('contest identifier'),
         unique=True, db_index=True, #unique implies db_index=True
         validators=[
-            RegexValidator('^[a-z][a-z0-9]+$', 
+            RegexValidator('^[a-z][a-z0-9]+$',
                _('Contest identifier must starts with a letter, contains only lowercase letters.')),
             MinLengthValidator(4),
         ]
@@ -237,7 +237,7 @@ class Contest(models.Model):
                     'to join the contest. Leave it blank to disable.'))
 
     format_name = models.CharField(
-        verbose_name=_('contest format'), default='default', max_length=32,
+        verbose_name=_('contest format'), default='icpc', max_length=32,
         choices=contest_format.choices(), help_text=_('The contest format module to use.')
     )
     format_config = JSONField(
@@ -302,7 +302,7 @@ class Contest(models.Model):
             return False
         return True
 
-    """ 
+    """
         See full scoreboard means: Seeing pass the frozen, or hidden scoreboard
     """
     def can_see_full_scoreboard(self, user):
@@ -318,12 +318,11 @@ class Contest(models.Model):
             if self.view_contest_scoreboard.filter(owner__id=user.profile.id).exists():
                 return True
             return False
-
-        return False
+        return True
 
     def has_completed_contest(self, user):
         if user.is_authenticated:
-            participation = self.users.filter(virtual=ContestParticipation.LIVE, 
+            participation = self.users.filter(virtual=ContestParticipation.LIVE,
                                                 user=user.profile).first()
             if participation and participation.ended:
                 return True
@@ -463,7 +462,7 @@ class Contest(models.Model):
         #    return False
 
         return True
-        
+
         # # # Visible Contest checks:
         # if (not obj.is_private) and (not obj.is_organization_private):
         #     return True
@@ -504,7 +503,7 @@ class Contest(models.Model):
     def get_visible_contests(cls, user):
         if not user.is_authenticated:
             return cls.objects.filter(is_visible=True).defer('description').distinct()
-            # return cls.objects.filter(is_visible=True, is_organization_private=False, 
+            # return cls.objects.filter(is_visible=True, is_organization_private=False,
             #                            is_private=False).defer('description').distinct()
         queryset = cls.objects.defer('description')
         # TODO: perms
@@ -559,7 +558,7 @@ class Contest(models.Model):
                 _("Contest cannot have `end_time` <= `start_time`."),
                 code='invalid')
         self.format_class.validate(self.format_config)
-        
+
         if self.frozen_time is None:
             _frozen_after = self.end_time - timedelta(hours=1)
             if _frozen_after <= self.start_time:
@@ -622,13 +621,22 @@ class ContestParticipation(models.Model):
         verbose_name=_('cumulative time'), default=0)
     tiebreaker = models.FloatField(
         verbose_name=_('tie-breaking field'), default=0.0)
+    format_data = JSONField(
+        verbose_name=_('contest format specific data'), null=True, blank=True)
 
+    frozen_time = models.DateTimeField(
+        verbose_name=_("frozen time"),
+        help_text=_("time when frozen data was last written"),
+        blank=True, null=True,
+    )
     frozen_score = models.FloatField(
         verbose_name=_('frozen score'), default=0, db_index=True)
     frozen_cumtime = models.PositiveIntegerField(
         verbose_name=_('frozen cumulative time'), default=0)
     frozen_tiebreaker = models.FloatField(
         verbose_name=_('frozen tie-breaking field'), default=0.0)
+    frozen_format_data = JSONField(
+        verbose_name=_('contest format specific data'), null=True, blank=True)
 
     is_disqualified = models.BooleanField(
         verbose_name=_('is disqualified'), default=False,
@@ -637,17 +645,15 @@ class ContestParticipation(models.Model):
     virtual = models.IntegerField(
         verbose_name=_('virtual participation id'), default=LIVE,
         help_text=_('0 means non-virtual, otherwise the n-th virtual participation.'))
-    format_data = JSONField(
-        verbose_name=_('contest format specific data'), null=True, blank=True)
 
     def recompute_results(self):
         with transaction.atomic():
             self.contest.format.update_participation(self)
             if self.is_disqualified:
-                self.score = -9999
-                self.cumtime = 0
-                self.tiebreaker = 0
-                self.save(update_fields=['score', 'cumtime', 'tiebreaker'])
+                self.score = self.frozen_score = -9999
+                self.cumtime = self.frozen_cumtime = 0
+                self.tiebreaker = self.frozen_tiebreaker = 0
+                self.save(update_fields=['score', 'cumtime', 'tiebreaker', 'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker'])
     recompute_results.alters_data = True
 
     def set_disqualified(self, disqualified):
@@ -757,9 +763,16 @@ class ContestProblem(models.Model):
         return self.contest.get_label_for_problem(self.order)
 
     def expensive_recompute_stats(self):
+        contest = self.contest
         queryset = self.submissions.prefetch_related('submission')
+
+        if contest.is_frozen:
+            queryset = queryset.filter(submission__date__lt=contest.frozen_time)
+
         totals = queryset.values_list('submission__user').distinct().count()
-        solves = queryset.filter(submission__result='AC').\
+
+        ## ContestSubmission.points >= ContestProblem.points AND result = 'AC'
+        solves = queryset.filter(points__gte=self.points, submission__result='AC').\
                     values_list('submission__user').distinct().count()
         self.solved_count = solves
         self.attempted_count = totals
@@ -767,7 +780,7 @@ class ContestProblem(models.Model):
 
     def clean(self):
         try:
-            if self.order is None or int(self.order) < 0: raise 
+            if self.order is None or int(self.order) < 0: raise
         except Exception:
             raise ValidationError(_("'order' must be a positive integer"))
 

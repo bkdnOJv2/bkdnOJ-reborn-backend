@@ -13,14 +13,14 @@ from submission.serializers import SubmissionSerializer, SubmissionDetailSeriali
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
 
 __all__ = [
-    'ContestSerializer', 
+    'ContestSerializer',
     'ContestBriefSerializer',
     'ContestDetailSerializer',
-    'ContestProblemSerializer', 
+    'ContestProblemSerializer',
     'ContestProblemBriefSerializer',
     'ContestSubmissionSerializer',
     'ContestStandingFrozenSerializer', 'ContestStandingSerializer',
-    'ContestParticipationSerializer', 
+    'ContestParticipationSerializer',
     'ContestParticipationDetailSerializer',
 ]
 
@@ -54,8 +54,8 @@ class ContestBriefSerializer(serializers.ModelSerializer):
         model = Contest
         fields = [
             'spectate_allow', 'register_allow', 'is_registered',
-            'key', 'name', 
-            'start_time', 'end_time', 'time_limit', 
+            'key', 'name',
+            'start_time', 'end_time', 'time_limit',
             'enable_frozen', 'frozen_time', 'is_frozen',
             'user_count',
         ]
@@ -75,20 +75,20 @@ class ContestSerializer(serializers.ModelSerializer):
         model = Contest
         fields = [
             'id',
-            'key', 'name', 'start_time', 'end_time', 'time_limit', 
+            'key', 'name', 'start_time', 'end_time', 'time_limit',
 
-            'frozen_time', 
+            'frozen_time',
             'is_frozen',
 
 
             'authors', 'collaborators', 'reviewers',
 
-            'is_visible', 
+            'is_visible',
             'is_private', 'private_contestants',
             'is_organization_private', 'organizations',
 
             'tags', 'user_count', 'format_name',
-            'is_rated', 
+            'is_rated',
         ]
 
         lookup_field = 'key'
@@ -188,7 +188,7 @@ class ContestDetailSerializer(ContestBriefSerializer):
     )
 
     def to_internal_value(self, data):
-        profiles = ['authors', 'collaborators', 'reviewers', 
+        profiles = ['authors', 'collaborators', 'reviewers',
             'private_contestants', 'banned_users']
         qs = Profile.objects.select_related('owner')
         profiles_val = {}
@@ -202,7 +202,7 @@ class ContestDetailSerializer(ContestBriefSerializer):
                     raise ValidationError(f"User '{uname}' does not exist.")
                 profile_ins.append(p.first().id)
             profiles_val[prf] = profile_ins
-            
+
         val_data = super().to_internal_value(data)
         for k, v in profiles_val.items():
             val_data[k] = v
@@ -235,7 +235,7 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
 
     def _get_result(self, obj, key, default=None):
         if self.get_is_frozen(obj):
-            return default 
+            return default
         return getattr(obj.submission, key, default)
 
     time = serializers.SerializerMethodField()
@@ -285,37 +285,15 @@ class ContestStandingFrozenSerializer(serializers.ModelSerializer):
 
     format_data = serializers.SerializerMethodField()
     def get_format_data(self, obj):
-        data = obj.format_data
-        if data is not None: 
-            user = self.context['request'].user
-            #if data.get('is_frozen', False) and not obj.contest.can_see_full_scoreboard(user):
-            ## TODO: special access to frozen board
-            if obj.is_frozen:
-                for k, v in data.items():
-                    if type(v).__name__ != 'dict': continue
-
-                    if v.get('frozen_cumtime', None) is not None:
-                        del v['cumtime']
-                    if v.get('frozen_points', None) is not None:
-                        del v['points']
-                    if v.get('frozen_tiebreaker', None) is not None:
-                        del v['tiebreaker']
-
-                    # to_del = []
-                    # for pkey in v.keys():
-                    #     if pkey.startswith('frozen_'):
-                    #         pkey_without_frozen = pkey[7:]
-                    #         to_del.append(pkey_without_frozen)
-                    # for key_to_del in to_del:
-                    #     del v[key_to_del]
+        data = obj.frozen_format_data
         data = json.dumps(data)
         return data
 
     class Meta:
         model = ContestParticipation
         fields = [
-            'user', 
-            'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker', 
+            'user',
+            'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
             'virtual', 'is_disqualified', 'is_frozen',
             'format_data',
         ]
@@ -330,9 +308,9 @@ class ContestStandingSerializer(ContestStandingFrozenSerializer):
     class Meta:
         model = ContestParticipation
         fields = [
-            'user', 
+            'user',
             'score', 'cumtime', 'tiebreaker',
-            'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker', 
+            'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
             'virtual', 'is_disqualified', 'is_frozen',
             'format_data',
         ]
@@ -370,5 +348,3 @@ class ContestParticipationDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContestParticipation
         fields = '__all__'
-
-

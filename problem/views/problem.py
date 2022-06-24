@@ -1,11 +1,23 @@
+import io, os
+from ast import literal_eval
+from zipfile import BadZipfile, ZipFile
+
 from django.shortcuts import get_object_or_404
+
 from django.core.exceptions import PermissionDenied
+from django.core.validators import ValidationError
+
 from django.http import Http404
 from django.conf import settings
 from django.utils.translation import gettext as _
 from django.db import transaction, IntegrityError
 from rest_framework import views, permissions, generics, viewsets, response, status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework.exceptions import APIException
 
+
+from problem.validators import problem_data_zip_validator
 from problem.serializers import ProblemBriefSerializer, ProblemSerializer, \
   ProblemTestProfileSerializer
 from problem.models import Problem, ProblemTestProfile
@@ -14,12 +26,19 @@ from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
   SubmissionBasicSerializer
 
+from helpers.string_process import ustrip
+
+__all__ = [
+  'ProblemListView', 'ProblemDetailView',
+  'ProblemSubmitView', 'ProblemRejudgeView', 'create_problem_from_archive'
+]
+
 import logging
 logger = logging.getLogger(__name__)
 
 class ProblemListView(generics.ListCreateAPIView):
-  """ 
-    Return a list of Problems 
+  """
+    Return a list of Problems
   """
   serializer_class = ProblemBriefSerializer
   permission_classes = []
@@ -43,18 +62,18 @@ class ProblemListView(generics.ListCreateAPIView):
           rs = super().post(request)
           return rs
       except IntegrityError as ie:
-          return Response({ 'detail': str(ie) }, 
+          return Response({ 'detail': str(ie) },
             status=status.HTTP_400_BAD_REQUEST)
       except Exception as e:
-          return Response({ 'detail': str(e) }, 
+          return Response({ 'detail': str(e) },
             status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
-  """ 
+  """
     Return detailed view of the requested problem
   """
-  serializer_class = ProblemSerializer 
+  serializer_class = ProblemSerializer
   permission_classes = []
   lookup_field = 'shortname'
 
@@ -75,7 +94,7 @@ class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class ProblemSubmitView(generics.CreateAPIView):
-  """ 
+  """
     Return the requested Problem's view to submit submissions.
   """
   serializer_class = SubmissionSubmitSerializer
@@ -87,10 +106,10 @@ class ProblemSubmitView(generics.CreateAPIView):
       if not p.is_accessible_by(self.request.user):
           raise Http404()
       return p
-  
+
   def create(self, request, *args, **kwargs):
     if (
-      not self.request.user.has_perm('submission.spam_submission') 
+      not self.request.user.has_perm('submission.spam_submission')
       and Submission
         .objects.filter(user=self.request.user.profile, rejudged_date__isnull=True)
         .exclude(status__in=['D', 'IE', 'CE', 'AB']).count() >= settings.BKDNOJ_SUBMISSION_LIMIT
@@ -106,7 +125,7 @@ class ProblemSubmitView(generics.CreateAPIView):
     sub = SubmissionSubmitSerializer(data=request.data)
     if not sub.is_valid():
       return response.Response(sub.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     sub_obj = sub.save(problem=prob, user=request.user.profile)
     sub_obj.judge()
     return response.Response(
@@ -114,16 +133,74 @@ class ProblemSubmitView(generics.CreateAPIView):
       status=status.HTTP_200_OK,
     )
 
-from django.core.validators import ValidationError
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework.exceptions import APIException
-from helpers.string_process import ustrip
-from problem.validators import problem_data_zip_validator
+from judger.tasks.submission import rejudge_problem_filter, apply_submission_filter
 
-import io, os
-from ast import literal_eval
-from zipfile import BadZipfile, ZipFile
+class ProblemRejudgeView(views.APIView):
+  """
+    Rejudge all submissions of a Problem, including in contest
+  """
+  serializer_class = SubmissionSubmitSerializer
+  lookup_field = 'shortname'
+  permission_classes = [permissions.IsAdminUser]
+
+  def get_object(self):
+    p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
+    if not p.is_editable_by(self.request.user):
+      raise PermissionDenied
+    return p
+
+  def get_sub_id_range(self, request):
+    data = request.data
+    if data == {}:
+      data = request.GET
+    if data.get('use_range', 'off') == 'on':
+      try:
+        start = int(data.get('start'))
+        end = int(data.get('end'))
+        return (start, end)
+      except (KeyError, ValueError, TypeError):
+        pass
+    return None
+
+  def get(self, request, shortname):
+    problem = self.get_object()
+    queryset = problem.submission_set
+    if not queryset.exists():
+        return Response({
+            'detail': 'There are no submission to rejudge.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    id_range = self.get_sub_id_range(request)
+    if id_range is None:
+      id_range = (queryset.last().id, queryset.first().id)
+
+    queryset = apply_submission_filter(queryset, id_range, None, None)
+    ##
+    cnt = queryset.count()
+    return Response({
+      'count': cnt,
+      'msg': f"This will rejudge {cnt} submission(s).",
+    })
+
+  def post(self, request, shortname):
+    problem = self.get_object()
+    queryset = problem.submission_set
+    if not queryset.exists():
+        return Response({
+            'detail': 'There are no submission to rejudge.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    id_range = self.get_sub_id_range(request)
+    if id_range is None:
+      id_range = (queryset.last().id, queryset.first().id)
+
+    queryset = apply_submission_filter(queryset, id_range, None, None)
+
+    ## ---
+    async_status = rejudge_problem_filter.delay(
+      problem.id, id_range, user_id=request.user.id)
+
+    return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 CONF_TOK_LEN = settings.BKDNOJ_PROBLEM_CONFIG_TOKEN_LENGTH
 encoding = 'utf-8-sig'
@@ -170,14 +247,14 @@ def create_problem_from_archive(request):
               line = ustrip(line)
               if len(line) == 0 or line.startswith(';'): # comment or empty line
                 continue
-              
+
               eqlpos = line.find('=')
               if eqlpos < 0:
                 return Response({
                   "detail": f"Invalid format. File '{config_file}', "+
                             f"Line {line_row}: `{line}` not following 'KEY=VALUE' format."
                 }, status=status.HTTP_400_BAD_REQUEST)
-              
+
               # String unicode whitespaces
               parsed_key = ustrip(line[:eqlpos])
               parsed_val = ustrip(line[eqlpos+1:])
@@ -196,32 +273,32 @@ def create_problem_from_archive(request):
               # The value might be a string enclosed in Ascii quotes
               # If starts or end with a quote, attempt to parse it
               if parsed_val[0] in "'\"" or parsed_val[-1] in "'\"":
-                # because we have checked the length, this wont crash the ast compiler 
+                # because we have checked the length, this wont crash the ast compiler
                 try:
                   parsed_val = literal_eval(parsed_val)
                 except Exception as err:
                   return Response({
                     "detail": f"Cannot parse value for key {parsed_key} ({err})"
                   }, status=status.HTTP_400_BAD_REQUEST)
-              
+
               problem_config[parsed_key] = ustrip(parsed_val)
   except BadZipfile:
     return Response({
       "detail": "Provided file is not a valid .zip file.",
     }, status=status.HTTP_400_BAD_REQUEST)
-   
+
   # Collect into a dict
   data = {}
   conf_key_set = set(problem_config.keys())
   for attrib, keylist in __prob_attrib_2_confkey.items():
     for key in keylist:
-      if key in conf_key_set: 
+      if key in conf_key_set:
         data[attrib] = problem_config[key]
         break
-    
+
   # Include additional data that config file might not have
   data['authors'] = [request.user.profile.username]
-      
+
   # Validating Problem settings
   context={'request':request}
   seri = ProblemSerializer(data=data, context=context)
@@ -230,7 +307,7 @@ def create_problem_from_archive(request):
       "detail": "Invalid problem attributes after parsing.",
       "errors": seri.errors,
     }, status=status.HTTP_400_BAD_REQUEST)
-  
+
   # Validating archive testdata
   try:
     problem_data_zip_validator(archive)

@@ -2,7 +2,7 @@ import requests as R
 
 HOST = 'http://localhost:8000'
 TEST_USER_PREFIX = 'user'
-TEST_USER_COUNT = 499
+TEST_USER_COUNT = 200
 
 users = [TEST_USER_PREFIX+str(i) for i in range(1, TEST_USER_COUNT+1)]
 tokens = [None] * len(users)
@@ -35,7 +35,7 @@ def authenticate_users(start=0, end=9999):
             print('auth ' + u + ' failed')
             #tokens.append(None)
 
-SUBMIT_BASEURL = HOST + '/contest/testicpcbig/problem/'
+SUBMIT_BASEURL = HOST + '/contest/testicpc2/problem/'
 import threading
 import time
 import random
@@ -86,17 +86,19 @@ def random_submit():
             'Accept': 'application/json',
             'Authorization': 'Bearer '+rnd_tok})
 
-def spam_random_submit(times=1):
+def spam_random_submit(times=1, tid=None):
     for _ in range(times):
-        print('Submitting randomly..')
+        print(f"Thread {tid}: Submitting randomly..")
         req = random_submit()
-        print(req.status_code)
-        time.sleep(2)
+        print(f"Thread {tid}: Received {req.status_code}")
+        rnd_sleep = random.randint(10, 30)
+        print(f"Thread {tid}: Sleeping for {rnd_sleep}")
+        time.sleep( rnd_sleep )
 
 if __name__ == '__main__':
     print('Mass submitting script --')
 
-    THREADS = 5
+    THREADS = 10
 
     threads = []
     for tid in range(THREADS):
@@ -115,11 +117,11 @@ if __name__ == '__main__':
         if not os.path.exists(p):
             raise Exception(f"Folder {p} does not exist.")
     
-    SUBS = 500
+    SUBS = 100
 
     threads = []
     for tid in range(THREADS):
-        t = threading.Thread(name=f"random_submit-{tid}", target=spam_random_submit, args=(SUBS,))
+        t = threading.Thread(name=f"random_submit-{tid}", target=spam_random_submit, args=(SUBS, tid))
         t.start()
 
     for th in threads:

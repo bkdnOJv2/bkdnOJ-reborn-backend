@@ -7,7 +7,7 @@ from helpers.timezone import from_database_time
 
 @register_contest_format('ioi16')
 class IOIContestFormat(LegacyIOIContestFormat):
-    name = gettext_lazy('IOI')
+    name = gettext_lazy('IOI (post-2016)')
     config_defaults = {'cumtime': False}
     """
         cumtime: Specify True if time penalties are to be computed. Defaults to False.

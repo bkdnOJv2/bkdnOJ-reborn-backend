@@ -1,6 +1,7 @@
-from .default import DefaultContestFormat
 from .icpc import ICPCContestFormat
-from .ioi import IOIContestFormat
+from .legacy_ioi import LegacyIOIContestFormat
+# from .default import DefaultContestFormat
+# from .ioi import IOIContestFormat
 from .registry import choices, formats
 
 # from .contest_format.atcoder import AtCoderContestFormat
