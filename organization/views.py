@@ -14,12 +14,13 @@ class OrganizationListView(generics.ListCreateAPIView):
         permissions.DjangoModelPermissionsOrAnonReadOnly,
     ]
 
+
 class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
         Return a detailed view of requested organization
     """
     queryset = Organization.objects.all()
-    lookup_field = 'shortname'
+    lookup_field = 'slug'
     serializer_class = OrganizationDetailSerializer
     permission_classes = [
         permissions.IsAuthenticated,

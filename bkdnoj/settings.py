@@ -4,23 +4,15 @@ load_dotenv()
 
 from pathlib import Path
 from datetime import timedelta
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = '8u923hr45677ujhbvcde4r56789pedasc9ijnjk192e8uwydgvdbhnjkiudwyhdn2j1ie837eyftrsdghsj'
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
 ALLOWED_HOSTS = ['1509.ddns.net', 'localhost']
 
-# Application definition
-
+# Application definition -------------------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -39,7 +31,7 @@ INSTALLED_APPS = [
     'problem',
     'judger',
     'submission',
-    'compete', # 'contest' is a Python module already
+    'compete',
 ]
 
 MIDDLEWARE = [
@@ -75,7 +67,6 @@ WSGI_APPLICATION = 'bkdnoj.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -90,7 +81,6 @@ DATABASES = {
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -117,7 +107,6 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
-
 STATIC_URL = 'static/'
 
 # Fixture folder
@@ -128,11 +117,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 200 * 1024*1024
-## storing into RAM upto 200Mb, someday server will crash :)
+## storing into RAM upto 200Mb, someday the server will crash :)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS
@@ -158,7 +146,7 @@ REST_FRAMEWORK = {
 
 # SimpleJWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60*5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
@@ -183,18 +171,15 @@ LOGGING = {
     },
 }
 
-## Celery
+## Celery -------------------------------------------
 CELERY_BROKER_URL = 'redis://localhost:6379'
-# CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 result_backend = 'redis://localhost:6379'
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 
-## --------- Credits to DMOJ
-## Refer to dmoj.ca/post/103-point-system-rework
-DMOJ_PP_STEP = 0.95
-DMOJ_PP_ENTRIES = 100
-DMOJ_PP_BONUS_FUNCTION = lambda n: 300 * (1 - 0.997 ** n)  # noqa: E731
+## --------- Site settings
+DEFAULT_USER_TIME_ZONE = 'Asia/Ho_Chi_Minh'
+DEFAULT_USER_LANGUAGE = 'PY3'
 
-# --------- Site settings
 BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'problem_data')
 BKDNOJ_PROBLEM_PDF_ROOT=os.path.join(MEDIA_ROOT, 'problem_pdf')
 BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS = 0.0
@@ -214,10 +199,26 @@ BKDNOJ_SUBMISSION_LIMIT = 5
 BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_PREFIX = int(1000)
 BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_LIMIT = int(1e7)
 
-DEFAULT_USER_TIME_ZONE = 'Asia/Ho_Chi_Minh'
-DEFAULT_USER_LANGUAGE = 'PY3'
+BKDNOJ_DISPLAY_RANKS = (
+  ('banned', _('Banned User')),
+  ('user', _('Normal User')),
+  ('setter', _('Problem Setter')),
+  ('staff', _('Staff')),
+  ('teacher', _('Teacher')),
+  ('admin', _('Admin')),
+)
 
-#
+## --------- Points scaling params
+## Refer to dmoj.ca/post/103-point-system-rework
+DMOJ_PP_STEP = 0.95
+DMOJ_PP_ENTRIES = 100
+DMOJ_PP_BONUS_FUNCTION = lambda n: 300 * (1 - 0.997 ** n)  # noqa: E731
+
+VNOJ_ORG_PP_STEP = 0.95
+VNOJ_ORG_PP_ENTRIES = 100
+VNOJ_ORG_PP_SCALE = 1
+
+## --------------------------------------------------
 EVENT_DAEMON_USE = False
 EVENT_DAEMON_POST = 'ws://localhost:9997/'
 EVENT_DAEMON_GET = 'ws://localhost:9996/'

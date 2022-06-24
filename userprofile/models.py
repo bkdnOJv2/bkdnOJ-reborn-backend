@@ -3,6 +3,7 @@ User = get_user_model()
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Max, F
 from django.utils.translation import gettext_lazy as _
 from django.utils.functional import cached_property
 from django.utils.timezone import now
@@ -11,48 +12,52 @@ from django_extensions.db.models import TimeStampedModel
 from bkdnoj.choices import TIMEZONE, ACE_THEMES
 from helpers.fileupload import \
     path_and_rename_avatar, DEFAULT_AVATAR_URL
+
 from judger.models import Language
+from judger.utils.float_compare import float_compare_equal
 
 class UserProfile(TimeStampedModel):
     owner = models.OneToOneField(User,
         on_delete=models.CASCADE, primary_key=True,
         related_name='profile',
     )
-    about = models.TextField(verbose_name=_("self-description"), 
+    about = models.TextField(verbose_name=_("self-description"),
         null=True, blank=True)
     timezone = models.CharField(
         max_length=50, verbose_name=_('location'), choices=TIMEZONE,
         default=settings.DEFAULT_USER_TIME_ZONE)
-    language = models.ForeignKey(Language, 
+    language = models.ForeignKey(Language,
         verbose_name=_('preferred language'), on_delete=models.SET_DEFAULT,
         default=Language.get_default_language_pk)
+
     points = models.FloatField(default=0, db_index=True)
     performance_points = models.FloatField(default=0, db_index=True)
-
     problem_count = models.IntegerField(default=0, db_index=True)
 
     ace_theme = models.CharField(max_length=30, choices=ACE_THEMES, default='github')
     last_access = models.DateTimeField(verbose_name=_('last access time'), default=now)
     ip = models.GenericIPAddressField(verbose_name=_('last IP'), blank=True, null=True)
-    # organizations = SortedManyToManyField(Organization, 
-    organizations = models.ManyToManyField('organization.Organization', 
+
+    # organizations = SortedManyToManyField(Organization,
+    organizations = models.ManyToManyField('organization.Organization',
         verbose_name=_('organization'), blank=True,
         related_name='members', related_query_name='member')
+
     display_rank = models.CharField(
         max_length=10, default='user', verbose_name=_('display rank'),
-        choices=(   ('user', _('Normal User')),
-                    ('setter', _('Problem Setter')),
-                    ('admin', _('Admin')))
-    )
+        choices=settings.BKDNOJ_DISPLAY_RANKS)
     mute = models.BooleanField(
         verbose_name=_('comment mute'), help_text=_('Some users are at their best when silent.'),
-        default=False
-    )
+        default=False)
     is_unlisted = models.BooleanField(
         verbose_name=_('unlisted user'), help_text=_('User will not be ranked.'),
         default=False)
+    ban_reason = models.TextField(
+        null=True, blank=True,
+        help_text=_('Show to banned user in login page.'))
+
     rating = models.IntegerField(null=True, default=None)
-    current_contest = models.OneToOneField('compete.ContestParticipation', 
+    current_contest = models.OneToOneField('compete.ContestParticipation',
         verbose_name=_('current contest'),
         null=True, blank=True, related_name='+', on_delete=models.SET_NULL)
     notes = models.TextField(
@@ -61,13 +66,17 @@ class UserProfile(TimeStampedModel):
     username_display_override = models.CharField(
         max_length=100, blank=True, verbose_name=_('display name override'),
         help_text=_('name displayed in place of username'))
-    
+
     avatar = models.ImageField( upload_to=path_and_rename_avatar, default=DEFAULT_AVATAR_URL )
+
+    @cached_property
+    def organization(self):
+        orgs = self.organizations.all()
+        return orgs[0] if orgs else None
 
     @property
     def id(self):
         return self.owner.id # Compatibility
-
     @property
     def user(self):
         return self.owner # For compatibility with DMOJ
@@ -75,16 +84,12 @@ class UserProfile(TimeStampedModel):
     @property
     def first_name(self):
         return self.owner.first_name
-
     @property
     def last_name(self):
         return self.owner.last_name
-
-    @cached_property
-    def organization(self):
-        # We do this to take advantage of prefetch_related
-        orgs = self.organizations.all()
-        return orgs[0] if orgs else None
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
 
     @cached_property
     def username(self):
@@ -114,27 +119,28 @@ class UserProfile(TimeStampedModel):
         bonus_function = settings.DMOJ_PP_BONUS_FUNCTION
         points = sum(data)
         problems = len(data)
-        entries = min(len(data), len(table))
-        pp = sum(map(mul, table[:entries], data[:entries])) + bonus_function(extradata)
-        if self.points != points or problems != self.problem_count or self.performance_points != pp:
+        pp = sum(x * y for x, y in zip(table, data)) + bonus_function(extradata)
+        if not float_compare_equal(self.points, points) or \
+           problems != self.problem_count or \
+           not float_compare_equal(self.performance_points, pp):
             self.points = points
             self.problem_count = problems
             self.performance_points = pp
             self.save(update_fields=['points', 'problem_count', 'performance_points'])
+            for org in self.organizations.get_queryset():
+                org.calculate_points()
         return points
-
     calculate_points.alters_data = True
 
-    def remove_contest(self):
-        self.current_contest = None
-        self.save()
-    remove_contest.alters_data = True
+    def ban_user(self, reason):
+        self.ban_reason = reason
+        self.display_rank = 'banned'
+        self.is_unlisted = True
+        self.save(update_fields=['ban_reason', 'display_rank', 'is_unlisted'])
 
-    def update_contest(self):
-        contest = self.current_contest
-        if contest is not None and (contest.ended or not contest.contest.is_accessible_by(self.user)):
-            self.remove_contest()
-    update_contest.alters_data = True
+        self.user.is_active = False
+        self.user.save(update_fields=['is_active'])
+    ban_user.alters_data = True
 
     def set_image_to_default(self):
         self.avatar.delete(save=False) # delete old image file
@@ -152,10 +158,18 @@ class UserProfile(TimeStampedModel):
         verbose_name = _('user profile')
         verbose_name_plural = _('user profiles')
 
-        default_permissions = ( 
+        default_permissions = (
             'view', 'change', #'add', 'delete'
         )
         permissions = (
             # (, _()),
         )
 
+
+class Badge(models.Model):
+    name = models.CharField(max_length=128, verbose_name=_('badge name'))
+    mini = models.URLField(verbose_name=_('mini badge URL'), blank=True)
+    full_size = models.URLField(verbose_name=_('full size badge URL'), blank=True)
+
+    def __str__(self):
+        return f"Badge {self.name}"

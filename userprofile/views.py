@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import generics, mixins, permissions, status
 from rest_framework.response import Response
 from django.http import Http404
@@ -13,6 +13,10 @@ class UserProfileDetail(generics.RetrieveAPIView):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = []
+    lookup_field = 'username'
+
+    def get_object(self):
+        return get_object_or_404(self.get_queryset(), owner__username=self.kwargs.get('username'))
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs,)
@@ -27,7 +31,7 @@ class SelfProfileDetail(generics.RetrieveUpdateDestroyAPIView):
         permissions.IsAuthenticated,
         permissions.DjangoObjectPermissions,
     ]
-    
+
     def serialize(self, request, data):
         ser_context = { 'request': request, }
         return self.serializer_class(data, context=ser_context)
@@ -41,7 +45,7 @@ class SelfProfileDetail(generics.RetrieveUpdateDestroyAPIView):
     def get(self, request, *args, **kwargs):
         profile = self.get_object(request.user.id)
         return Response(self.serialize(request, profile).data)
-    
+
     def put(self, request, *args, **kwargs):
         profile = self.get_object(request.user.id)
         serializer = UserProfileSerializer(profile, data=request.data)
@@ -49,7 +53,7 @@ class SelfProfileDetail(generics.RetrieveUpdateDestroyAPIView):
             serializer.save()
             return Response(self.serialize(request, profile).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     def patch(self, request, *args, **kwargs):
         profile = self.get_object(request.user.id)
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)

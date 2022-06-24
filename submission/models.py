@@ -161,7 +161,7 @@ class Submission(models.Model):
     if self.contest_object is None or not self.contest_object.enable_frozen:
       return False
 
-    if self.user == user.profile or self.can_see_detail(user):
+    if self.user.owner == user or self.can_see_detail(user):
       return False
 
     if self.date < self.contest_object.frozen_time:

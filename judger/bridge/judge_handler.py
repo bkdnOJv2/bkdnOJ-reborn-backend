@@ -117,7 +117,7 @@ class JudgeHandler(ZlibPacketHandler):
         judge.problems.set(
             Problem.objects.filter(shortname__in=list(self.problems.keys()))
         )
-        
+
         judge.runtimes.set(
             Language.objects.filter(key__in=list(self.executors.keys())))
 
@@ -419,15 +419,13 @@ class JudgeHandler(ZlibPacketHandler):
             problem=problem.shortname, finish=True,
         ))
 
-        # if problem.is_public and not problem.is_organization_private:
-        #     submission.user._updating_stats_only = True
-        #     submission.user.calculate_points()
+        if problem.is_public and not problem.is_organization_private:
+            submission.user._updating_stats_only = True
+            submission.user.calculate_points()
 
-        # problem._updating_stats_only = True
-        # problem.update_stats()
-
+        problem._updating_stats_only = True
+        problem.update_stats()
         submission.update_contest()
-        problem.expensive_recompute_stats()
 
         finished_submission(submission)
 

@@ -7,6 +7,8 @@ from auth.serializers import UserSerializer
 from organization.serializers import OrganizationSerializer
 from .models import UserProfile
 
+from judger.restful.serializers import LanguageBasicSerializer
+
 class UserProfileBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
@@ -14,26 +16,20 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     owner = UserSerializer(required=False)
-    current_contest = serializers.SerializerMethodField('get_current_contest')
+    language = LanguageBasicSerializer()
 
-    def get_current_contest(self, instance):
-        if (instance.current_contest == None):
-            return None
-
-        contest = instance.current_contest.contest
-        return { 
-            'contest' : {
-                'key': contest.key, 
-                'name': contest.name, 
-                'start_time': contest.start_time, 
-                'end_time': contest.end_time, 
-                'time_limit': contest.time_limit, 
-                'is_rated': contest.is_rated,
-            },
-            'virtual': instance.current_contest.virtual,
-        }
+    organization = serializers.SerializerMethodField()
+    def get_organization(self, profile):
+        if profile.organization:
+            from organization.serializers import OrganizationSerializer
+            return OrganizationSerializer(profile.organization).data
+        return None
 
     class Meta:
         model = UserProfile
-        fields = ['owner', 'first_name', 'last_name', 'username', 'avatar',
-            'about', 'timezone', 'language', 'points', 'rating', 'current_contest']
+        fields = [
+            'owner',
+            'first_name', 'last_name', 'full_name',
+            'username', 'display_name', 'avatar',
+            'organization',
+            'about', 'timezone', 'language', 'performance_points', 'problem_count', 'points', 'rating', ]

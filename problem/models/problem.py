@@ -283,17 +283,16 @@ class Problem(TimeStampedModel):
   def delete_pdf(self):
     shutil.rmtree(problem_pdf_storage.path(self.shortname), ignore_errors=True)
 
-  def expensive_recompute_stats(self):
-    # TODO
+  def update_stats(self):
     queryset = self.submission_set.select_related('user')
-
     solves = queryset.filter(points__gte=self.points, result='AC').order_by('user').\
-              values_list('user', flat=True).distinct().count()
-    total = queryset.order_by('user').values_list('user', flat=True).distinct().count()
+              values('user').distinct().count()
+    total = queryset.order_by('user').values('user').distinct().count()
 
     self.solved_count = solves
     self.attempted_count = total
     self.save()
+  update_stats.alters_data = True
 
   @cached_property
   def author_ids(self):
