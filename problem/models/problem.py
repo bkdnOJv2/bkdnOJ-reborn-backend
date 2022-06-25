@@ -225,7 +225,7 @@ class Problem(TimeStampedModel):
     if self.is_editable_by(user) or user.profile.id in self.editor_ids:
         return True
 
-    if self.reviewers.filter(owner_id=user.profile.id).exists():
+    if self.reviewers.filter(id=user.profile.id).exists():
         return True
 
     return False

@@ -16,7 +16,7 @@ class UserProfileDetail(generics.RetrieveAPIView):
     lookup_field = 'username'
 
     def get_object(self):
-        return get_object_or_404(self.get_queryset(), owner__username=self.kwargs.get('username'))
+        return get_object_or_404(self.get_queryset(), user__username=self.kwargs.get('username'))
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs,)

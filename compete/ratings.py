@@ -11,7 +11,7 @@ from django.utils import timezone
 BETA2 = 328.33 ** 2
 RATING_INIT = 1200      # Newcomer's rating when applying the rating floor/ceiling
 MEAN_INIT = 1500.
-VAR_INIT = 350**2 * (BETA2 / 212**2)
+VAR_INIT = 200**2 * (BETA2 / 212**2)
 SD_INIT = sqrt(VAR_INIT)
 VALID_RANGE = MEAN_INIT - 20 * SD_INIT, MEAN_INIT + 20 * SD_INIT
 VAR_PER_CONTEST = 1219.047619 * (BETA2 / 212**2)
@@ -145,6 +145,8 @@ def rate_contest(contest):
 
     rating_subquery = Rating.objects.filter(user=OuterRef('user'))
     rating_sorted = rating_subquery.order_by('-contest__end_time')
+
+    ## We should excludes disqualified participants
     users = contest.users.order_by('is_disqualified', '-score', 'cumtime', 'tiebreaker') \
         .annotate(submissions=Count('submission'),
                   last_rating=Coalesce(Subquery(rating_sorted.values('rating')[:1]), RATING_INIT),
@@ -152,8 +154,8 @@ def rate_contest(contest):
                   times=Coalesce(Subquery(rating_subquery.order_by().values('user_id')
                                           .annotate(count=Count('id')).values('count')), 0)) \
         .exclude(user_id__in=contest.rate_exclude.all()) \
-        .filter(virtual=0).values('id', 'user_id', 'score', 'cumtime', 'tiebreaker',
-                                  'last_rating', 'last_mean', 'times')
+        .filter(virtual=0, is_disqualified=False).values('id', 'user_id', 'score', 'cumtime', 'tiebreaker',
+                                                         'last_rating', 'last_mean', 'times')
     if not contest.rate_all:
         users = users.filter(submissions__gt=0)
     if contest.rating_floor is not None:
@@ -190,23 +192,21 @@ def rate_contest(contest):
                             .order_by('-contest__end_time').values('rating')[:1]))
 
 
-RATING_LEVELS = ['Newbie', 'Amateur', 'Expert', 'Candidate Master', 'Master', 'Grandmaster', 'Target']
-RATING_VALUES = [1000, 1300, 1600, 1900, 2400, 3000]
-RATING_CLASS = ['rate-newbie', 'rate-amateur', 'rate-expert', 'rate-candidate-master',
-                'rate-master', 'rate-grandmaster', 'rate-target']
-
+RATING_LEVELS = ['Newbie', 'Pupil', 'Specialist', 'Expert', 'Candidate Master', 'Master', 'International Master',
+                 'Grandmaster', 'International Grandmaster', 'Legendary Grandmaster']
+RATING_VALUES = [1200, 1400, 1600, 1900, 2200, 2300, 2400, 2600, 2900]
+RATING_CLASS = ['rate-newbie', 'rate-pupil', 'rate-specialist', 'rate-expert', 'rate-candidate-master', 'rate-master',
+                'rate-international-master', 'rate-grandmaster', 'rate-international-grandmaster',
+                'rate-legendary-grandmaster']
 
 def rating_level(rating):
     return bisect(RATING_VALUES, rating)
 
-
 def rating_name(rating):
     return RATING_LEVELS[rating_level(rating)]
 
-
 def rating_class(rating):
     return RATING_CLASS[rating_level(rating)]
-
 
 def rating_progress(rating):
     level = bisect(RATING_VALUES, rating)

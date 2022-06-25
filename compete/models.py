@@ -315,7 +315,7 @@ class Contest(models.Model):
             if user.is_superuser or user.profile.id in self.editor_ids:
                 return True
             ## And added individuals
-            if self.view_contest_scoreboard.filter(owner__id=user.profile.id).exists():
+            if self.view_contest_scoreboard.filter(user__id=user.profile.id).exists():
                 return True
             return False
         return True
@@ -429,7 +429,7 @@ class Contest(models.Model):
         #     return
 
         in_org = self.organizations.filter(id__in=user.profile.organizations.all()).exists()
-        in_users = self.private_contestants.filter(owner__id=user.profile.id).exists()
+        in_users = self.private_contestants.filter(user__id=user.profile.id).exists()
 
         if not self.is_private and self.is_organization_private:
             if in_org:
@@ -468,7 +468,7 @@ class Contest(models.Model):
         #     return True
 
         # # Private Contest for contestants
-        # if obj.is_private and obj.private_contestants.filter(owner__id=user.id).exists():
+        # if obj.is_private and obj.private_contestants.filter(user__id=user.id).exists():
         #     return True
 
         # # Private Contest for contestants

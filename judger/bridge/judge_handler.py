@@ -188,13 +188,13 @@ class JudgeHandler(ZlibPacketHandler):
             # ppk, time, memory, short_circuit, lid, is_pretested, sub_date, uid, part_virtual, part_id = (
             #     Submission.objects.filter(id=submission)
             #               .values_list('problem__shortname', 'problem__time_limit', 'problem__memory_limit',
-            #                            'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__owner__id',
+            #                            'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__id',
             #                            'contest__participation__virtual', 'contest__participation__id')).get()
 
             ppk, time, memory, short_circuit, lid, is_pretested, sub_date, uid = (
                 Submission.objects.filter(id=submission)
                           .values_list('problem__shortname', 'problem__time_limit', 'problem__memory_limit',
-                                       'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__owner__id')).get()
+                                       'problem__short_circuit', 'language__id', 'is_pretested', 'date', 'user__id')).get()
 
         except Submission.DoesNotExist:
             logger.error('Submission vanished: %s', submission)
@@ -208,7 +208,7 @@ class JudgeHandler(ZlibPacketHandler):
         #     problem__shortname=ppk, contest__participation__id=part_id, user__id=uid,
         #     date__lt=sub_date).exclude(status__in=('CE', 'IE')).count() + 1
         attempt_no = Submission.objects.filter(
-            problem__shortname=ppk, user__owner__id=uid,
+            problem__shortname=ppk, user__id=uid,
             date__lt=sub_date).exclude(status__in=('CE', 'IE')).count() + 1
 
         try:

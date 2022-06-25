@@ -3,6 +3,7 @@ from django.urls import path, include
 from rest_framework.urlpatterns import format_suffix_patterns
 
 from .views import *
+from .views import ContestRateView
 
 urlpatterns = [
     path('past-contest/',
@@ -34,6 +35,11 @@ urlpatterns = [
     path('contest/<str:key>/standing/',
         contest_standing_view,
         name='contest-standing',
+    ),
+
+    path('contest/<str:key>/rate/',
+        ContestRateView.as_view(),
+        name='contest-rate',
     ),
 
     path('contest/<str:key>/participations/',
@@ -81,6 +87,11 @@ urlpatterns = [
         ContestProblemSubmissionDetailView.as_view(),
         name='contestsubmission-detail',
     ),
+
+    path('ranks/',
+        get_ranks_view,
+        name='ranks-list',
+    )
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

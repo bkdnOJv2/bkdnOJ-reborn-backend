@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class ProblemBasicSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Problem 
+        model = Problem
         fields = ['shortname', 'title', 'points', 'time_limit', 'memory_limit']
         lookup_field = 'shortname'
         extra_kwargs = {
@@ -22,7 +22,7 @@ class ProblemBasicSerializer(serializers.ModelSerializer):
 
 class ProblemBriefSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Problem 
+        model = Problem
         fields = [
             'shortname', 'title', 'solved_count', 'points', 'time_limit', 'memory_limit',
             'partial', 'short_circuit',
@@ -43,9 +43,9 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
         return inst
 
 # from judger.restful.serializers import LanguageSerializer
-# The line above causes Circular Import, and I have been trying to fix 
+# The line above causes Circular Import, and I have been trying to fix
 # this for 30+ mins...
-# F*** it, lets redefine it for now. 
+# F*** it, lets redefine it for now.
 from judger.models import Language
 class LanguageBasicSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,7 +53,7 @@ class LanguageBasicSerializer(serializers.ModelSerializer):
         fields = ['id', 'key', 'name', 'short_name', 'common_name', 'ace']
         read_only_fields = ['id', 'key', 'name', 'short_name', 'common_name', 'ace']
         optional_fields = ['name', 'short_name', 'common_name', 'ace']
-    
+
     def to_internal_value(self, data):
         if type(data) in [str, int]:
             lookup_key = ('key' if type(data) == str else 'id')
@@ -70,7 +70,7 @@ class LanguageBasicSerializer(serializers.ModelSerializer):
 
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     organizations = serializers.SlugRelatedField(
-        queryset=Organization.objects.all(), many=True, slug_field="shortname", required=False 
+        queryset=Organization.objects.all(), many=True, slug_field="shortname", required=False
     )
     authors = serializers.SlugRelatedField(
         queryset=UserProfile.objects.all(), many=True, slug_field="username", required=False,
@@ -85,29 +85,29 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 
     def to_internal_value(self, data):
         profiles = ['authors', 'collaborators', 'reviewers']
-        qs = UserProfile.objects.select_related('owner')
+        qs = UserProfile.objects.select_related('user')
         profiles_val = {}
 
         for prf in profiles:
             usernames = data.pop(prf, [])
             profile_ins = []
             for uname in usernames:
-                p = qs.filter(owner__username=uname)
+                p = qs.filter(user__username=uname)
                 if p == None:
                     raise ValidationError(f"User '{uname}' does not exist.")
                 profile_ins.append(p.first().id)
             profiles_val[prf] = profile_ins
-            
+
         val_data = super().to_internal_value(data)
         for k, v in profiles_val.items():
             val_data[k] = v
         return val_data
 
     class Meta:
-        model = Problem 
+        model = Problem
         fields = [
             'url',
-            'shortname', 'title', 'content', 'pdf', 
+            'shortname', 'title', 'content', 'pdf',
             'created', 'modified',
 
             'source', 'time_limit', 'memory_limit',
@@ -126,7 +126,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
         extra_kwargs = {
             'url': {'lookup_field': 'shortname'},
         }
-    
+
     def update(self, instance, validated_data):
         if validated_data.get('allowed_languages', None) != None:
             langs = validated_data.pop('allowed_languages')
@@ -136,7 +136,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 
 class ProblemInContestSerializer(ProblemSerializer):
     class Meta:
-        model = Problem 
+        model = Problem
         fields = [
             'shortname', 'title', 'content', 'pdf',
             'source', 'time_limit', 'memory_limit',
@@ -148,7 +148,7 @@ class ProblemInContestSerializer(ProblemSerializer):
             'submission_visibility_mode',
             #'solved_count', 'attempted_count',
         ]
-    
+
     def update(self, instance, validated_data):
         raise NotImplementedError
 
@@ -162,7 +162,7 @@ class ProblemTestProfileSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'url': {'lookup_field': 'problem'}
         }
-    
+
 class TestCaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestCase

@@ -21,7 +21,7 @@ class JudgeAppConfig(AppConfig):
         try:
             for user in User.objects.filter(profile=None):
                 # These poor profileless users
-                profile = UserProfile(owner=user)
+                profile = UserProfile(user=user)
                 profile.save()
         except DatabaseError:
             pass

@@ -19,7 +19,7 @@ from problem.serializers import ProblemSerializer
 from .serializers import *
 
 from userprofile.models import UserProfile as Profile
-from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
+from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
 
 from .exceptions import *
 
@@ -37,6 +37,8 @@ __all__ = [
 
     'ContestProblemSubmissionListView', 'ContestProblemSubmissionDetailView',
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
+
+    'get_ranks_view',
 ]
 
 class PastContestListView(generics.ListAPIView):
@@ -290,7 +292,7 @@ class ContestSubmissionListView(generics.ListAPIView):
         ## Query params
         username = self.request.query_params.get('user')
         if username is not None:
-            css = css.filter(participation__user__owner__username=username)
+            css = css.filter(participation__user__user__username=username)
 
         prob_shortname = self.request.query_params.get('problem')
         if prob_shortname is not None:
@@ -548,7 +550,7 @@ def contest_participate_view(request, key):
         return not_authorized()
 
     profile = request.user.profile
-    if not request.user.is_superuser and contest.banned_users.filter(owner_id=profile.user.id).exists():
+    if not request.user.is_superuser and contest.banned_users.filter(id=profile.user.id).exists():
         return banned()
     # if (not profile.current_contest == None):
     #     if profile.current_contest.contest != contest:
@@ -712,7 +714,7 @@ class ContestParticipationListView(generics.ListAPIView):
 
         username = self.request.query_params.get('user')
         if username is not None:
-            queryset = queryset.filter(user__owner__username=username)
+            queryset = queryset.filter(user__user__username=username)
 
         virtual = self.request.query_params.get('virtual')
         if virtual is not None:
@@ -748,10 +750,10 @@ def contest_participation_add_many(request, key):
         to_be_updated = []
 
         users = set(data['users'])
-        p = Profile.objects.select_related('owner').filter(owner__username__in=users)
+        p = Profile.objects.select_related('user').filter(user__username__in=users)
         if p.count() != len(users):
             notfound = [uname for uname in users
-                        if uname not in set(p.values_list('owner__username', flat=True))]
+                        if uname not in set(p.values_list('user__username', flat=True))]
             return Response({
                 'general': f"Cannot find some users.",
                 'detail': {'username': f"Users not found: {', '.join(notfound)}"}
@@ -799,3 +801,54 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         queryset = self.get_contest().users.all()
         return queryset
+
+from .ratings import rate_contest
+from .exceptions import ContestNotFinished
+
+from rest_framework.serializers import Serializer
+
+class ContestRateView(generics.RetrieveAPIView):
+    """
+        View for rating contest
+    """
+    serializer_class = Serializer
+    permission_classes = [permissions.IsAdminUser]
+    permission_classes = []
+
+    def get_object(self):
+        contest = get_object_or_404(Contest, key=self.kwargs.get('key'))
+        user = self.request.user
+        if not contest.is_editable_by(user):
+            raise PermissionDenied
+        return contest
+
+    def check_rateable(self, request, contest):
+        if not contest.ended:
+            raise ContestNotFinished
+        return True
+
+    def get(self, request, key):
+        contest = self.get_object()
+        self.check_rateable(request, contest)
+        return Response({
+            'details': 'OK Can Rate.'
+        })
+
+    def post(self, request, key):
+        contest = self.get_object()
+        self.check_rateable(request, contest)
+        Rating.objects.filter(contest=contest).delete()
+
+        try:
+            rate_contest(contest)
+        except Exception:
+            raise
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
+
+from .ratings import RATING_VALUES, RATING_LEVELS, RATING_CLASS
+_values = [0] + RATING_VALUES
+RANKS = [ {'title': RATING_LEVELS[i], 'rating': _values[i], 'html_class': RATING_CLASS[i] } for i in range(len(RATING_LEVELS)) ]
+
+@api_view(['GET'])
+def get_ranks_view(request):
+    return Response(RANKS)

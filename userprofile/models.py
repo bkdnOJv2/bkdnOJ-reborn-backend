@@ -17,8 +17,8 @@ from judger.models import Language
 from judger.utils.float_compare import float_compare_equal
 
 class UserProfile(TimeStampedModel):
-    owner = models.OneToOneField(User,
-        on_delete=models.CASCADE, primary_key=True,
+    user = models.OneToOneField(User,
+        on_delete=models.CASCADE,
         related_name='profile',
     )
     about = models.TextField(verbose_name=_("self-description"),
@@ -75,18 +75,15 @@ class UserProfile(TimeStampedModel):
         return orgs[0] if orgs else None
 
     @property
-    def id(self):
-        return self.owner.id # Compatibility
-    @property
-    def user(self):
-        return self.owner # For compatibility with DMOJ
+    def owner(self):
+        return self.user
 
     @property
     def first_name(self):
-        return self.owner.first_name
+        return self.user.first_name
     @property
     def last_name(self):
-        return self.owner.last_name
+        return self.user.last_name
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
@@ -154,7 +151,7 @@ class UserProfile(TimeStampedModel):
         return f"@{self.owner.username} ({name})"
 
     class Meta:
-        ordering = ['owner']
+        ordering = ['id']
         verbose_name = _('user profile')
         verbose_name_plural = _('user profiles')
 
