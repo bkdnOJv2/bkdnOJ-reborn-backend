@@ -3,7 +3,9 @@ from rest_framework.exceptions import APIException
 
 __all__ = [
     'ContestNotAccessible',
-    'ContestNotStarted'
+    'ContestNotStarted',
+    'ContestNotFinished',
+    'ContestNotRated',
 ]
 
 class ContestNotAccessible(APIException):
@@ -20,3 +22,8 @@ class ContestNotFinished(APIException):
     status_code = 400
     default_detail = _("Contest is not finished yet.")
     default_code = 'contest_not_finished'
+
+class ContestNotRated(APIException):
+    status_code = 400
+    default_detail = _("Contest is Unrated.")
+    default_code = 'contest_not_rated'

@@ -12,20 +12,19 @@ from rest_framework import views, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.serializers import DateTimeField
+from rest_framework.serializers import Serializer
 
 from operator import attrgetter, itemgetter
 
 from problem.serializers import ProblemSerializer
-from .serializers import *
-
 from userprofile.models import UserProfile as Profile
-from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
 
-from .exceptions import *
+from compete.serializers import *
+from compete.models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
+from compete.ratings import rate_contest
+from compete.exceptions import ContestNotFinished
 
 from helpers.custom_pagination import Page100Pagination, Page10Pagination
-
-from .serializers import RatingSerializer
 
 __all__ = [
     'PastContestListView',
@@ -39,11 +38,6 @@ __all__ = [
 
     'ContestProblemSubmissionListView', 'ContestProblemSubmissionDetailView',
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
-
-    'get_ranks_view',
-
-    'ContestRatingListView',
-    'RatingListView', 'RatingDetailView',
 ]
 
 class PastContestListView(generics.ListAPIView):
@@ -807,95 +801,3 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         queryset = self.get_contest().users.all()
         return queryset
-
-from .ratings import rate_contest
-from .exceptions import ContestNotFinished
-
-from rest_framework.serializers import Serializer
-
-class ContestRateView(generics.RetrieveAPIView):
-    """
-        View for rating contest
-    """
-    serializer_class = Serializer
-    permission_classes = [permissions.IsAdminUser]
-    permission_classes = []
-
-    def get_object(self):
-        contest = get_object_or_404(Contest, key=self.kwargs.get('key'))
-        user = self.request.user
-        if not contest.is_editable_by(user):
-            raise PermissionDenied
-        return contest
-
-    def check_rateable(self, request, contest):
-        if not contest.ended:
-            raise ContestNotFinished
-        return True
-
-    def get(self, request, key):
-        contest = self.get_object()
-        self.check_rateable(request, contest)
-        if Rating.objects.filter(contest=contest).exists():
-            return Response({ 'details': 'Can Re-Rate.' })
-        return Response({ 'details': 'Can Rate.'  })
-
-    def post(self, request, key):
-        contest = self.get_object()
-        self.check_rateable(request, contest)
-        Rating.objects.filter(contest=contest).delete()
-
-        try:
-            rate_contest(contest)
-        except Exception:
-            raise
-        return Response({}, status=status.HTTP_204_NO_CONTENT)
-
-from .ratings import RATING_VALUES, RATING_LEVELS, RATING_CLASS
-_values = [0] + RATING_VALUES
-RANKS = [ {'title': RATING_LEVELS[i], 'rating': _values[i], 'html_class': RATING_CLASS[i] } for i in range(len(RATING_LEVELS)) ]
-
-@api_view(['GET'])
-def get_ranks_view(request):
-    return Response(RANKS)
-
-
-class RatingListView(generics.ListAPIView):
-    """
-        Rating List view
-    """
-    serializer_class = RatingSerializer
-    queryset = Rating.objects.all()
-    permission_classes = []
-
-
-class ContestRatingListView(generics.ListAPIView):
-    """
-        Contest Rating List view
-    """
-    serializer_class = RatingSerializer
-    queryset = Rating.objects.all()
-    permission_classes = []
-
-
-class RatingDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-        Rating Detail view
-    """
-    serializer_class = RatingSerializer
-    # queryset = Rating.objects.all()
-    permission_classes = []
-
-    @cached_property
-    def contest(self):
-        contest = get_object_or_404(Contest, key=self.kwargs['key'])
-        user = self.request.user
-        if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise ContestNotAccessible
-        if (not contest.started) and (not contest.is_testable_by(user)):
-            raise ContestNotStarted
-        return contest
-
-    def get_queryset(self):
-        contest = self.contest
-        return contest.ratings

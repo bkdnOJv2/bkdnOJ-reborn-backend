@@ -2,8 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.urlpatterns import format_suffix_patterns
 
-from .views import *
-from .views import ContestRateView
+from compete.views import *
 
 urlpatterns = [
     path('past-contest/',
@@ -97,12 +96,16 @@ urlpatterns = [
         RatingListView.as_view(),
         name='rating-list',
     ),
+    path('profile/<str:username>/ratings/',
+        ProfileRatingListView.as_view(),
+        name='contestrating-list',
+    ),
     path('contest/<str:key>/ratings/',
         ContestRatingListView.as_view(),
         name='contestrating-list',
     ),
 
-    path('rating/<int:td>',
+    path('rating/<int:pk>',
         RatingDetailView.as_view(),
         name='rating-detail',
     )

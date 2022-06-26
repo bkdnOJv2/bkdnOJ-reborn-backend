@@ -22,6 +22,8 @@ __all__ = [
     'ContestStandingFrozenSerializer', 'ContestStandingSerializer',
     'ContestParticipationSerializer',
     'ContestParticipationDetailSerializer',
+
+    'RatingSerializer',
 ]
 
 class ContestBriefSerializer(serializers.ModelSerializer):
