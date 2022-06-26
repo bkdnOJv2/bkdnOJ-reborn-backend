@@ -19,10 +19,14 @@ class Organization(models.Model):
     name = models.CharField(max_length=128, verbose_name=_('organization title'))
     slug = models.SlugField(
       max_length=128, verbose_name=_('organization slug'),
-      help_text=_('Organization name shown in URL'))
+      help_text=_('Organization name shown in URL'),
+      unique=True,
+    )
     short_name = models.CharField(
       max_length=20, verbose_name=_('short name'),
-      help_text=_('Displayed beside user name during contests'))
+      help_text=_('Displayed beside user name during contests'),
+      unique=True,
+    )
     about = models.TextField(
       verbose_name=_('organization description'))
     admins = models.ManyToManyField('userprofile.UserProfile',

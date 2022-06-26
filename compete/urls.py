@@ -91,6 +91,20 @@ urlpatterns = [
     path('ranks/',
         get_ranks_view,
         name='ranks-list',
+    ),
+
+    path('ratings/',
+        RatingListView.as_view(),
+        name='rating-list',
+    ),
+    path('contest/<str:key>/ratings/',
+        ContestRatingListView.as_view(),
+        name='contestrating-list',
+    ),
+
+    path('rating/<int:td>',
+        RatingDetailView.as_view(),
+        name='rating-detail',
     )
 ]
 

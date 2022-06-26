@@ -10,7 +10,7 @@ from userprofile.models import UserProfile as Profile
 from problem.models import Problem
 from problem.serializers import ProblemInContestSerializer, ProblemBasicSerializer
 from submission.serializers import SubmissionSerializer, SubmissionDetailSerializer
-from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation
+from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
 
 __all__ = [
     'ContestSerializer',
@@ -347,4 +347,10 @@ class ContestParticipationDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContestParticipation
+        fields = '__all__'
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rating
         fields = '__all__'

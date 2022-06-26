@@ -4,7 +4,7 @@ from rest_framework import serializers
 from auth.serializers import UserMoreDetailSerializer
 
 from auth.serializers import UserSerializer
-from organization.serializers import OrganizationSerializer
+from organization.serializers import OrganizationSerializer, OrganizationBasicSerializer
 from .models import UserProfile
 
 from judger.restful.serializers import LanguageBasicSerializer
@@ -15,7 +15,7 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
     rank = serializers.SerializerMethodField()
     def get_rank(self, prf):
         if prf.rating is None:
-            return None
+            return 'Unrated'
         return rating_name(prf.rating)
 
     rank_class = serializers.SerializerMethodField()
@@ -24,12 +24,17 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
             return 'rate-none'
         return rating_class(prf.rating)
 
+    organization = serializers.SerializerMethodField()
+    def get_organization(self, prf):
+        return OrganizationBasicSerializer(prf.organization).data
+
     class Meta:
         model = UserProfile
         fields = [
-            'username', 'avatar',
-            'first_name', 'last_name',
-            'rating', 'rank', 'rank_class']
+            'username', 'avatar', 'first_name', 'last_name',
+            'rating', 'rank', 'rank_class',
+            'organization',
+        ]
 
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(required=False)
@@ -38,8 +43,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     organization = serializers.SerializerMethodField()
     def get_organization(self, profile):
         if profile.organization:
-            from organization.serializers import OrganizationSerializer
-            return OrganizationSerializer(profile.organization).data
+            return OrganizationBasicSerializer(profile.organization).data
         return None
 
     rank = serializers.SerializerMethodField()

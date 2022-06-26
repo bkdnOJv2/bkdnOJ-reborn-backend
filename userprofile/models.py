@@ -41,7 +41,14 @@ class UserProfile(TimeStampedModel):
     # organizations = SortedManyToManyField(Organization,
     organizations = models.ManyToManyField('organization.Organization',
         verbose_name=_('organization'), blank=True,
-        related_name='members', related_query_name='member')
+        related_name='members', related_query_name='member'
+    )
+    display_organization = models.ForeignKey('organization.Organization',
+        verbose_name=_('display organization'),
+        null=True, blank=True, default=None,
+        related_name='representative_members', related_query_name='representative_member',
+        on_delete=models.SET_NULL,
+    )
 
     display_rank = models.CharField(
         max_length=10, default='user', verbose_name=_('display rank'),
@@ -71,8 +78,7 @@ class UserProfile(TimeStampedModel):
 
     @cached_property
     def organization(self):
-        orgs = self.organizations.all()
-        return orgs[0] if orgs else None
+        return self.display_organization
 
     @property
     def owner(self):

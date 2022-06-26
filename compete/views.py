@@ -25,6 +25,8 @@ from .exceptions import *
 
 from helpers.custom_pagination import Page100Pagination, Page10Pagination
 
+from .serializers import RatingSerializer
+
 __all__ = [
     'PastContestListView',
     'AllContestListView', 'ContestListView', 'ContestDetailView',
@@ -39,6 +41,9 @@ __all__ = [
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
 
     'get_ranks_view',
+
+    'ContestRatingListView',
+    'RatingListView', 'RatingDetailView',
 ]
 
 class PastContestListView(generics.ListAPIView):
@@ -684,6 +689,7 @@ def contest_standing_view(request, key):
             'is_frozen': is_frozen,
             'is_frozen_enabled': contest.enable_frozen,
             'frozen_time': DateTimeField().to_representation(contest.frozen_time),
+            'scoreboard_cache_duration': contest.scoreboard_cache_duration,
         }
         if not cache_disabled:
             cache.set(cache_key, dat, cache_duration)
@@ -830,9 +836,9 @@ class ContestRateView(generics.RetrieveAPIView):
     def get(self, request, key):
         contest = self.get_object()
         self.check_rateable(request, contest)
-        return Response({
-            'details': 'OK Can Rate.'
-        })
+        if Rating.objects.filter(contest=contest).exists():
+            return Response({ 'details': 'Can Re-Rate.' })
+        return Response({ 'details': 'Can Rate.'  })
 
     def post(self, request, key):
         contest = self.get_object()
@@ -852,3 +858,44 @@ RANKS = [ {'title': RATING_LEVELS[i], 'rating': _values[i], 'html_class': RATING
 @api_view(['GET'])
 def get_ranks_view(request):
     return Response(RANKS)
+
+
+class RatingListView(generics.ListAPIView):
+    """
+        Rating List view
+    """
+    serializer_class = RatingSerializer
+    queryset = Rating.objects.all()
+    permission_classes = []
+
+
+class ContestRatingListView(generics.ListAPIView):
+    """
+        Contest Rating List view
+    """
+    serializer_class = RatingSerializer
+    queryset = Rating.objects.all()
+    permission_classes = []
+
+
+class RatingDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+        Rating Detail view
+    """
+    serializer_class = RatingSerializer
+    # queryset = Rating.objects.all()
+    permission_classes = []
+
+    @cached_property
+    def contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        user = self.request.user
+        if not (contest.is_visible or contest.is_accessible_by(user)):
+            raise ContestNotAccessible
+        if (not contest.started) and (not contest.is_testable_by(user)):
+            raise ContestNotStarted
+        return contest
+
+    def get_queryset(self):
+        contest = self.contest
+        return contest.ratings

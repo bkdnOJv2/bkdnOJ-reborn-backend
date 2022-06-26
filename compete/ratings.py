@@ -181,15 +181,19 @@ def rate_contest(contest):
     rating, mean, performance = recalculate_ratings(ranking, old_mean, times_ranked, historical_p)
 
     now = timezone.now()
-    ratings = [Rating(user_id=i, contest=contest, rating=r, mean=m, performance=perf,
-                      last_rated=now, participation_id=pid, rank=z)
-               for i, pid, r, m, perf, z in zip(user_ids, participation_ids, rating, mean, performance, ranking)]
+    ratings = [
+        Rating(user_id=i, contest=contest, rating=r, mean=m, performance=perf,
+                last_rated=now, participation_id=pid, rank=z)
+        for i, pid, r, m, perf, z in zip(user_ids, participation_ids, rating, mean, performance, ranking)
+    ]
     with transaction.atomic():
         Rating.objects.bulk_create(ratings)
 
-        Profile.objects.filter(contest_history__contest=contest, contest_history__virtual=0).update(
-            rating=Subquery(Rating.objects.filter(user=OuterRef('id'))
-                            .order_by('-contest__end_time').values('rating')[:1]))
+        Profile.objects.filter(
+            contest_history__contest=contest, contest_history__virtual=0).update(
+                rating=Subquery(Rating.objects.filter(user=OuterRef('id'))
+                                .order_by('-contest__end_time').values('rating')[:1])
+            )
 
 
 RATING_LEVELS = ['Newbie', 'Pupil', 'Specialist', 'Expert', 'Candidate Master', 'Master', 'International Master',
