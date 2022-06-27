@@ -15,6 +15,8 @@ from rest_framework.serializers import DateTimeField
 from rest_framework.serializers import Serializer
 
 from operator import attrgetter, itemgetter
+from organization.models import Organization
+from organization.serializers import OrganizationBasicSerializer
 
 from problem.serializers import ProblemSerializer
 from userprofile.models import UserProfile as Profile
@@ -667,6 +669,12 @@ def contest_standing_view(request, key):
             'points': p.points,
         } for p in cprobs]
 
+        corgs = Organization.objects.filter(id__in=contest.users\
+                    .annotate(org=F('user__display_organization'))\
+                    .exclude(org=None)\
+                    .values_list('org', flat=True).order_by('org').distinct())
+        org_data = OrganizationBasicSerializer(corgs, many=True).data
+
         if scoreboard_view_mode == 'froze':
             queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
                 order_by('-frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
@@ -677,6 +685,7 @@ def contest_standing_view(request, key):
 
         is_frozen = (scoreboard_view_mode == 'froze');
         dat = {
+            'organizations': org_data,
             'problems': problem_data,
             'results': scoreboard_serializer(
                 queryset, many=True, context={'request': request}).data,

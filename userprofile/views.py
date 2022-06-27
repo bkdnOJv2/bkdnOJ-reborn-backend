@@ -21,7 +21,7 @@ class UserProfileDetail(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs,)
 
-class SelfProfileDetail(generics.RetrieveUpdateDestroyAPIView):
+class SelfProfileDetail(generics.RetrieveUpdateAPIView):
     """
         Return user's User Profile, logged-in is required
     """
@@ -29,7 +29,6 @@ class SelfProfileDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        permissions.DjangoObjectPermissions,
     ]
 
     def serialize(self, request, data):

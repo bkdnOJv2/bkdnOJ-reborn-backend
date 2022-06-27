@@ -29,7 +29,7 @@ __all__ = [
 
 from compete.ratings import RATING_VALUES, RATING_LEVELS, RATING_CLASS
 _values = [0] + RATING_VALUES
-RANKS = [ {'title': RATING_LEVELS[i], 'rating': _values[i], 'html_class': RATING_CLASS[i] }
+RANKS = [ {'rank': RATING_LEVELS[i], 'rating_floor': _values[i], 'rank_class': RATING_CLASS[i] }
             for i in range(len(RATING_LEVELS)) ]
 
 @api_view(['GET'])
