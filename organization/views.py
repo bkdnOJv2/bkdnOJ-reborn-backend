@@ -1,11 +1,19 @@
+from django.utils.functional import cached_property
 from django.shortcuts import render, get_object_or_404
 from django.core.exceptions import PermissionDenied
 from pyparsing import Or
-from rest_framework import views, permissions, generics
+from rest_framework import views, permissions, generics, status
+from rest_framework.response import Response
+
+from organization.exceptions import OrganizationTooDeepError
 
 from .serializers import OrganizationSerializer, OrganizationDetailSerializer
 from .models import Organization
 
+__all__ = [
+    'OrganizationListView', 'OrganizationDetailView',
+    'OrganizationSubOrgListView',
+]
 
 class OrganizationListView(generics.ListCreateAPIView):
     """
@@ -29,6 +37,16 @@ class OrganizationListView(generics.ListCreateAPIView):
 
         return queryset
 
+    def post(self, request):
+        seri = OrganizationSerializer(data=request.data)
+        if seri.is_valid():
+            data = seri.data.copy()
+            for key in OrganizationSerializer.Meta.read_only_fields:
+                data.pop(key, None)
+            new_root = Organization.add_root(**data)
+            return Response(data, status=status.HTTP_201_CREATED)
+        return Response(seri.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -50,3 +68,35 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         #     return org
         # else:
         #     raise PermissionDenied
+
+
+class OrganizationSubOrgListView(generics.ListCreateAPIView):
+    """
+        Return a List of all organizations
+    """
+    queryset = Organization.objects.none()
+    serializer_class = OrganizationSerializer
+    permission_classes = []
+
+    @cached_property
+    def selected_org(self):
+        org = get_object_or_404(Organization, slug=self.kwargs['slug'].upper())
+        return org
+
+    def get_queryset(self):
+        return self.selected_org.get_children()
+
+    def post(self, request, slug):
+        seri = OrganizationSerializer(data=request.data)
+        if seri.is_valid():
+            data = seri.data.copy()
+            for key in OrganizationSerializer.Meta.read_only_fields:
+                data.pop(key, None)
+            try:
+                child = self.selected_org.add_child(**data)
+                return Response(data, status=status.HTTP_201_CREATED)
+            except OrganizationTooDeepError as otde:
+                return Response({
+                    'details': str(otde),
+                }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(seri.errors, status=status.HTTP_400_BAD_REQUEST)

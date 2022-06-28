@@ -30,8 +30,7 @@ class Organization(MP_Node):
   )
   short_name = models.CharField(
     max_length=64, verbose_name=_('short name'),
-    help_text=_('Displayed beside user name during contests.'),
-    unique=True,
+    help_text=_('To identify each org from their sibling orbs. Also is displayed beside user name during contests.'),
   )
   name = models.CharField(max_length=128, verbose_name=_('organization name'))
 
@@ -57,8 +56,8 @@ class Organization(MP_Node):
   access_code = models.CharField(
     max_length=7, help_text=_('Student access code'),
     verbose_name=_('access code'), null=True, blank=True)
-  logo_override_image = models.CharField(
-    verbose_name=_('Logo override image'), default='', max_length=256,
+  logo_url = models.CharField(
+    verbose_name=_('logo url'), default='', max_length=256,
     blank=True,
     help_text=_('Link to organization logo.'))
   performance_points = models.FloatField(default=0)

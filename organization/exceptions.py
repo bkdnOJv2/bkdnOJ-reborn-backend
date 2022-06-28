@@ -7,7 +7,7 @@ __all__ = [
 
 class OrganizationTooDeepError(Exception):
   def __init__(self):
-    super.__init__(_(
-      "Cannot add child. Organization tree has reached maximum depth "+
-      f"allowed ({settings.BKDNOJ_ORG_TREE_MAX_DEPTH}).")
+    super().__init__(_(
+      "Cannot add sub org. Organization tree has reached maximum depth "+
+      f"allowed (> {settings.BKDNOJ_ORG_TREE_MAX_DEPTH}).")
     )

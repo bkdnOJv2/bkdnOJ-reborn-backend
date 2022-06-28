@@ -4,22 +4,39 @@ from rest_framework import serializers
 from auth.serializers import UserSerializer
 from .models import Organization
 
+__all__ = [
+    'OrganizationBasicSerializer',
+    'NestedOrganizationBasicSerializer', 'OrganizationSerializer'
+]
 
 class OrganizationBasicSerializer(serializers.ModelSerializer):
-    logo_url = serializers.SerializerMethodField()
-    def get_logo_url(self, org):
-        return org.logo_override_image
-
     class Meta:
         model = Organization
         fields = [
             'slug', 'short_name', 'name', 'logo_url',
         ]
 
+
+class NestedOrganizationBasicSerializer(OrganizationBasicSerializer):
+    sub_orgs = serializers.SerializerMethodField()
+    def get_sub_orgs(self, org):
+        if org.is_leaf():
+            return []
+        return NestedOrganizationBasicSerializer(org.get_children(), many=True, read_only=True).data
+
+    class Meta:
+        model = Organization
+        fields = [
+            'slug', 'short_name', 'name', 'logo_url', 'sub_orgs',
+        ]
+
+
 class OrganizationSerializer(OrganizationBasicSerializer):
     suborg_count = serializers.SerializerMethodField()
     def get_suborg_count(self, inst):
-        return inst.get_descendant_count()
+        if getattr(inst, 'get_descendant_count', False):
+            return inst.get_descendant_count()
+        return 0
 
     class Meta:
         model = Organization
@@ -29,17 +46,15 @@ class OrganizationSerializer(OrganizationBasicSerializer):
             'member_count', #'performance_points'
             'suborg_count',
         ]
-        extra_kwargs = {
-            'member_count': {'read_only': True},
-            'suborg_count': {'read_only': True},
-        }
+        read_only_fields = ('member_count', 'suborg_count')
+        # extra_kwargs = {
+        #     'logo_url': {'read_only': True},
+        #     'member_count': {'read_only': True},
+        #     'suborg_count': {'read_only': True},
+        # }
 
 
-class OrganizationDetailSerializer(serializers.ModelSerializer):
-    logo_url = serializers.SerializerMethodField()
-    def get_logo_url(self, org):
-        return org.logo_override_image
-
+class OrganizationDetailSerializer(OrganizationSerializer):
     admins = serializers.SerializerMethodField()
     def get_admins(self, instance):
         from userprofile.serializers import UserProfileBasicSerializer
@@ -47,12 +62,13 @@ class OrganizationDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        # fields = '__all__'
-        exclude = ['path']
+        fields = [
+            'slug', 'short_name', 'name', 'is_open',
+            'logo_url',
 
-        lookup_field = 'slug'
-        extra_kwargs = {
-            'url': {'lookup_field': 'slug'},
-            'depth': {'read_only': True},
-            'numchild': {'read_only': True},
-        }
+            'admins', 'about', 'creation_date', 'slots',
+
+            'member_count', #'performance_points'
+            'suborg_count',
+        ]
+        read_only_fields = ('member_count', 'suborg_count')

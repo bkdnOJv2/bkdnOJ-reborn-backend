@@ -4,7 +4,7 @@ from rest_framework import serializers
 from auth.serializers import UserMoreDetailSerializer
 
 from auth.serializers import UserSerializer
-from organization.serializers import OrganizationSerializer, OrganizationBasicSerializer
+from organization.serializers import *
 from .models import UserProfile
 
 from judger.restful.serializers import LanguageBasicSerializer
@@ -49,13 +49,33 @@ class UserProfileSerializer(UserProfileBasicSerializer):
             return None
         return OrganizationBasicSerializer(prf.organization).data
 
+    member_of = serializers.SerializerMethodField()
+    def get_member_of(self, prf):
+        data_list = []
+        for org in prf.organizations.all():
+            data = OrganizationBasicSerializer(org).data
+            data['sub_orgs'] = []
+
+            trv = org
+            while True:
+                if trv.is_root(): break
+                trv = trv.get_parent()
+                parent_data = OrganizationBasicSerializer(trv).data
+                parent_data['sub_orgs'] = [data]
+                data = parent_data
+            data_list.append(data)
+        return data_list
+    admin_of = serializers.SerializerMethodField()
+    def get_admin_of(self, prf):
+        return NestedOrganizationBasicSerializer(prf.admin_of, many=True).data
+
     class Meta:
         model = UserProfile
         fields = [
             'user',
             'first_name', 'last_name', 'full_name',
             'username', 'display_name', 'avatar',
-            'organization',
+            'organization', 'member_of', 'admin_of',
             'about', 'timezone', 'language', 'performance_points', 'problem_count', 'points',
             'rating', #'rank', 'rank_class',
         ]

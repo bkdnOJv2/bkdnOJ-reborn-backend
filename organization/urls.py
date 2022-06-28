@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.urlpatterns import format_suffix_patterns
 
-from .views import OrganizationListView, OrganizationDetailView
+from .views import *
 
 urlpatterns = [
     # path('organizations/',
@@ -22,6 +22,10 @@ urlpatterns = [
     path('org/<str:slug>/',
         OrganizationDetailView.as_view(),
         name='organization-detail',
+    ),
+    path('org/<str:slug>/orgs',
+        OrganizationSubOrgListView.as_view(),
+        name='organization-suborg-list',
     ),
 ]
 
