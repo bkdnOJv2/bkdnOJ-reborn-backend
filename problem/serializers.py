@@ -70,7 +70,7 @@ class LanguageBasicSerializer(serializers.ModelSerializer):
 
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     organizations = serializers.SlugRelatedField(
-        queryset=Organization.objects.all(), many=True, slug_field="shortname", required=False
+        queryset=Organization.objects.all(), many=True, slug_field="slug", required=False
     )
     authors = serializers.SlugRelatedField(
         queryset=UserProfile.objects.all(), many=True, slug_field="username", required=False,

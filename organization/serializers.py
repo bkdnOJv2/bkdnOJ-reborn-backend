@@ -17,13 +17,22 @@ class OrganizationBasicSerializer(serializers.ModelSerializer):
         ]
 
 class OrganizationSerializer(OrganizationBasicSerializer):
+    suborg_count = serializers.SerializerMethodField()
+    def get_suborg_count(self, inst):
+        return inst.get_descendant_count()
+
     class Meta:
         model = Organization
         fields = [
             'slug', 'short_name', 'name', 'is_open',
             'logo_url',
-            'member_count', 'performance_points'
+            'member_count', #'performance_points'
+            'suborg_count',
         ]
+        extra_kwargs = {
+            'member_count': {'read_only': True},
+            'suborg_count': {'read_only': True},
+        }
 
 
 class OrganizationDetailSerializer(serializers.ModelSerializer):
@@ -38,9 +47,12 @@ class OrganizationDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        fields = '__all__'
-        # exclude = ['logo_override_image', ]
+        # fields = '__all__'
+        exclude = ['path']
+
         lookup_field = 'slug'
         extra_kwargs = {
-            'url': {'lookup_field': 'slug'}
+            'url': {'lookup_field': 'slug'},
+            'depth': {'read_only': True},
+            'numchild': {'read_only': True},
         }
