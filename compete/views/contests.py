@@ -196,13 +196,13 @@ class ContestProblemListView(generics.ListCreateAPIView):
         queryset = ContestProblem.objects.filter(contest=contest)
         return queryset
 
-    NON_ASSOCIATE_FIELDS = ('order', 'points', 'partial', 'is_pretested', 'max_submissions')
+    NON_ASSOCIATE_FIELDS = ('order', 'points', 'partial',)# 'is_pretested', 'max_submissions')
     def create(self, request, *args, **kwargs):
         contest = self.get_contest()
         cproblems = contest.contest_problems
         visproblems = Problem.get_visible_problems(request.user)
 
-        new_problem_ids = set()
+        contest_problem_ids = set()
         for rowidx, problem_kw in enumerate(request.data):
             try:
                 cpf = cproblems.filter(problem__shortname=problem_kw['shortname'])
@@ -228,9 +228,9 @@ class ContestProblemListView(generics.ListCreateAPIView):
                     'detail': _(f"Row {rowidx} has the following errors:"),
                     'errors': str(excp),
                 }, status=status.HTTP_400_BAD_REQUEST)
-            new_problem_ids.add(cpf.id)
+            contest_problem_ids.add(cpf.id)
 
-        cproblems.exclude(id__in=new_problem_ids).delete()
+        cproblems.exclude(id__in=contest_problem_ids).delete()
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 class ContestProblemDetailView(generics.RetrieveAPIView):

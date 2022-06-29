@@ -11,11 +11,11 @@ from django.http import Http404
 from django.conf import settings
 from django.utils.translation import gettext as _
 from django.db import transaction, IntegrityError
-from rest_framework import views, permissions, generics, viewsets, response, status
+from rest_framework import views, permissions, generics, viewsets, response, status, filters
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.exceptions import APIException
-
+import django_filters.rest_framework
 
 from problem.validators import problem_data_zip_validator
 from problem.serializers import ProblemBriefSerializer, ProblemSerializer, \
@@ -43,6 +43,15 @@ class ProblemListView(generics.ListCreateAPIView):
   serializer_class = ProblemBriefSerializer
   permission_classes = []
   lookup_field = 'shortname'
+  filter_backends = [
+    django_filters.rest_framework.DjangoFilterBackend,
+    filters.SearchFilter,
+    filters.OrderingFilter,
+  ]
+  search_fields = ['^shortname', '^title']
+  filterset_fields = ['is_public', 'is_organization_private', 'partial', 'short_circuit']
+  ordering_fields = ['modified', 'created', 'points']
+  ordering = ['-created']
 
   def check_perms(self, request):
       if request.method == 'GET':

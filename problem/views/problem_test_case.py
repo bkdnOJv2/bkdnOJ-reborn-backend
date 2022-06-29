@@ -1,3 +1,4 @@
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, views, response, status
 
@@ -13,14 +14,14 @@ class TestCaseListView(generics.ListCreateAPIView):
     """
     pagination_class = None
     serializer_class = TestCaseSerializer
-    
+
     def get_queryset(self):
-        problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
+        problem = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
         queryset = problem.test_profile.cases
         return queryset
 
     def create(self, request, *args, **kwargs):
-        problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
+        problem = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
         data = request.data.copy()
 
         data['test_profile'] = problem.test_profile
@@ -30,7 +31,7 @@ class TestCaseListView(generics.ListCreateAPIView):
         else:
             order = order[0]
         data['order'] = order
-        
+
         serializer = TestCaseSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -40,11 +41,20 @@ class TestCaseListView(generics.ListCreateAPIView):
 
 class TestCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-        Return a detailed view of the requested TestCase 
+        Return a detailed view of the requested TestCase
     """
     serializer_class = TestCaseSerializer
-    
+
     def get_queryset(self):
-        problem = self.kwargs['problem']
-        queryset = TestCase.objects.filter(test_profile__problem=problem)
+        shortname = self.kwargs['shortname']
+        queryset = TestCase.objects.filter(test_profile__problem__shortname=shortname)
         return queryset
+
+
+    def get(self, request, shortname, pk):
+        case = self.get_object()
+        print(case)
+
+
+
+        return response.Response(TestCaseSerializer(case).data)

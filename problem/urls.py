@@ -37,11 +37,11 @@ urlpatterns = [
         name='problem-data-detail',
     ),
     # TestCase Views
-    path('problem/<str:problem>/data/test/',
+    path('problem/<str:shortname>/data/test/',
         TestCaseListView.as_view(),
         name='problemtestcase-list',
     ),
-    path('problem/<str:problem>/data/test/<int:pk>/',
+    path('problem/<str:shortname>/data/test/<int:pk>/',
         TestCaseDetailView.as_view(),
         name='problemtestcase-detail',
     ),

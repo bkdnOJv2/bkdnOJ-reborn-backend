@@ -121,9 +121,9 @@ class ProblemTestProfile(TimeStampedModel):
   def delete_data(self, *args, **kwargs):
     # self.zipfile.delete(kwargs.get('save', True))
     # self.cases.all().delete()
-    shutil.rmtree(problem_data_storage.path(self.problem.shortname), 
+    shutil.rmtree(problem_data_storage.path(self.problem.shortname),
       ignore_errors=True)
-  
+
   def update_test_cases(self):
       self.cases.update(
         output_prefix=self.output_prefix,

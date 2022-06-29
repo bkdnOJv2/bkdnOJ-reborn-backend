@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'django_extensions',
+    'django_filters',
 
     # Local Apps
     'helpers',
@@ -135,9 +136,9 @@ CSRF_TRUSTED_ORIGINS = ['http://1509.ddns.net:3000', 'http://localhost:3000']
 
 # REST Framework settings
 REST_FRAMEWORK = {
-    # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'DEFAULT_PAGINATION_CLASS': 'helpers.custom_pagination.PageCountPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -182,6 +183,8 @@ DEFAULT_USER_LANGUAGE = 'PY3'
 
 BKDNOJ_PROBLEM_DATA_ROOT=os.path.join(MEDIA_ROOT, 'problem_data')
 BKDNOJ_PROBLEM_PDF_ROOT=os.path.join(MEDIA_ROOT, 'problem_pdf')
+
+# Some limit for problem settings
 BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS = 0.0
 BKDNOJ_PROBLEM_MAX_TIME_LIMIT=20.0 # 20 seconds
 BKDNOJ_PROBLEM_MIN_TIME_LIMIT=0.1 # 0.1 second = 100 milliseconds
@@ -189,16 +192,27 @@ BKDNOJ_PROBLEM_MAX_MEMORY_LIMIT=1024*1024 # 1024*1024 kB = 1024 MB = 1GB
 BKDNOJ_PROBLEM_MIN_MEMORY_LIMIT=64*1024 # 64*1024 KB = 64 MB
 BKDNOJ_PROBLEM_MAX_OUTPUT_PREFIX=2**30
 BKDNOJ_PROBLEM_MAX_OUTPUT_LIMIT=2**30
+
+# When create problem via upload archive, these settings are used to map files to resources
 BKDNOJ_PROBLEM_ACCEPTABLE_STATEMENT_PDF = set(['statement.pdf', 'problem.pdf', 'prob.pdf'])
 BKDNOJ_PROBLEM_STATEMENT_PDF_FILENAME   = 'problem.pdf'
 BKDNOJ_PROBLEM_DATA_IN_FILE_EXT         = ('.in',  '.input',  '.inp', '.i', )
 BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT        = ('.out', '.output', '.ans', '.a', )
 BKDNOJ_PROBLEM_ACCEPTABLE_CONFIG_EXT = set(['.ini', '.conf'])
+
+# Limit the length of line in problem.ini config file while create problem via archive upload
 BKDNOJ_PROBLEM_CONFIG_TOKEN_LENGTH = 2**16
+
+# Allow user to spam submit upto this many subs
 BKDNOJ_SUBMISSION_LIMIT = 5
+
 BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_PREFIX = int(1000)
 BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_LIMIT = int(1e7)
 
+# For request content of .in/.out file through server
+BKDNOJ_PROBLEM_TESTCASE_PREVIEW_LENGTH = int(100)
+
+# For creating new organization
 BKDNOJ_ORG_TREE_MAX_DEPTH = 4
 
 BKDNOJ_DISPLAY_RANKS = (
