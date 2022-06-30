@@ -2,13 +2,15 @@ from django.utils.functional import cached_property
 from django.shortcuts import render, get_object_or_404
 from django.core.exceptions import PermissionDenied
 from pyparsing import Or
-from rest_framework import views, permissions, generics, status
+from rest_framework import views, permissions, generics, status, filters
 from rest_framework.response import Response
 
 from organization.exceptions import OrganizationTooDeepError
 
 from .serializers import OrganizationSerializer, OrganizationDetailSerializer
 from .models import Organization
+
+import django_filters
 
 __all__ = [
     'OrganizationListView', 'OrganizationDetailView',
@@ -24,6 +26,15 @@ class OrganizationListView(generics.ListCreateAPIView):
     permission_classes = [
         # permissions.DjangoModelPermissionsOrAnonReadOnly,
     ]
+    filter_backends = [
+        django_filters.rest_framework.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    search_fields = ['^slug', '@short_name', '@name']
+    filterset_fields = ['is_open', 'is_unlisted']
+    ordering_fields = ['creation_date']
+    ordering = ['-creation_date']
 
     def get_queryset(self):
         user = self.request.user
@@ -77,6 +88,15 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
     queryset = Organization.objects.none()
     serializer_class = OrganizationSerializer
     permission_classes = []
+    filter_backends = [
+        django_filters.rest_framework.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    search_fields = ['^slug', '@short_name', '@name']
+    filterset_fields = ['is_open', 'is_unlisted']
+    ordering_fields = ['creation_date']
+    ordering = ['-creation_date']
 
     @cached_property
     def selected_org(self):

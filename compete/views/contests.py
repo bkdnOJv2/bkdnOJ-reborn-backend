@@ -8,7 +8,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
 
-from rest_framework import views, permissions, generics, status
+import django_filters
+
+from rest_framework import views, permissions, generics, status, filters
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.serializers import DateTimeField
@@ -24,7 +26,7 @@ from userprofile.models import UserProfile as Profile
 from compete.serializers import *
 from compete.models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
 from compete.ratings import rate_contest
-from compete.exceptions import ContestNotFinished
+from compete.exceptions import *
 
 from helpers.custom_pagination import Page100Pagination, Page10Pagination
 
@@ -44,12 +46,10 @@ __all__ = [
 
 class PastContestListView(generics.ListAPIView):
     """
-        Return a List of all organizations
+        Return a List of all Past Contests
     """
-    serializer_class = ContestSerializer
-    permission_classes = [
-        permissions.DjangoModelPermissionsOrAnonReadOnly,
-    ]
+    serializer_class = ContestBriefSerializer
+    permission_classes = []
 
     @cached_property
     def _now(self):
@@ -60,13 +60,23 @@ class PastContestListView(generics.ListAPIView):
                 filter(end_time__lt=self._now).order_by('-end_time')
         return qs
 
+
 class AllContestListView(generics.ListAPIView):
     """
         Return a List of all Contests
     """
     queryset = Contest.objects.all()
-    serializer_class = ContestSerializer
+    serializer_class = ContestBriefSerializer
     permission_classes = [permissions.IsAdminUser]
+    filter_backends = [
+        django_filters.rest_framework.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    search_fields = ['^key', '@name']
+    filterset_fields = ['enable_frozen', 'is_rated', 'is_visible', 'format_name']
+    ordering_fields = ['start_time', 'end_time']
+    ordering = ['-end_time']
 
 class ContestListView(generics.ListCreateAPIView):
     """
@@ -380,6 +390,7 @@ class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
 from problem.models import Problem
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, SubmissionBasicSerializer
+
 
 class ContestProblemSubmitView(generics.CreateAPIView):
     """

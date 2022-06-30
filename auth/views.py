@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 User = get_user_model()
 
+from django.core.exceptions import PermissionDenied
+
 from rest_framework import generics, status, views
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -71,6 +73,7 @@ class SignOutView(views.APIView):
 
 
 from django.http import HttpResponse, HttpResponseNotFound
+import django_filters
 from rest_framework import permissions, generics, filters
 
 from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
@@ -78,8 +81,16 @@ from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
 class UserList(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserDetailSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [filters.OrderingFilter]
+    permission_classes = [permissions.IsAdminUser]
+
+    filter_backends = [
+        django_filters.rest_framework.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    search_fields = ['^username', '@first_name', '@last_name']
+    filterset_fields = ['is_active', 'is_staff', 'is_superuser']
+    ordering_fields = ['date_joined']
     ordering = ['-id']
 
 import io, csv
@@ -100,17 +111,21 @@ file_format = {
         'encoding': 'utf-8',
     }
 }
+
 @api_view(['OPTIONS', 'POST'])
 def generate_user_from_file(request):
     def badreq(msg):
         return Response(msg, status=status.HTTP_400_BAD_REQUEST)
-    
+    user = request.user
+    if not user.is_staff:
+        raise PermissionDenied
+
     if request.method == 'OPTIONS':
         return Response(file_format, status=status.HTTP_200_OK)
     else:
         if request.FILES.get('file') == None:
             return badreq({"detail": "No file named 'file' attached."})
-        
+
         line_no = 0
         file = request.FILES['file'].read().decode(file_format['config']['encoding'])
         reader = csv.DictReader(io.StringIO(file))
@@ -126,7 +141,7 @@ def generate_user_from_file(request):
                 pwd = get_random_string(length=16)
             data['password'] = data['password_confirm'] = pwd
             many_data[i] = data
-        
+
         ser = RegisterSerializer(data=many_data, many=True)
         if not ser.is_valid():
             return badreq({"detail": "Cannot create some users. Their password is too weak or username/email already taken."})
@@ -162,7 +177,8 @@ from django.http import JsonResponse
 
 @ensure_csrf_cookie
 def get_csrf(request):
-    response = JsonResponse({'detail': 'CSRF cookie set'},
-        status=status.HTTP_200_OK)
-    response['X-CSRFToken'] = get_token(request)
-    return response
+    raise NotImplementedError
+    # response = JsonResponse({'detail': 'CSRF cookie set'},
+        # status=status.HTTP_200_OK)
+    # response['X-CSRFToken'] = get_token(request)
+    # return response

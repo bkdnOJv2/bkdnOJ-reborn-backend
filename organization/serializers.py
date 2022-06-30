@@ -41,7 +41,8 @@ class OrganizationSerializer(OrganizationBasicSerializer):
     class Meta:
         model = Organization
         fields = [
-            'slug', 'short_name', 'name', 'is_open',
+            'slug', 'short_name', 'name',
+            'is_open', 'is_unlisted',
             'logo_url',
             'member_count', #'performance_points'
             'suborg_count',

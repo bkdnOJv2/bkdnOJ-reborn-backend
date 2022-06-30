@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_extensions',
     'django_filters',
+    'django.contrib.postgres',
 
     # Local Apps
     'helpers',
@@ -78,7 +79,6 @@ DATABASES = {
         'PORT': os.getenv('POSTGRES_PORT'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators

@@ -24,7 +24,7 @@ class SubmissionListView(generics.ListAPIView):
         return Submission.objects.filter(problem_id__in=probs)
 
 
-class SubmissionDetailView(generics.RetrieveUpdateAPIView):
+class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
         Return a detailed view of a certain submission
     """

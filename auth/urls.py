@@ -20,7 +20,9 @@ urlpatterns = [
     path('sign-up/', RegisterView.as_view(), name='user_register'),
     path('sign-out/', SignOutView.as_view(), name='user_sign_out'),
 
-    path('user/', UserList.as_view(), name='user-list'),
+    path('users/', UserList.as_view(), name='user-list'),
+    # path('user/', UserList.as_view(), name='user-list'),
+
     path('user/<int:pk>/', UserDetail.as_view(), name='user-detail'),
     path('user/generate/csv/', generate_user_from_file, name='user-gen-csv'),
 

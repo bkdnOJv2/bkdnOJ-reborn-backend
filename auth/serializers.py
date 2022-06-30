@@ -45,7 +45,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
         )
-        
+
         user.set_password(validated_data['password'])
         user.save()
 
@@ -62,14 +62,18 @@ class UserSerializer(serializers.ModelSerializer):
 class UserDetailSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ['url', 'id', 'username', 'email', 'is_staff', 'is_superuser',
-            'is_active', 'date_joined', 'last_login']#, 'groups']
+        fields = ['id', 'username', 'email',
+            'first_name', 'last_name',
+            'is_staff', 'is_superuser', 'is_active',
+            'date_joined']#, 'last_login']#, 'groups']
 
 class UserMoreDetailSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ['url', 'id', 'username', 'email', 'is_staff', 'is_superuser',
-            'is_active', 'date_joined', 'last_login', 'groups']
+        fields = ['id', 'username', 'email',
+            'first_name', 'last_name',
+            'is_staff', 'is_superuser', 'is_active',
+            'date_joined', 'last_login', 'groups']
 
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:

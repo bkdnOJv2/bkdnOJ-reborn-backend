@@ -1,12 +1,21 @@
 from functools import lru_cache as cache
 
 from django.contrib.auth.models import Group
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
-from auth.serializers import UserSerializer
+from auth.serializers import UserSerializer, UserDetailSerializer
+
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
 from userprofile.models import UserProfile as Profile
+
+from organization.models import Organization
+from organization.serializers import OrganizationSerializer
+
 from problem.models import Problem
 from problem.serializers import ProblemInContestSerializer, ProblemBasicSerializer
 from submission.serializers import SubmissionSerializer, SubmissionDetailSerializer
@@ -56,7 +65,13 @@ class ContestBriefSerializer(serializers.ModelSerializer):
         model = Contest
         fields = [
             'spectate_allow', 'register_allow', 'is_registered',
-            'key', 'name',
+            'key', 'name', 'format_name',
+
+            'is_rated',
+            'is_visible',
+            'is_private',
+            'is_organization_private',
+
             'start_time', 'end_time', 'time_limit',
             'enable_frozen', 'frozen_time', 'is_frozen',
             'user_count',
@@ -173,41 +188,74 @@ class ContestProblemSerializer(ContestProblemBriefSerializer):
 
 
 class ContestDetailSerializer(ContestBriefSerializer):
-    authors = serializers.SlugRelatedField(
-        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
-    )
-    collaborators = serializers.SlugRelatedField(
-        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
-    )
-    reviewers = serializers.SlugRelatedField(
-        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
-    )
-    private_contestants = serializers.SlugRelatedField(
-        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
-    )
-    banned_users = serializers.SlugRelatedField(
-        queryset=Profile.objects.all(), many=True, slug_field="username", required=False,
-    )
+    authors = serializers.SerializerMethodField()
+    def get_authors(self, contest):
+        users = User.objects.filter(id__in=contest.authors.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    collaborators = serializers.SerializerMethodField()
+    def get_collaborators(self, contest):
+        users = User.objects.filter(id__in=contest.collaborators.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    reviewers = serializers.SerializerMethodField()
+    def get_reviewers(self, contest):
+        users = User.objects.filter(id__in=contest.reviewers.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    private_contestants = serializers.SerializerMethodField()
+    def get_private_contestants(self, contest):
+        users = User.objects.filter(id__in=contest.private_contestants.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    banned_users = serializers.SerializerMethodField()
+    def get_banned_users(self, contest):
+        users = User.objects.filter(id__in=contest.banned_users.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    organizations = serializers.SerializerMethodField()
+    def get_organizations(self, contest):
+        orgs = Organization.objects.filter(id__in=contest.organizations.values_list('id', flat=True))
+        return OrganizationSerializer(orgs, many=True).data
+
 
     def to_internal_value(self, data):
-        profiles = ['authors', 'collaborators', 'reviewers',
+        ## Users
+        user_fields = ['authors', 'collaborators', 'reviewers',
             'private_contestants', 'banned_users']
-        qs = Profile.objects.select_related('owner')
-        profiles_val = {}
+        qs = Profile.objects.select_related('user')
+        profile_dict = {}
+        for field in user_fields:
+            users = data.pop(field, [])
 
-        for prf in profiles:
-            usernames = data.pop(prf, [])
-            profile_ins = []
-            for uname in usernames:
-                p = qs.filter(owner__username=uname)
+            profile_ids = []
+            for user in users:
+                username = user['username']
+                p = qs.filter(user__username=username)
                 if not p.exists():
-                    raise ValidationError(f"User '{uname}' does not exist.")
-                profile_ins.append(p.first().id)
-            profiles_val[prf] = profile_ins
+                    raise ValidationError(f"User '{username}' does not exist.")
+                profile_ids.append(p.first().id)
+            profile_dict[field] = profile_ids
+
+        ## Orgs
+        qs = Organization.objects.all()
+        orgs = data.pop('organizations', [])
+        org_ids = []
+        for org in orgs:
+            org_slug = org['slug']
+            o = qs.filter(slug=org_slug)
+            if not o.exists():
+                raise ValidationError(f"Organization'{org_slug}' does not exist.")
+            org_ids.append(o.first().id)
 
         val_data = super().to_internal_value(data)
-        for k, v in profiles_val.items():
+
+        ## Assign Profile ids
+        for k, v in profile_dict.items():
             val_data[k] = v
+
+        ## Assign Organization ids
+        val_data['organizations'] = org_ids
         return val_data
 
     problems = ContestProblemBriefSerializer(many=True, read_only=True,

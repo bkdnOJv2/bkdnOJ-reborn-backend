@@ -48,7 +48,7 @@ class ProblemListView(generics.ListCreateAPIView):
     filters.SearchFilter,
     filters.OrderingFilter,
   ]
-  search_fields = ['^shortname', '^title']
+  search_fields = ['^shortname', '@title']
   filterset_fields = ['is_public', 'is_organization_private', 'partial', 'short_circuit']
   ordering_fields = ['modified', 'created', 'points']
   ordering = ['-created']

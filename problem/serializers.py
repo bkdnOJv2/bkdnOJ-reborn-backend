@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 from organization.models import Organization
+from organization.serializers import OrganizationSerializer
 
 from userprofile.models import UserProfile
 from .models import Problem, ProblemTestProfile, TestCase
@@ -67,40 +68,69 @@ class LanguageBasicSerializer(serializers.ModelSerializer):
         else:
             return super().to_internal_value(data)
 
+from auth.serializers import UserDetailSerializer
 
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
-    organizations = serializers.SlugRelatedField(
-        queryset=Organization.objects.all(), many=True, slug_field="slug", required=False
-    )
-    authors = serializers.SlugRelatedField(
-        queryset=UserProfile.objects.all(), many=True, slug_field="username", required=False,
-    )
-    collaborators = serializers.SlugRelatedField(
-        queryset=UserProfile.objects.all(), many=True, slug_field="username", required=False,
-    )
-    reviewers = serializers.SlugRelatedField(
-        queryset=UserProfile.objects.all(), many=True, slug_field="username", required=False,
-    )
+    authors = serializers.SerializerMethodField()
+    def get_authors(self, problem):
+        users = User.objects.filter(id__in=problem.authors.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    collaborators = serializers.SerializerMethodField()
+    def get_collaborators(self, problem):
+        users = User.objects.filter(id__in=problem.collaborators.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    reviewers = serializers.SerializerMethodField()
+    def get_reviewers(self, problem):
+        users = User.objects.filter(id__in=problem.reviewers.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    organizations = serializers.SerializerMethodField()
+    def get_organizations(self, contest):
+        orgs = Organization.objects.filter(id__in=contest.organizations.values_list('id', flat=True))
+        return OrganizationSerializer(orgs, many=True).data
+
     allowed_languages = LanguageBasicSerializer(many=True, required=False)
 
     def to_internal_value(self, data):
-        profiles = ['authors', 'collaborators', 'reviewers']
+        user_fields = ['authors', 'collaborators', 'reviewers']
         qs = UserProfile.objects.select_related('user')
-        profiles_val = {}
 
-        for prf in profiles:
-            usernames = data.pop(prf, [])
-            profile_ins = []
-            for uname in usernames:
-                p = qs.filter(user__username=uname)
-                if p == None:
-                    raise ValidationError(f"User '{uname}' does not exist.")
-                profile_ins.append(p.first().id)
-            profiles_val[prf] = profile_ins
+        profile_dict = {}
+
+        for field in user_fields:
+            users = data.pop(field, [])
+
+            profile_ids = []
+            for user in users:
+                username = user['username']
+                p = qs.filter(user__username=username)
+                if not p.exists():
+                    raise ValidationError(f"User '{username}' does not exist.")
+                profile_ids.append(p.first().id)
+            profile_dict[field] = profile_ids
+
+        ## Orgs
+        qs = Organization.objects.all()
+        orgs = data.pop('organizations', [])
+        org_ids = []
+        for org in orgs:
+            org_slug = org['slug']
+            o = qs.filter(slug=org_slug)
+            if not o.exists():
+                raise ValidationError(f"Organization'{org_slug}' does not exist.")
+            org_ids.append(o.first().id)
 
         val_data = super().to_internal_value(data)
-        for k, v in profiles_val.items():
+
+        ## Assign Profile ids
+        for k, v in profile_dict.items():
             val_data[k] = v
+
+        ## Assign Organization ids
+        val_data['organizations'] = org_ids
+
         return val_data
 
     class Meta:
