@@ -1,7 +1,10 @@
 from django.contrib.auth.models import Group
 from rest_framework import serializers
 
-from auth.serializers import UserSerializer
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+from auth.serializers import UserSerializer, UserDetailSerializer
 from .models import Organization
 
 __all__ = [
@@ -58,8 +61,14 @@ class OrganizationSerializer(OrganizationBasicSerializer):
 class OrganizationDetailSerializer(OrganizationSerializer):
     admins = serializers.SerializerMethodField()
     def get_admins(self, instance):
-        from userprofile.serializers import UserProfileBasicSerializer
-        return UserProfileBasicSerializer(instance.admins, many=True).data
+        users = User.objects.filter(id__in=instance.admins.values_list('id', flat=True))
+        return UserDetailSerializer(users, many=True).data
+
+    parent_org = serializers.SerializerMethodField()
+    def get_parent_org(self, instance):
+        if instance.is_root():
+            return None
+        return OrganizationBasicSerializer(instance.get_parent(), read_only=True).data
 
     class Meta:
         model = Organization
@@ -68,6 +77,8 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             'logo_url',
 
             'admins', 'about', 'creation_date', 'slots',
+
+            'parent_org',
 
             'member_count', #'performance_points'
             'suborg_count',

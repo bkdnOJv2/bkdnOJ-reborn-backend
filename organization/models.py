@@ -157,6 +157,75 @@ class Organization(MP_Node):
     self.slug = self.slug.upper()
     return super().save(*args, **kwargs)
 
+
+  #### =================================
+  """
+    Given a Tree, and two list of nodes A and B, check if exists
+    a pair of node (a, b) that a is an ancestor of b.
+    Complexity: O(a + settings.BKDNOJ_ORG_TREE_MAX_DEPTH * b)
+  """
+  @classmethod
+  def exists_pair_of_ancestor_descendant(cls, ancestors, descendants):
+      # ancestor_ids = set()
+      # for ancestor in ancestors:
+      #   ancestor_ids.add(ancestor.id)
+      ancestor_ids = set(ancestors.values_list('id', flat=True))
+
+      for descendant in descendants:
+        trvs = descendant
+        while True:
+          if trvs.id in ancestor_ids: return True
+          if trvs.is_root(): break
+          trvs = trvs.get_parent()
+      return False
+
+  @classmethod
+  def get_public_root_organizations(cls):
+    return cls.get_root_nodes().filter(is_unlisted=False)
+
+  def is_accessible_by(self, user):
+    if not self.is_unlisted:
+      return True # And their parents too! Which is what I am going to enforce.
+
+    if not user.is_authenticated:
+      return False
+
+    # Unlisted, and User is logged-in
+    if user.is_superuser: # or user.has_perm('organization.see_all_organizations'):
+      return True
+
+    ## Check for member-ship
+    ## For every org that this person is in, check if this org is a sub_org of `self`
+    for descen_org in user.profile.organizations.all():
+      if descen_org.is_descendant_of(self):
+        return True
+
+    ## Check for admin-ship
+    ## For every org that this person is an admin of, check if this org is a sub_org of `self`
+    for ances_org in user.profile.admin_of.all():
+      if self.is_descendant_of(ances_org):
+        return True
+
+    return False
+
+  def is_editable_by(self, user):
+    if not user.is_authenticated:
+      return False
+    if user.is_superuser: # or user.has_perm('organization.edit_all_organizations'):
+      return True
+    ## Check for admin-ship
+    ## For every org that this person is an admin of, check if this org is a sub_org of `self`
+    for ances_org in user.profile.admin_of.all():
+      if self.is_descendant_of(ances_org):
+        return True
+    return False
+
+
+  @classmethod
+  def get_visible_organizations(cls, user):
+    if not user.is_authenticated:
+      return cls.get_public_root_organizations()
+
   def __contains__(self, item):
     if item is None:
       return False

@@ -12,17 +12,6 @@ from judger.restful.serializers import LanguageBasicSerializer
 from compete.ratings import rating_class, rating_level, rating_name
 
 class UserProfileBasicSerializer(serializers.ModelSerializer):
-    # rank = serializers.SerializerMethodField()
-    # def get_rank(self, prf):
-    #     if prf.rating is None:
-    #         return 'Unrated'
-    #     return rating_name(prf.rating)
-
-    # rank_class = serializers.SerializerMethodField()
-    # def get_rank_class(self, prf):
-    #     if prf.rating is None:
-    #         return 'rate-none'
-    #     return rating_class(prf.rating)
 
     organization = serializers.SerializerMethodField()
     def get_organization(self, prf):
@@ -38,6 +27,7 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
             'rating', #'rank', 'rank_class',
             'organization',
         ]
+
 
 class UserProfileSerializer(UserProfileBasicSerializer):
     user = UserSerializer(required=False)
@@ -65,6 +55,7 @@ class UserProfileSerializer(UserProfileBasicSerializer):
                 data = parent_data
             data_list.append(data)
         return data_list
+
     admin_of = serializers.SerializerMethodField()
     def get_admin_of(self, prf):
         return NestedOrganizationBasicSerializer(prf.admin_of, many=True).data

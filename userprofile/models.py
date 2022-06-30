@@ -150,6 +150,41 @@ class UserProfile(TimeStampedModel):
         self.avatar = DEFAULT_AVATAR_URL
         self.save()
 
+    """
+        Return a SET of ID of organizations that this profile is a member of
+    """
+    @cached_property
+    def member_of_org_with_ids(self):
+        org_ids = set()
+        for org in self.organizations.only('id').all():
+            trvs = org
+            while True:
+                org_ids.add(trvs.id)
+                if trvs.is_root(): break
+                trvs = trvs.get_parent()
+        return org_ids
+
+
+    """
+        Return a SET of ID of organizations that this profile is an admin of
+    """
+    @cached_property
+    def admin_of_org_with_ids(self):
+        org_ids = set()
+        from queue import Queue
+        q = Queue()
+
+        for org in self.admin_of.all():
+            q.put(org)
+            while not q.empty():
+                top = q.get() # Remove and return an item from the queue
+                org_ids.add(top.id)
+                for child in top.get_children():
+                    if child.id in org_ids: continue
+                    q.put(child)
+        return org_ids
+
+
     def __str__(self):
         name = f"{self.first_name} {self.last_name}"
         if not name.strip():

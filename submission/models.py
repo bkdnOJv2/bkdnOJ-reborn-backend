@@ -196,6 +196,18 @@ class Submission(models.Model):
     if not self.problem.is_accessible_by(user):
       return False
 
+    # If user is an author or curator of the contest the
+    # submission was made in, or they can see in-contest subs
+    contest = self.contest_object
+    if contest is not None:
+      from organization.models import Organization
+      if (user.profile.id in contest.editor_ids or
+        (contest.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
+          user.profile.admin_of.all(), self.organizations.all()
+        ))
+      ):
+          return True
+
     if user.has_perm('submission.view_all_submission') or user.is_superuser:
       return True
     elif source_visibility == SubmissionSourceAccess.HIDDEN:
@@ -207,16 +219,6 @@ class Submission(models.Model):
     elif source_visibility == SubmissionSourceAccess.SOLVED and \
         self.problem.submission_set.filter(user_id=profile.id, result='AC').exists():
       return True
-
-    # # If user is an author or curator of the contest the
-    # # submission was made in, or they can see in-contest subs
-    # contest = self.contest_object
-    # if contest is not None and (
-    #   user.profile.id in contest.editor_ids or
-    #   contest.view_contest_submissions.filter(id=user.profile.id).exists() or
-    #   (contest.tester_see_submissions and user.profile.id in contest.tester_ids)
-    # ):
-    #  return True
 
     return False
 

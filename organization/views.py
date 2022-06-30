@@ -14,7 +14,9 @@ import django_filters
 
 __all__ = [
     'OrganizationListView', 'OrganizationDetailView',
+    'MyOrganizationListView',
     'OrganizationSubOrgListView',
+    'OrganizationMembersView',
 ]
 
 class OrganizationListView(generics.ListCreateAPIView):
@@ -59,6 +61,44 @@ class OrganizationListView(generics.ListCreateAPIView):
         return Response(seri.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+from organization.serializers import NestedOrganizationBasicSerializer, OrganizationBasicSerializer
+
+class MyOrganizationListView(views.APIView):
+    """
+        Return a List of all organizations
+    """
+    queryset = Organization.objects.none()
+    serializer_class = OrganizationSerializer
+    permission_classes = [
+        permissions.IsAdminUser
+    ]
+
+    def get(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            return([])
+        profile = user.profile
+
+        member_of = []
+        for org in profile.organizations.all():
+            data = OrganizationBasicSerializer(org).data
+            data['sub_orgs'] = []
+
+            trv = org
+            while True:
+                if trv.is_root(): break
+                trv = trv.get_parent()
+                parent_data = OrganizationBasicSerializer(trv).data
+                parent_data['sub_orgs'] = [data]
+                data = parent_data
+            member_of.append(data)
+
+        return Response({
+            'member_of': member_of,
+            'admin_of': NestedOrganizationBasicSerializer(profile.admin_of, many=True).data
+        })
+
+
 class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
         Return a detailed view of requested organization
@@ -71,6 +111,9 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         # permissions.DjangoObjectPermissions,
     ]
 
+    def get_serializer_context(self):
+        return {'request': self.request}
+
     def get_object(self):
         org = get_object_or_404(Organization, slug=self.kwargs['slug'].upper())
         return org
@@ -79,6 +122,52 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         #     return org
         # else:
         #     raise PermissionDenied
+
+from django.http import Http404
+from userprofile.models import UserProfile as Profile
+from userprofile.serializers import UserProfileBasicSerializer
+
+class OrganizationMembersView(generics.ListCreateAPIView):
+    """
+        View for List/Create members of Org
+    """
+    lookup_field = 'slug'
+    serializer_class = UserProfileBasicSerializer
+    permission_classes = []
+
+    def get_object(self):
+        org = get_object_or_404(Organization, slug=self.kwargs['slug'])
+        if not org.is_accessible_by(self.request.user):
+            raise Http404()
+        return org
+
+    def get_queryset(self):
+        org = self.get_object()
+        return org.members.all()
+
+    def post(self, request, slug):
+        org = self.get_object()
+        pass
+        #new_members = request.data.get('new', [])
+        #pfs = Profile.objects.filter(user__username__in=new_members)
+        #org.members.add(pfs)
+
+class OrganizationMemberDeleteView(generics.DestroyAPIView):
+    """
+        View for List/Create members of Org
+    """
+    lookup_field = 'slug'
+    serializer_class = UserProfileBasicSerializer
+    permission_classes = []
+
+    def get_object(self):
+        org = get_object_or_404(Organization, slug=self.kwargs['slug'])
+        if not org.is_accessible_by(self.request.user):
+            raise Http404()
+        return org
+
+    def delete(self, request, slug):
+        pass
 
 
 class OrganizationSubOrgListView(generics.ListCreateAPIView):
@@ -98,6 +187,9 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
     ordering_fields = ['creation_date']
     ordering = ['-creation_date']
 
+    def get_serializer_context(self):
+        return {'request': self.request}
+
     @cached_property
     def selected_org(self):
         org = get_object_or_404(Organization, slug=self.kwargs['slug'].upper())
@@ -107,7 +199,7 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
         return self.selected_org.get_children()
 
     def post(self, request, slug):
-        seri = OrganizationSerializer(data=request.data)
+        seri = OrganizationSerializer(data=request.data, context={'request': request})
         if seri.is_valid():
             data = seri.data.copy()
             for key in OrganizationSerializer.Meta.read_only_fields:
