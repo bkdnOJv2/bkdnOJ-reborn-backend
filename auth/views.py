@@ -193,6 +193,29 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
                 raise PermissionDenied()
         return qs
 
+from django.shortcuts import get_object_or_404
+
+@api_view(['POST'])
+def reset_password(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    if (not request.user.is_superuser) or (not user != request.user):
+        raise PermissionDenied()
+
+    pw = request.data.get('password', None)
+    pw2 = request.data.get('password', None)
+    if pw is None or pw2 is None:
+        return Response({
+            'detail': "'password' and 'password_confirm' cannot be empty."
+        }, status=status.HTTP_400_BAD_REQUEST)
+    if pw != pw2:
+        return Response({
+            'detail': "'password' and 'password_confirm' must not be different."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(pw)
+    user.save()
+    return Response({}, status=status.HTTP_204_NO_CONTENT)
+
 
 class GroupList(generics.ListCreateAPIView):
     queryset = Group.objects.all()

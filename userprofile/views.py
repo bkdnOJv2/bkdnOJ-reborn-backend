@@ -1,7 +1,10 @@
 from django.shortcuts import render, get_object_or_404
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
+
 from rest_framework import generics, mixins, permissions, status
 from rest_framework.response import Response
-from django.http import Http404
+from rest_framework.decorators import api_view
 
 from .models import UserProfile
 from .serializers import UserProfileSerializer, UserProfileBasicSerializer
@@ -64,3 +67,34 @@ class SelfProfileDetail(generics.RetrieveUpdateAPIView):
         profile = self.get_object(None)
         profile.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+
+@api_view(['POST'])
+def change_password(request):
+    user = request.user
+    if not user.is_authenticated:
+        raise PermissionDenied()
+
+    pw = request.data.get('password', None)
+    pw2 = request.data.get('password', None)
+    if pw is None or pw2 is None:
+        return Response({
+            'detail': "'password' and 'password_confirm' cannot be empty."
+        }, status=status.HTTP_400_BAD_REQUEST)
+    if pw != pw2:
+        return Response({
+            'detail': "'password' and 'password_confirm' must not be different."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        validate_password(pw)
+    except ValidationError as errors:
+        return Response({
+            'errors': errors,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(pw)
+    user.save()
+    return Response({}, status=status.HTTP_204_NO_CONTENT)

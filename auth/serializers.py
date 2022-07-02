@@ -1,3 +1,4 @@
+from wsgiref.validate import validator
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -22,7 +23,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(required=True, min_length=4, max_length=30)
+    username = serializers.CharField(required=True, min_length=4, max_length=30,
+        validators=[UniqueValidator(queryset=User.objects.all())]
+    )
     email = serializers.EmailField(
         required=False,
     )
@@ -38,9 +41,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         optional_fields = ['email', 'first_name', 'last_name']
 
     def validate(self, attrs):
-        if attrs.get('email', '') != '':
-            if User.objects.filter(email=attrs['email']).exists():
-                raise serializers.ValidationError({"email": "Email has already been used by someone else."})
+        # if attrs.get('email', '') != '':
+        #     if User.objects.filter(email=attrs['email']).exists():
+        #         raise serializers.ValidationError({"email": "Email has already been used by someone else."})
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
