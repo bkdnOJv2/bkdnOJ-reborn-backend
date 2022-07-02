@@ -5,7 +5,9 @@ __all__ = [
     'ContestNotAccessible',
     'ContestNotStarted',
     'ContestNotFinished',
+    'ContestEnded',
     'ContestNotRated',
+    'ContestNotRegistered',
 ]
 
 class ContestNotAccessible(APIException):
@@ -22,6 +24,17 @@ class ContestNotFinished(APIException):
     status_code = 400
     default_detail = _("Contest is not finished yet.")
     default_code = 'contest_not_finished'
+
+class ContestEnded(APIException):
+    status_code = 400
+    default_detail = _("Contest has ended.")
+    default_code = 'contest_ended'
+
+class ContestNotRegistered(APIException):
+    status_code = 400
+    default_detail = _("You are not registered to this contest.")
+    default_code = 'contest_not_registered'
+
 
 class ContestNotRated(APIException):
     status_code = 400

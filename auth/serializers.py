@@ -24,28 +24,36 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True, min_length=4, max_length=30)
     email = serializers.EmailField(
-        required=True,
-        validators=[UniqueValidator(queryset=User.objects.all())]
+        required=False,
     )
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
 
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password', 'password_confirm', )
+        fields = ('username', 'email', 'password', 'password_confirm', 'first_name', 'last_name')
+        optional_fields = ['email', 'first_name', 'last_name']
 
     def validate(self, attrs):
+        if attrs.get('email', '') != '':
+            if User.objects.filter(email=attrs['email']).exists():
+                raise serializers.ValidationError({"email": "Email has already been used by someone else."})
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
 
     def create(self, validated_data):
+        dat = validated_data.copy()
+        dat.pop('password', None)
+        dat.pop('password_confirm', None)
         user = User.objects.create(
-            username=validated_data['username'],
-            email=validated_data['email'],
+            # username=validated_data['username'],
+            # email=validated_data['email'],
+            **dat
         )
-
         user.set_password(validated_data['password'])
         user.save()
 

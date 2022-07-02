@@ -79,7 +79,6 @@ from rest_framework import permissions, generics, filters
 from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
 
 class UserList(generics.ListCreateAPIView):
-    queryset = User.objects.all()
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAdminUser]
 
@@ -93,6 +92,19 @@ class UserList(generics.ListCreateAPIView):
     ordering_fields = ['date_joined']
     ordering = ['-id']
 
+    def get_queryset(self):
+        qs = User.objects.all()
+
+        user = self.request.user
+        method = self.request.method
+        if method == 'GET':
+            if user.is_staff:
+                qs = qs.filter(is_superuser=False)
+        else:
+            if not user.is_superuser:
+                raise PermissionDenied()
+        return qs
+
 import io, csv
 
 file_format = {
@@ -101,6 +113,12 @@ file_format = {
             'required': True,
         },
         'password': {
+            'required': False,
+        },
+        'first_name': {
+            'required': False,
+        },
+        'last_name': {
             'required': False,
         },
         'email': {
@@ -144,7 +162,7 @@ def generate_user_from_file(request):
 
         ser = RegisterSerializer(data=many_data, many=True)
         if not ser.is_valid():
-            return badreq({"detail": "Cannot create some users. Their password is too weak or username/email already taken."})
+            return badreq({'detail': "Cannot create some users.", 'errors': ser.errors})
         ser.save()
 
         for data in many_data:
@@ -157,19 +175,34 @@ def generate_user_from_file(request):
         return Response(output.getvalue(), status=status.HTTP_201_CREATED)
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = User.objects.all()
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = User.objects.all()
+
+        user = self.request.user
+        method = self.request.method
+        if method == 'GET':
+            if not user.is_staff:
+                raise PermissionDenied()
+            if user.is_staff:
+                qs = qs.filter(is_superuser=False)
+        else:
+            if not user.is_superuser:
+                raise PermissionDenied()
+        return qs
+
 
 class GroupList(generics.ListCreateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAdminUser]
 
 class GroupDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAdminUser]
 
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie

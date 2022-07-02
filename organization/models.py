@@ -1,11 +1,16 @@
+from queue import Queue
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models import Q
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.utils.functional import cached_property
 from django_extensions.db.models import TimeStampedModel
 from django.contrib.auth import get_user_model
 User = get_user_model()
+
+from django.core.validators import MinLengthValidator
 
 from treebeard.mp_tree import MP_Node
 
@@ -24,6 +29,7 @@ class Organization(MP_Node):
 
   # model fields
   slug = models.SlugField(
+    validators=[MinLengthValidator(3)],
     max_length=128, verbose_name=_('organization slug'),
     help_text=_('Organization name shown in URL and also will be used for searching.'),
     unique=True,
@@ -75,26 +81,57 @@ class Organization(MP_Node):
     #   self.save(update_fields=['performance_points'])
     # return pp
 
+  """
+    Recalculate member count of this org
+  """
+  @classmethod
+  def reupdate_tree_member_count(cls, root, wrapTransaction=True):
+    if wrapTransaction:
+      with transaction.atomic():
+        mbcount = cls.reupdate_tree_member_count(root, False)
+        return mbcount
+    ##
+    mbcount = root.members.count()
+    for child in root.get_children().all():
+      mbcount += cls.reupdate_tree_member_count(child, False)
+    root.member_count = mbcount
+    root.save(update_fields=['member_count'])
+    return mbcount
+
+  """
+    Update member_count based on deltas
+  """
   def on_user_changes(self):
     member_count = self.members.count()
-    delta = member_count - self.member_count
+    old_member_count = self._old_member_count
+    delta = member_count - old_member_count
     if delta != 0:
       ## Update recursively to all parent orgs
       traversal = self
       with transaction.atomic():
         while True:
           traversal.member_count += delta
-          self.save(update_fields=['member_count'])
+          traversal.save(update_fields=['member_count'])
           if traversal.is_root():
             break
           traversal = traversal.get_parent()
     return member_count
 
+  def add_members(self, qs):
+    self._old_member_count = self.members.count()
+    self.members.add(*qs)
+    self.save()
+    self.on_user_changes()
+
+  def remove_members(self, qs):
+    self._old_member_count = self.members.count()
+    self.members.remove(*qs)
+    self.save()
+    self.on_user_changes()
 
   #### ==================================== Ancestors/Descendants helpers
   def is_suborg_of(self, org):
     return self.is_descendant_of(org)
-
 
   #### ==================================== Admin Helper
   @cached_property
@@ -129,18 +166,50 @@ class Organization(MP_Node):
 
   #### ==================================== Tree moving helper Method
   def become_child_of(self, target):
-    self.move(target, 'sorted-child')
+    delta = self.member_count
+    with transaction.atomic():
+      # Remove tree from parent
+      if not self.is_root():
+        traversal = self.get_parent()
+        while True:
+          traversal.member_count -= delta
+          traversal.save(update_fields=['member_count'])
+          if traversal.is_root():
+            break
+          traversal = traversal.get_parent()
+      # Move the tree
+      self.move(target, 'sorted-child')
+      # Update the new parent tree
+      traversal = target
+      while True:
+        traversal.member_count += delta
+        traversal.save(update_fields=['member_count'])
+        if traversal.is_root():
+          break
+        traversal = traversal.get_parent()
+    # End transaction
 
   def become_root(self):
     if not self.is_root():
-      root = self.get_root()
-      self.move(root, 'sorted-sibling')
+      with transaction.atomic():
+        delta = -self.member_count
+        if delta != 0 and not self.is_root():
+          traversal = self.get_parent()
+          while True:
+            traversal.member_count += delta
+            traversal.save(update_fields=['member_count'])
+            if traversal.is_root():
+              break
+            traversal = traversal.get_parent()
+        ## Move
+        root = self.get_root()
+        self.move(root, 'sorted-sibling')
 
   #### ==================================== Model Method
-  def add_child(self, *args, **kwargs):
+  def add_child(self, **kwargs):
     if self.get_depth() >= settings.BKDNOJ_ORG_TREE_MAX_DEPTH:
       raise OrganizationTooDeepError()
-    return super().add_child(*args, **kwargs)
+    return super().add_child(**kwargs)
 
   def move(self, target, pos=None):
     if type(pos) == str:
@@ -150,13 +219,38 @@ class Organization(MP_Node):
       else: # Attempts to add siblings to target
         if target.get_depth() > settings.BKDNOJ_ORG_TREE_MAX_DEPTH:
           raise OrganizationTooDeepError()
+    if self == target:
+      raise ValueError("Node and Parent node must be different.")
     super().move(target, pos)
 
 
+  def delete(self):
+    delta = -self.members.count()
+    if delta != 0:
+      ## Update recursively to all parent orgs
+      traversal = self
+      with transaction.atomic():
+        while True:
+          traversal.member_count += delta
+          traversal.save(update_fields=['member_count'])
+          if traversal.is_root():
+            break
+          traversal = traversal.get_parent()
+    super().delete()
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self._old_member_count = self.member_count
+
+  def clean(self):
+    if len(self.slug) < 3:
+      raise ValidationError("Slug must be longer than 2 characters")
+    return True
+
   def save(self, *args, **kwargs):
     self.slug = self.slug.upper()
+    self.clean()
     return super().save(*args, **kwargs)
-
 
   #### =================================
   """
@@ -179,10 +273,6 @@ class Organization(MP_Node):
           trvs = trvs.get_parent()
       return False
 
-  @classmethod
-  def get_public_root_organizations(cls):
-    return cls.get_root_nodes().filter(is_unlisted=False)
-
   def is_accessible_by(self, user):
     if not self.is_unlisted:
       return True # And their parents too! Which is what I am going to enforce.
@@ -197,13 +287,13 @@ class Organization(MP_Node):
     ## Check for member-ship
     ## For every org that this person is in, check if this org is a sub_org of `self`
     for descen_org in user.profile.organizations.all():
-      if descen_org.is_descendant_of(self):
+      if self==descen_org or descen_org.is_descendant_of(self):
         return True
 
     ## Check for admin-ship
     ## For every org that this person is an admin of, check if this org is a sub_org of `self`
     for ances_org in user.profile.admin_of.all():
-      if self.is_descendant_of(ances_org):
+      if self==ances_org or self.is_descendant_of(ances_org):
         return True
 
     return False
@@ -216,15 +306,37 @@ class Organization(MP_Node):
     ## Check for admin-ship
     ## For every org that this person is an admin of, check if this org is a sub_org of `self`
     for ances_org in user.profile.admin_of.all():
-      if self.is_descendant_of(ances_org):
+      if self==ances_org or self.is_descendant_of(ances_org):
         return True
     return False
 
+  @classmethod
+  def get_public_root_organizations(cls):
+    return cls.get_root_nodes().filter(is_unlisted=False)
+
+  @classmethod
+  def get_visible_root_organizations(cls, user):
+    if not user.is_authenticated:
+      return cls.get_public_root_organizations()
+
+    if user.has_perm("organization.see_all_organization") or user.has_perm("organization.edit_all_organization"):
+      return cls.get_root_nodes().all()
+
+    return Organization.objects.filter(Q(id__in=user.profile.admin_of.all()) | Q(id__in=user.profile.organizations.all())).distinct()
 
   @classmethod
   def get_visible_organizations(cls, user):
-    if not user.is_authenticated:
-      return cls.get_public_root_organizations()
+    ids = set()
+    for org in cls.get_visible_root_organizations(user):
+      q = Queue()
+      q.put(org)
+      while not q.empty():
+        top = q.get()
+        ids.add(top.id)
+        for child in top.get_children():
+          if not child.id in ids:
+            q.put(child)
+    return Organization.objects.filter(id__in=ids)
 
   def __contains__(self, item):
     if item is None:

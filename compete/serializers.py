@@ -61,6 +61,31 @@ class ContestBriefSerializer(serializers.ModelSerializer):
             return True
         return False
 
+    def to_internal_value(self, data):
+        user_fields = ['authors']
+        qs = Profile.objects.select_related('user')
+
+        profile_dict = {}
+        for field in user_fields:
+            users = data.pop(field, [])
+
+            profile_ids = []
+            for user in users:
+                username = user['username']
+                p = qs.filter(user__username=username)
+                if not p.exists():
+                    raise ValidationError(f"User '{username}' does not exist.")
+                profile_ids.append(p.first().id)
+            profile_dict[field] = profile_ids
+
+
+        val_data = super().to_internal_value(data)
+
+        ## Assign Profile ids
+        for k, v in profile_dict.items():
+            val_data[k] = v
+        return val_data
+
     class Meta:
         model = Contest
         fields = [
@@ -68,6 +93,7 @@ class ContestBriefSerializer(serializers.ModelSerializer):
             'key', 'name', 'format_name',
 
             'is_rated',
+            'published',
             'is_visible',
             'is_private',
             'is_organization_private',
@@ -100,6 +126,7 @@ class ContestSerializer(serializers.ModelSerializer):
 
             'authors', 'collaborators', 'reviewers',
 
+            'published',
             'is_visible',
             'is_private', 'private_contestants',
             'is_organization_private', 'organizations',
@@ -174,7 +201,11 @@ class ContestProblemBriefSerializer(serializers.ModelSerializer):
 
 
 class ContestProblemSerializer(ContestProblemBriefSerializer):
-    problem_data = ProblemInContestSerializer(read_only=True, source='problem')
+    problem_data = serializers.SerializerMethodField()
+    def get_problem_data(self, cp):
+        # print(self.context['request'].GET)
+        return ProblemInContestSerializer(cp.problem, read_only=True, context=self.context).data
+
     class Meta:
         model = ContestProblem
         fields = [
@@ -190,32 +221,32 @@ class ContestProblemSerializer(ContestProblemBriefSerializer):
 class ContestDetailSerializer(ContestBriefSerializer):
     authors = serializers.SerializerMethodField()
     def get_authors(self, contest):
-        users = User.objects.filter(id__in=contest.authors.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=contest.authors.all())
         return UserDetailSerializer(users, many=True).data
 
     collaborators = serializers.SerializerMethodField()
     def get_collaborators(self, contest):
-        users = User.objects.filter(id__in=contest.collaborators.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=contest.collaborators.all())
         return UserDetailSerializer(users, many=True).data
 
     reviewers = serializers.SerializerMethodField()
     def get_reviewers(self, contest):
-        users = User.objects.filter(id__in=contest.reviewers.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=contest.reviewers.all())
         return UserDetailSerializer(users, many=True).data
 
     private_contestants = serializers.SerializerMethodField()
     def get_private_contestants(self, contest):
-        users = User.objects.filter(id__in=contest.private_contestants.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=contest.private_contestants.all())
         return UserDetailSerializer(users, many=True).data
 
     banned_users = serializers.SerializerMethodField()
     def get_banned_users(self, contest):
-        users = User.objects.filter(id__in=contest.banned_users.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=contest.banned_users.all())
         return UserDetailSerializer(users, many=True).data
 
     organizations = serializers.SerializerMethodField()
     def get_organizations(self, contest):
-        orgs = Organization.objects.filter(id__in=contest.organizations.values_list('id', flat=True))
+        orgs = Organization.objects.filter(id__in=contest.organizations.all())
         return OrganizationSerializer(orgs, many=True).data
 
 

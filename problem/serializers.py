@@ -73,22 +73,22 @@ from auth.serializers import UserDetailSerializer
 class ProblemSerializer(serializers.HyperlinkedModelSerializer):
     authors = serializers.SerializerMethodField()
     def get_authors(self, problem):
-        users = User.objects.filter(id__in=problem.authors.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=problem.authors.all())
         return UserDetailSerializer(users, many=True).data
 
     collaborators = serializers.SerializerMethodField()
     def get_collaborators(self, problem):
-        users = User.objects.filter(id__in=problem.collaborators.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=problem.collaborators.all())
         return UserDetailSerializer(users, many=True).data
 
     reviewers = serializers.SerializerMethodField()
     def get_reviewers(self, problem):
-        users = User.objects.filter(id__in=problem.reviewers.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=problem.reviewers.all())
         return UserDetailSerializer(users, many=True).data
 
     organizations = serializers.SerializerMethodField()
     def get_organizations(self, contest):
-        orgs = Organization.objects.filter(id__in=contest.organizations.values_list('id', flat=True))
+        orgs = Organization.objects.filter(id__in=contest.organizations.all())
         return OrganizationSerializer(orgs, many=True).data
 
     allowed_languages = LanguageBasicSerializer(many=True, required=False)
@@ -130,7 +130,6 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 
         ## Assign Organization ids
         val_data['organizations'] = org_ids
-
         return val_data
 
     class Meta:
@@ -165,6 +164,12 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class ProblemInContestSerializer(ProblemSerializer):
+    # pdf = serializers.SerializerMethodField()
+    # def get_pdf(self, prob):
+    #     request = self.context['request']
+    #     contest_key = request.GET.get('contest')
+    #     return request.build_absolute_uri(prob.pdf.url)
+
     class Meta:
         model = Problem
         fields = [

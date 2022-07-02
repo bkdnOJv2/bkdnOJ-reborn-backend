@@ -88,18 +88,14 @@ class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
 
   def get_object(self):
       method = self.request.method
+      p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
       if method == 'GET':
-          p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
           if not p.is_accessible_by(self.request.user):
               raise Http404()
-          return p
       else:
-          if not self.request.user.is_staff:
-              raise Http404()
-          p = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
           if not p.is_editable_by(self.request.user):
               raise PermissionDenied
-          return p
+      return p
 
 
 class ProblemSubmitView(generics.CreateAPIView):
@@ -306,7 +302,7 @@ def create_problem_from_archive(request):
         break
 
   # Include additional data that config file might not have
-  data['authors'] = [request.user.profile.username]
+  data['authors'] = [{'username':request.user.username}]
 
   # Validating Problem settings
   context={'request':request}

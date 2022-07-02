@@ -181,8 +181,8 @@ class Problem(TimeStampedModel):
       if not user.is_authenticated: return False
       if user.is_superuser: return True
 
-      if not user.has_perm('problem.edit_own_problem'): return False
-      if user.has_perm('problem.edit_all_problem'): return True
+      # if not user.has_perm('problem.edit_own_problem'): return False
+      # if user.has_perm('problem.edit_all_problem'): return True
 
       if user.profile.id in self.editor_ids:
           return True
@@ -199,19 +199,21 @@ class Problem(TimeStampedModel):
         return True
 
     # Belong in a public contest
-    if self.contest_set.filter(is_visible=True).exists():
+    if self.contest_set.filter(published=True, is_visible=True).exists():
         return True
 
     # Given contest, if user still have participation in that contest
     if contest != None and user.is_authenticated:
-        if contest.is_editable_by(user):
+        if contest.is_accessible_by(user):
             return True
+        # if contest.is_editable_by(user):
+        #     return True
 
-        from compete.models import ContestParticipation
-        cps = ContestParticipation.objects.filter(contest=contest, user=user.profile).all()
-        for cp in reversed(cps):
-            if not cp.ended:
-                return True
+        # from compete.models import ContestParticipation
+        # cps = ContestParticipation.objects.filter(contest=contest, user=user.profile).all()
+        # for cp in reversed(cps):
+        #     if not cp.ended:
+        #         return True
 
     if self.is_public:
         # Problem is not private to an organization.
@@ -265,19 +267,16 @@ class Problem(TimeStampedModel):
 
     # if not (user.has_perm('problem.see_private_problem') or edit_all_problem):
     ## << Tab
-    q = Q(is_public=True)
 
-    ## Orgs checks
-    ### Is Member
     member_org_ids = user.profile.member_of_org_with_ids
-    q &= (
-      Q(is_organization_private=False) |
-      Q(is_organization_private=True, organizations__id__in=member_org_ids)
-    )
-
-    ### Is Admin
     admin_org_ids = user.profile.admin_of_org_with_ids
-    q |= Q(is_organization_private=True, organizations__id__in=admin_org_ids)
+    q = (
+      Q(is_public=True) & (
+        Q(is_organization_private=False) |
+        Q(is_organization_private=True, organizations__id__in=member_org_ids) |
+        Q(is_organization_private=True, organizations__id__in=admin_org_ids)
+      )
+    )
 
     ## Special access
     q |= Q(authors=user.profile)
@@ -285,7 +284,7 @@ class Problem(TimeStampedModel):
     q |= Q(reviewers=user.profile)
 
     queryset = queryset.filter(q)
-    return queryset
+    return queryset.distinct()
 
   @classmethod
   def get_editable_problems(cls, user):
@@ -293,14 +292,9 @@ class Problem(TimeStampedModel):
       if user.has_perm('problem.edit_all_problem'): return cls.objects.all() # user.is_superuser included
 
       q = Q(authors=user.profile) | Q(collaborators=user.profile)
-      q |= Q(is_organization_private=True, organizations__id__in=user.profile.admin_of_org_with_ids)
+      q |= Q(is_public=True, is_organization_private=True, organizations__id__in=user.profile.admin_of_org_with_ids)
 
-      if user.has_perm('problem.edit_public_problem'):
-          q |= Q(is_public=True)
       return cls.objects.filter(q)
-
-  # def get_absolute_url(self):
-  #   return reverse('problem_detail', args=(self.shortname,))
 
   def delete_pdf(self):
     shutil.rmtree(problem_pdf_storage.path(self.shortname), ignore_errors=True)

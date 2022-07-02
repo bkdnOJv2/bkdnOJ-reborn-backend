@@ -36,17 +36,16 @@ class SelfProfileDetail(generics.RetrieveUpdateAPIView):
         return self.serializer_class(data, context=ser_context)
 
     def get_object(self, pk):
-        try:
-            return UserProfile.objects.get(pk=pk)
-        except UserProfile.DoesNotExist:
+        if not self.request.user.is_authenticated:
             raise Http404
+        return self.request.user.profile
 
     def get(self, request, *args, **kwargs):
-        profile = self.get_object(request.user.id)
+        profile = self.get_object(None)
         return Response(self.serialize(request, profile).data)
 
     def put(self, request, *args, **kwargs):
-        profile = self.get_object(request.user.id)
+        profile = self.get_object(None)
         serializer = UserProfileSerializer(profile, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -54,7 +53,7 @@ class SelfProfileDetail(generics.RetrieveUpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, *args, **kwargs):
-        profile = self.get_object(request.user.id)
+        profile = self.get_object(None)
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -62,6 +61,6 @@ class SelfProfileDetail(generics.RetrieveUpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, *args, **kwargs):
-        profile = self.get_object(request.user.id)
+        profile = self.get_object(None)
         profile.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

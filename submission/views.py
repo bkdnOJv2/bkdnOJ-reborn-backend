@@ -56,6 +56,8 @@ class SubmissionRejudgeView(views.APIView):
 
     def post(self, request, pk):
         sub = self.get_object(pk)
+        if not sub.problem.is_editable_by(request.user):
+            raise PermissionDenied()
         try:
             sub.judge(force_judge=True, rejudge=True)
         except Exception as e:

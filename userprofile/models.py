@@ -155,7 +155,7 @@ class UserProfile(TimeStampedModel):
     """
     @cached_property
     def member_of_org_with_ids(self):
-        org_ids = set()
+        org_ids = set( self.admin_of.values_list('id', flat=True) ) # Admins are also members
         for org in self.organizations.only('id').all():
             trvs = org
             while True:

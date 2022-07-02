@@ -44,6 +44,26 @@ __all__ = [
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
 ]
 
+class AllContestListView(generics.ListAPIView):
+    """
+        Return a List of all Contests
+    """
+    serializer_class = ContestBriefSerializer
+    permission_classes = [permissions.IsAdminUser]
+    filter_backends = [
+        django_filters.rest_framework.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    search_fields = ['^key', '@name']
+    filterset_fields = ['enable_frozen', 'is_rated', 'is_visible', 'format_name']
+    ordering_fields = ['start_time', 'end_time']
+    ordering = ['-end_time']
+
+    def get_queryset(self):
+        qs = Contest.get_visible_contests(self.request.user)
+        return qs
+
 class PastContestListView(generics.ListAPIView):
     """
         Return a List of all Past Contests
@@ -60,24 +80,6 @@ class PastContestListView(generics.ListAPIView):
                 filter(end_time__lt=self._now).order_by('-end_time')
         return qs
 
-
-class AllContestListView(generics.ListAPIView):
-    """
-        Return a List of all Contests
-    """
-    queryset = Contest.objects.all()
-    serializer_class = ContestBriefSerializer
-    permission_classes = [permissions.IsAdminUser]
-    filter_backends = [
-        django_filters.rest_framework.DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
-    search_fields = ['^key', '@name']
-    filterset_fields = ['enable_frozen', 'is_rated', 'is_visible', 'format_name']
-    ordering_fields = ['start_time', 'end_time']
-    ordering = ['-end_time']
-
 class ContestListView(generics.ListCreateAPIView):
     """
         Return a List of present, active, future contest
@@ -91,8 +93,7 @@ class ContestListView(generics.ListCreateAPIView):
 
     def _get_queryset(self):
         qs = Contest.get_visible_contests(self.request.user)
-        return qs.prefetch_related(
-                'tags', 'organizations', 'authors', 'collaborators', 'reviewers')
+        return qs.prefetch_related('tags', 'organizations', 'authors', 'collaborators', 'reviewers')
 
     def get_queryset(self):
         return self._get_queryset().order_by('key').filter(end_time__lt=self._now)
@@ -129,11 +130,11 @@ class ContestListView(generics.ListCreateAPIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
-        # TODO: check perms
-        if not request.user.is_superuser:
-            raise PermissionDenied
+        if not request.user.is_staff:
+            raise PermissionDenied()
+
         data = request.data.copy()
-        data['authors'] = [request.user.username]
+        data['authors'] = [{'username': request.user.username}]
 
         seri = ContestBriefSerializer(data=data, context={'request':request})
         if not seri.is_valid():
@@ -152,36 +153,41 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
         Return a detailed view of requested organization
     """
-    queryset = Contest.objects.all()
+    queryset = Contest.objects.none()
     lookup_field = 'key'
     serializer_class = ContestDetailSerializer
     permission_classes = []
 
     def get_object(self, *a):
-        contest = super().get_object(*a)
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise ContestNotAccessible
-        # if (not contest.started) and (not contest.is_testable_by(user)):
-        #     raise PermissionDenied
-        return contest
+        method = self.request.method
 
-    def has_permission(self, request):
-        if request.user.is_superuser:
-            return True
-        raise PermissionDenied
+        if method == 'GET':
+            if contest.is_testable_by(user):
+                return contest
+            if not contest.published:
+                raise Http404()
+            # if not contest.started:
+            #     raise ContestNotStarted()
+            if not contest.is_accessible_by(user):
+                raise ContestNotAccessible()
+        else:
+            if not contest.is_editable_by(user):
+                raise PermissionDenied()
+        return contest
 
     def put(self, *args, **kwargs):
         return self.patch(*args, **kwargs)
 
     def patch(self, request, *args, **kwargs):
-        if self.has_permission(request):
-            try:
-                return super().patch(request, *args, **kwargs)
-            except ValidationError as e:
-                return Response({
-                    'general': e,
-                }, status=status.HTTP_400_BAD_REQUEST)
+        contest = self.get_object()
+        try:
+            return super().patch(request, *args, **kwargs)
+        except ValidationError as e:
+            return Response({
+                'general': e,
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ContestProblemListView(generics.ListCreateAPIView):
@@ -192,24 +198,33 @@ class ContestProblemListView(generics.ListCreateAPIView):
     pagination_class = Page100Pagination
     lookup_field = 'shortname'
 
-    def get_contest(self):
+    def get_object(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise ContestNotAccessible
-        if (not contest.started) and (not contest.is_testable_by(user)):
-            raise ContestNotStarted
+        method = self.request.method
+
+        if method == 'GET':
+            if contest.is_testable_by(user):
+                return contest
+            if not contest.published:
+                raise Http404()
+            if not contest.started:
+                raise ContestNotStarted()
+            if not contest.is_accessible_by(user):
+                raise ContestNotAccessible()
+        else:
+            if not contest.is_editable_by(user):
+                raise PermissionDenied()
         return contest
 
     def get_queryset(self):
-        contest = self.get_contest()
-        queryset = ContestProblem.objects.filter(contest=contest)
-        return queryset
+        contest = self.get_object()
+        return contest.contest_problems.filter()
 
     NON_ASSOCIATE_FIELDS = ('order', 'points', 'partial',)# 'is_pretested', 'max_submissions')
     def create(self, request, *args, **kwargs):
-        contest = self.get_contest()
-        cproblems = contest.contest_problems
+        contest = self.get_object()
+        cproblems = contest.contest_problems # Manager
         visproblems = Problem.get_visible_problems(request.user)
 
         contest_problem_ids = set()
@@ -250,18 +265,25 @@ class ContestProblemDetailView(generics.RetrieveAPIView):
     pagination_class = None
 
     def get_serializer_class(self):
-        # print(self.request.method)
-        # if self.request.method == 'GET':
-        #     return ProblemSerializer
         return ContestProblemSerializer
 
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise ContestNotAccessible
-        if (not contest.started) and (not contest.is_testable_by(user)):
-            raise ContestNotStarted
+        method = self.request.method
+
+        if method == 'GET':
+            if contest.is_testable_by(user):
+                return contest
+            if not contest.published:
+                raise Http404()
+            if not contest.started:
+                raise ContestNotStarted()
+            if not contest.is_accessible_by(user):
+                raise ContestNotAccessible()
+        else:
+            if not contest.is_editable_by(user):
+                raise PermissionDenied()
         return contest
 
     def get_object(self):
@@ -269,6 +291,12 @@ class ContestProblemDetailView(generics.RetrieveAPIView):
             contest=self.get_contest(),
             problem__shortname=self.kwargs['shortname'])
         return p
+
+    # def get(self, request, key, shortname):
+    #     p = self.get_object()
+    #     return Response(
+    #         self.get_serializer_class()(p, context={'request': request}).data
+    #     )
 
 
 class ContestSubmissionListView(generics.ListAPIView):
@@ -278,15 +306,28 @@ class ContestSubmissionListView(generics.ListAPIView):
     serializer_class = ContestSubmissionSerializer
     pagination_class = Page10Pagination
 
-    @cached_property
-    def contest(self):
+    def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise ContestNotAccessible
-        if (not contest.started) and (not contest.is_testable_by(user)):
-            raise ContestNotStarted
+        method = self.request.method
+
+        if method == 'GET':
+            if contest.is_testable_by(user):
+                return contest
+            if not contest.published:
+                raise Http404()
+            if not contest.started:
+                raise ContestNotStarted()
+            if not contest.is_accessible_by(user):
+                raise ContestNotAccessible()
+        else:
+            if not contest.is_editable_by(user):
+                raise PermissionDenied()
         return contest
+
+    @cached_property
+    def contest(self):
+        return self.get_contest()
 
     def get_queryset(self):
         contest = self.contest
@@ -403,26 +444,20 @@ class ContestProblemSubmitView(generics.CreateAPIView):
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if not (contest.is_visible or contest.is_accessible_by(user)):
-            raise ContestNotAccessible
-        if (not contest.started) and (not contest.is_testable_by(user)):
+        if contest.is_testable_by(user):
+            return contest
+        if contest.ended:
+            raise ContestEnded
+        if not contest.is_in_contest(user):
+            raise ContestNotRegistered
+        if not contest.started:
             raise ContestNotStarted
         return contest
 
     def create(self, request, *args, **kwargs):
         profile = request.user.profile
-
         contest = self.get_contest() # Accesibility checks
-        if contest.ended:
-            return Response(
-                {'detail': "Contest has ended." },
-                status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if user still have parts in the contest
-        # We checks this because later we have to take care of Virtual Participations
-
-        # Because Participations are in `date` order, and we only allow 1 participation
-        # that is not ended per user/contest. So, we only need to check the last Part.
         participation = contest.users.filter(user=profile).last()
         if participation == None or participation.ended:
             return Response({
@@ -551,7 +586,7 @@ def contest_participate_view(request, key):
             status=status.HTTP_403_FORBIDDEN)
     def not_authorized():
         return Response({
-            'detail': _("You don't have permission to register to this contest.")},
+            'detail': _("You are banned or don't have permissions to register to this contest.")},
             status=status.HTTP_401_UNAUTHORIZED)
 
     # TODO: access code
@@ -561,9 +596,9 @@ def contest_participate_view(request, key):
     if not contest.is_registerable_by(user):
         return not_authorized()
 
-    profile = request.user.profile
-    if not request.user.is_superuser and contest.banned_users.filter(id=profile.user.id).exists():
-        return banned()
+    # user should be authenticated now
+    profile = user.profile
+
     # if (not profile.current_contest == None):
     #     if profile.current_contest.contest != contest:
     #         return Response({ 'detail': _("You are currently in another contest."),
@@ -646,15 +681,18 @@ def contest_leave_view(request, key):
 from collections import defaultdict, namedtuple
 from django.core.cache import cache
 
+
+
 @api_view(['GET'])
 def contest_standing_view(request, key):
     user = request.user
     contest = get_object_or_404(Contest, key=key)
 
-    if not contest.is_visible and not contest.is_accessible_by(user):
+    if not contest.is_accessible_by(user):
         return Response({
             'detail': "Contest is not public to view."
         }, status=status.HTTP_403_FORBIDDEN)
+
 
     cache_duration = contest.scoreboard_cache_duration
     cache_disabled = (cache_duration == 0)
@@ -723,10 +761,13 @@ class ContestParticipationListView(generics.ListAPIView):
     serializer_class = ContestParticipationSerializer
     permission_classes = [permissions.IsAdminUser]
 
+    """
+        Staff that has access to Contest can see list of Participations
+    """
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         if not contest.is_accessible_by(self.request.user):
-            raise Http404
+            raise Http404()
         return contest
 
     def get_queryset(self):
@@ -745,7 +786,7 @@ class ContestParticipationListView(generics.ListAPIView):
             elif virtual == 'VIRTUAL':
                 queryset = queryset.filter(virtual__gt=0)
             else:
-                raise Http404
+                raise Http404()
 
         is_disqualified = self.request.query_params.get('is_disqualified')
         if is_disqualified is not None:
@@ -756,8 +797,8 @@ class ContestParticipationListView(generics.ListAPIView):
 @api_view(['POST'])
 def contest_participation_add_many(request, key):
     contest = get_object_or_404(Contest, key=key)
-    if not request.user.is_staff or not contest.is_editable_by(request.user):
-        raise PermissionDenied
+    if not contest.is_editable_by(request.user):
+        raise PermissionDenied()
 
     data = request.data
     try:
@@ -814,8 +855,14 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
-        if not contest.is_accessible_by(self.request.user):
-            raise Http404
+        user = self.request.user
+        method = self.request.method
+        if method == 'GET':
+            if not contest.is_accessible_by(self.request.user):
+                raise PermissionDenied()
+        else:
+            if not contest.is_editable_by(self.request.user):
+                raise PermissionDenied()
         return contest
 
     def get_queryset(self):

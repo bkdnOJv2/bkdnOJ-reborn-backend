@@ -50,13 +50,13 @@ class ProblemTestProfileDetailView(generics.RetrieveUpdateAPIView):
             problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
             if problem.is_accessible_by(self.request.user):
                 probprofile, _ = ProblemTestProfile.objects.get_or_create(problem=problem)
-                return probprofile 
+                return probprofile
             raise PermissionDenied
         else:
             problem = get_object_or_404(Problem, shortname=self.kwargs['problem'])
             if problem.is_editable_by(self.request.user):
                 probprofile, _ = ProblemTestProfile.objects.get_or_create(problem=problem)
-                return probprofile 
+                return probprofile
             raise PermissionDenied
 
     def get(self, request, problem, *args, **kwargs):
@@ -146,8 +146,11 @@ def __problem_x_file(request, shortname, path, url_path, storage, content_type='
     problem = shortname
     obj = get_object_or_404(Problem, shortname=problem)
 
-    if not skip_perm_check and not obj.is_accessible_by(request.user):
-        print("ProblemPDF: Not allowed")
+    from compete.models import Contest
+    ckey = request.GET.get('contest', None)
+    contest = Contest.objects.filter(key=ckey)
+
+    if not skip_perm_check and not obj.is_accessible_by(request.user, contest=contest.first()):
         raise Http404()
 
     problem_dir = storage.path(problem)
@@ -176,4 +179,3 @@ def problem_data_file(request, shortname, path, **kwargs):
 @api_view(['GET'])
 def problem_pdf_file(request, shortname, path):
     return __problem_x_file(request, shortname, path, None, problem_pdf_storage, 'application/pdf')
-

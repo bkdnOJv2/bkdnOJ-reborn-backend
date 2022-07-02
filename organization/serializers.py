@@ -13,10 +13,22 @@ __all__ = [
 ]
 
 class OrganizationBasicSerializer(serializers.ModelSerializer):
+    suborg_count = serializers.SerializerMethodField()
+    def get_suborg_count(self, inst):
+        if getattr(inst, 'get_descendant_count', False):
+            return inst.get_descendant_count()
+        return 0
+
+    real_member_count = serializers.SerializerMethodField()
+    def get_real_member_count(self, inst):
+        return inst.members.count()
+
     class Meta:
         model = Organization
         fields = [
             'slug', 'short_name', 'name', 'logo_url',
+            'is_unlisted',
+            'suborg_count', 'member_count', 'real_member_count',
         ]
 
 
@@ -27,10 +39,24 @@ class NestedOrganizationBasicSerializer(OrganizationBasicSerializer):
             return []
         return NestedOrganizationBasicSerializer(org.get_children(), many=True, read_only=True).data
 
+    suborg_count = serializers.SerializerMethodField()
+    def get_suborg_count(self, inst):
+        if getattr(inst, 'get_descendant_count', False):
+            return inst.get_descendant_count()
+        return 0
+
+    real_member_count = serializers.SerializerMethodField()
+    def get_real_member_count(self, inst):
+        return inst.members.count()
+
     class Meta:
         model = Organization
         fields = [
-            'slug', 'short_name', 'name', 'logo_url', 'sub_orgs',
+            'slug', 'short_name', 'name', 'logo_url',
+            'is_unlisted',
+            'member_count', 'suborg_count',
+            'real_member_count',
+            'sub_orgs',
         ]
 
 
@@ -41,27 +67,33 @@ class OrganizationSerializer(OrganizationBasicSerializer):
             return inst.get_descendant_count()
         return 0
 
+    real_member_count = serializers.SerializerMethodField()
+    def get_real_member_count(self, inst):
+        return inst.members.count()
+
     class Meta:
         model = Organization
         fields = [
             'slug', 'short_name', 'name',
             'is_open', 'is_unlisted',
             'logo_url',
-            'member_count', #'performance_points'
-            'suborg_count',
+            'suborg_count', 'member_count', #'performance_points'
+            'real_member_count',
         ]
-        read_only_fields = ('member_count', 'suborg_count')
+        read_only_fields = ('member_count', 'suborg_count', 'real_member_count')
         # extra_kwargs = {
         #     'logo_url': {'read_only': True},
         #     'member_count': {'read_only': True},
         #     'suborg_count': {'read_only': True},
         # }
 
+from userprofile.models import UserProfile
+from django.core.exceptions import ValidationError
 
 class OrganizationDetailSerializer(OrganizationSerializer):
     admins = serializers.SerializerMethodField()
     def get_admins(self, instance):
-        users = User.objects.filter(id__in=instance.admins.values_list('id', flat=True))
+        users = User.objects.filter(profile__in=instance.admins.all())
         return UserDetailSerializer(users, many=True).data
 
     parent_org = serializers.SerializerMethodField()
@@ -70,17 +102,46 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             return None
         return OrganizationBasicSerializer(instance.get_parent(), read_only=True).data
 
+    real_member_count = serializers.SerializerMethodField()
+    def get_real_member_count(self, inst):
+        return inst.members.count()
+
+    def to_internal_value(self, data):
+        user_fields = ['admins']
+        qs = UserProfile.objects.select_related('user')
+
+        profile_dict = {}
+
+        for field in user_fields:
+            users = data.pop(field, [])
+
+            profile_ids = []
+            for user in users:
+                username = user['username']
+                p = qs.filter(user__username=username)
+                if not p.exists():
+                    raise ValidationError(f"User '{username}' does not exist.")
+                profile_ids.append(p.first().id)
+            profile_dict[field] = profile_ids
+
+        val_data = super().to_internal_value(data)
+
+        for k, v in profile_dict.items():
+            val_data[k] = v
+        return val_data
+
     class Meta:
         model = Organization
         fields = [
             'slug', 'short_name', 'name', 'is_open',
             'logo_url',
+            'is_open', 'is_unlisted',
 
             'admins', 'about', 'creation_date', 'slots',
 
             'parent_org',
 
-            'member_count', #'performance_points'
-            'suborg_count',
+            'suborg_count', 'member_count', #'performance_points'
+            'real_member_count',
         ]
         read_only_fields = ('member_count', 'suborg_count')

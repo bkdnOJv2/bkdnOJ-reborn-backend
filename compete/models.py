@@ -286,25 +286,6 @@ class Contest(models.Model):
         return Contest.reviewers.through.objects.filter(contest=self).\
                 values_list('userprofile_id', flat=True)
 
-    """
-        Check if user is currently participating the contest (virtual or live)
-    """
-    def is_in_contest(self, user):
-        if user.is_authenticated:
-            profile = user.profile
-            participation = self.users.filter(user=user.profile).last()
-            if participation and not participation.ended: return True
-        return False
-
-    """
-        Check if user is has already completed participating in the contest
-    """
-    def has_completed_contest(self, user):
-        if user.is_authenticated:
-            participation = self.users.filter(user=user.profile).last()
-            if participation and participation.ended: return True
-        return False
-
     @cached_property
     def can_join(self):
         return self.start_time <= self._now
@@ -334,17 +315,28 @@ class Contest(models.Model):
         See full scoreboard means: Seeing pass the frozen, or hidden scoreboard
     """
     def can_see_full_scoreboard(self, user):
+        if not self.published:
+            return False
+
         ## Scoreboard is private, or frozen then only added users can see, check for them
         if not self.show_scoreboard or self.is_frozen:
             if not user.is_authenticated:
                 return False
+
             ### TODO check for perms
             ## Only reveal hidden scoreboard to editors
             if user.is_superuser or user.profile.id in self.editor_ids:
                 return True
+
+            ## Admin of orgs
+            if self.is_organization_private and \
+                Organization.exists_pair_of_ancestor_descendant(user.profile.admin_of.all(), self.organizations.all()):
+                    return True
+
             ## And added individuals
-            if self.view_contest_scoreboard.filter(user__id=user.profile.id).exists():
-                return True
+            # if self.view_contest_scoreboard.filter(user__id=user.profile.id).exists():
+            #     return True
+
             return False
         return True
 
@@ -401,110 +393,12 @@ class Contest(models.Model):
         pass
 
     """
-        Check if user can see detail of contest
+        User can edit Contest details
     """
-    def access_check(self, user):
-        # Do unauthenticated check here so we can skip authentication checks later on.
-        if not user.is_authenticated:
-            # Unauthenticated users can only see visible, non-private contests
-            if not self.published:
-                raise self.Inaccessible()
-
-            if not self.is_visible: # publicly visible
-                raise self.Inaccessible()
-            return
-
-        # If the user can view or edit all contests
-        if user.is_superuser or user.has_perm('contest.see_private_contest') or user.has_perm('contest.edit_all_contest'):
-            return
-
-        # User is organizer or curator for contest
-        if user.profile.id in self.editor_ids:
-            return
-
-        # User is tester for contest
-        if user.profile.id in self.tester_ids:
-            return
-
-        # Contest is not publicly visible
-        if not self.published:
-            raise self.Inaccessible()
-
-        # Contest is not private
-        if self.is_visible:
-            return
-
-        if not self.is_private and not self.is_organization_private:
-            raise self.Inaccessible()
-
-        in_org = self.organizations.filter(id__in=user.profile.member_of_org_with_ids).exists()
-        in_users = self.private_contestants.filter(user__id=user.profile.id).exists()
-
-        if not self.is_private and self.is_organization_private:
-            if in_org:
-                return
-            raise self.PrivateContest()
-
-        if self.is_private and not self.is_organization_private:
-            if in_users:
-                return
-            raise self.PrivateContest()
-
-        if self.is_private and self.is_organization_private:
-            if in_org and in_users:
-                return
-            raise self.PrivateContest()
-
-    def is_accessible_by(self, user):
-        try:
-            self.access_check(user)
-        except (self.Inaccessible, self.PrivateContest):
-            return False
-        else:
-            return True
-
-    def is_registerable_by(self, user):
-        if not user.is_authenticated:
-            return False
-
-        if user.is_superuser or user.has_perm('contest.see_private_contest') or user.has_perm('contest.edit_all_contest'):
-            return True
-
-        if user.profile.id in self.editor_ids:
-            return True
-
-        if user.profile.id in self.tester_ids:
-            return True
-
-        if not self.published:
-            return False
-
-        if self.is_visible and (not self.is_private) and (not self.is_organization_private):
-            return True
-
-        in_org = Organization.exists_pair_of_ancestor_descendant(
-            self.organizations.all(), user.profile.organizations.all()
-        )
-        in_users = self.private_contestants.filter(user__id=user.profile.id).exists()
-
-        if not self.is_private and self.is_organization_private:
-            if in_org:
-                return
-            raise self.PrivateContest()
-
-        if self.is_private and not self.is_organization_private:
-            if in_users:
-                return
-            raise self.PrivateContest()
-
-        if self.is_private and self.is_organization_private:
-            if in_org and in_users:
-                return
-            raise self.PrivateContest()
-
     def is_editable_by(self, user):
         if not user.is_authenticated:
             return False
+
         # If the user can edit all contests
         if user.is_superuser or user.has_perm('compete.edit_all_contest'):
             return True
@@ -513,20 +407,107 @@ class Contest(models.Model):
         if user.profile.id in self.editor_ids:
             return True
 
-        if self.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
+        if self.published and self.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
             user.profile.admin_of.all(), self.organizations.all()
         ):
             return True
-
         return False
 
-    # TODO: perms
+    """
+        User can test Contest
+    """
     def is_testable_by(self, user):
         if not user.is_authenticated:
             return False
         if user.is_superuser or user.profile.id in self.tester_ids:
             return True
         return self.is_editable_by(user)
+
+    """
+        User can see contest details
+    """
+    def is_accessible_by(self, user):
+        # Unauthenticated users can only see visible, non-private contests
+        if not user.is_authenticated:
+            if self.published and self.is_visible:
+                return True
+            return False
+
+        if self.is_testable_by(user):
+            return True
+
+        if not self.published:
+            return False
+
+        if self.is_visible:
+            return True
+
+        if self.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
+                self.organizations.all(), user.profile.organizations.all()):
+            return True
+
+        if self.is_private and self.private_contestants.filter(user__id=user.profile.id).exists():
+            return True
+
+        return False
+
+    """
+        Check if user is currently participating the contest (virtual or live)
+    """
+    def is_in_contest(self, user):
+        # Check if user still have parts in the contest
+        # We checks this because later we have to take care of Virtual Participations
+
+        # Because Participations are in `date` order, and we only allow 1 participation
+        # that is not ended per user/contest. So, we only need to check the last Part.
+        if user.is_authenticated:
+            if self.banned_users.filter(id=user.profile.id).exists():
+                return False
+
+            participation = self.users.filter(user=user.profile).last()
+            if participation and not participation.ended: return True
+        return False
+
+    """
+        Check if user is has already completed participating in the contest
+    """
+    def has_completed_contest(self, user):
+        if user.is_authenticated:
+            participation = self.users.filter(user=user.profile).last()
+            if participation and participation.ended: return True
+        return False
+
+
+    def is_registerable_by(self, user):
+        if not user.is_authenticated:
+            return None
+
+        if user.is_superuser or user.has_perm('contest.see_private_contest') or user.has_perm('contest.edit_all_contest'):
+            return 'SPECTATE'
+
+        if user.profile.id in self.editor_ids:
+            return 'SPECTATE'
+
+        if user.profile.id in self.tester_ids:
+            return 'SPECTATE'
+
+        if not self.published:
+            return None
+
+        if self.banned_users.filter(id=user.profile.id).exists():
+            return None
+
+        if self.is_visible and (not self.is_private) and (not self.is_organization_private):
+            return 'LIVE'
+
+        if self.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
+                self.organizations.all(), user.profile.organizations.all()):
+            return 'LIVE'
+
+        if self.is_private and self.private_contestants.filter(user__id=user.profile.id).exists():
+            return 'LIVE'
+
+        return None
 
     @classmethod
     def get_visible_contests(cls, user):
@@ -535,20 +516,16 @@ class Contest(models.Model):
 
         queryset = cls.objects.defer('description')
         if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')): # superuser included
-            q = Q(published=True)
-
-            q &= (
+            q=Q(published=True) & (
                 Q(is_visible=True) |
-                # Q(view_contest_scoreboard=user.profile) |
-                # Q(is_organization_private=False, is_private=False) |
-                Q(is_organization_private=False, is_private=True, private_contestants=user.profile) |
-                Q(is_organization_private=True, is_private=False, organizations__in=user.profile.member_of_org_with_ids) |
-                Q(is_organization_private=True, is_private=True, organizations__in=user.profile.member_of_org_with_ids, private_contestants=user.profile)
+                Q(is_private=True, private_contestants=user.profile) |
+                Q(is_organization_private=True, organizations__in=user.profile.member_of_org_with_ids)
             )
 
             q |= Q(authors=user.profile)
             q |= Q(collaborators=user.profile)
             q |= Q(reviewers=user.profile)
+
             queryset = queryset.filter(q)
         return queryset.distinct()
 
