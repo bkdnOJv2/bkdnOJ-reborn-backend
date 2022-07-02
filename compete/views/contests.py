@@ -832,6 +832,7 @@ def contest_participation_add_many(request, key):
         ContestParticipation.objects.bulk_update(to_be_updated, ['virtual'])
         contest._updating_stats_only = True
         contest.update_user_count()
+        contest.save()
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
     except KeyError as ke:

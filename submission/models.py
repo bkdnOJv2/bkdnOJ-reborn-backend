@@ -202,8 +202,8 @@ class Submission(models.Model):
     if contest is not None:
       from organization.models import Organization
       if (user.profile.id in contest.editor_ids or
-        (contest.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
-          user.profile.admin_of.all(), self.organizations.all()
+        (contest.published and contest.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
+          user.profile.admin_of.all(), contest.organizations.all()
         ))
       ):
           return True

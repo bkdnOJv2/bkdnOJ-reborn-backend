@@ -82,8 +82,7 @@ class ContestRateView(generics.RetrieveAPIView):
         self.check_rateable(request, contest)
 
         try:
-            with transaction.atomic():
-                contest.rate()
+            contest.rate()
         except Exception:
             raise
         return Response({}, status=status.HTTP_204_NO_CONTENT)
