@@ -98,7 +98,7 @@ class UserList(generics.ListCreateAPIView):
         user = self.request.user
         method = self.request.method
         if method == 'GET':
-            if user.is_staff:
+            if user.is_staff and not user.is_superuser:
                 qs = qs.filter(is_superuser=False)
         else:
             if not user.is_superuser:

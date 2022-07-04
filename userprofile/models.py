@@ -1,3 +1,7 @@
+import operator
+from functools import reduce
+from queue import Queue
+
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
@@ -7,14 +11,21 @@ from django.db.models import Max, F
 from django.utils.translation import gettext_lazy as _
 from django.utils.functional import cached_property
 from django.utils.timezone import now
+from django.core.cache import cache
 from django_extensions.db.models import TimeStampedModel
+from django.db.models import Q
 
 from bkdnoj.choices import TIMEZONE, ACE_THEMES
+
+from helpers.get_cached_tree import get_cached_trees
 from helpers.fileupload import \
     path_and_rename_avatar, DEFAULT_AVATAR_URL
 
 from judger.models import Language
 from judger.utils.float_compare import float_compare_equal
+
+
+PROFILE_ORG_IDS_CACHE_TIMEOUT = 2 * 60 * 60 # 2 hours
 
 class UserProfile(TimeStampedModel):
     user = models.OneToOneField(User,
@@ -150,19 +161,55 @@ class UserProfile(TimeStampedModel):
         self.avatar = DEFAULT_AVATAR_URL
         self.save()
 
+
+    @property
+    def __cache_key_member_of_org_with_ids(self):
+        return f"{self.__class__.__name__}-{self.id}-org-ids"
+
     """
         Return a SET of ID of organizations that this profile is a member of
     """
     @cached_property
     def member_of_org_with_ids(self):
-        org_ids = set( self.admin_of.values_list('id', flat=True) ) # Admins are also members
-        for org in self.organizations.only('id').all():
-            trvs = org
-            while True:
-                org_ids.add(trvs.id)
-                if trvs.is_root(): break
-                trvs = trvs.get_parent()
-        return org_ids
+        # org_ids = set( self.admin_of.values_list('id', flat=True) ) # Admins are also members
+        # org_ids = self.admin_of_org_with_ids # Admins are also members
+        # org_ids = set()
+        # for org in self.organizations.only('id').all():
+        #     trvs = org
+        #     while True:
+        #         org_ids.add(trvs.id)
+        #         if trvs.is_root(): break
+        #         trvs = trvs.get_parent()
+        # return org_ids
+
+        results = self.__EXPERIMENTAL__member_of_org_with_ids
+        return results
+
+
+    """
+        Experimental implementation for member_of_org_with_ids in attempt to improve speed
+        Approaches:
+        1. Look into django-mptt, and modify https://github.com/django-treebeard/django-treebeard/blob/master/treebeard/ns_tree.py into QuerySet.get_descendants()
+        2. (In used) Basically my implementation, but do it at DB by calling get_descendents() and chaining Q objects together
+            2.a Improved by cache the whole tree in memory, avoding N+1 problem.
+    """
+    @cached_property
+    def __EXPERIMENTAL__member_of_org_with_ids(self):
+        from organization.models import Organization
+
+        if self.organizations.count() == 0 and self.admin_of.count() == 0:
+            return set()
+
+        q = Q()
+        for org in self.organizations.all():#order_by('depth').all():
+            q |= Q(id=org.id)
+            q |= Q(id__in=org.get_ancestors())
+
+        for org in self.admin_of.all():#order_by('depth').all():
+            q |= Q(id=org.id)
+            q |= Q(id__in=org.get_descendants())
+
+        return set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
 
 
     """
@@ -170,19 +217,35 @@ class UserProfile(TimeStampedModel):
     """
     @cached_property
     def admin_of_org_with_ids(self):
-        org_ids = set()
-        from queue import Queue
-        q = Queue()
+        # org_ids = set()
+        # q = Queue()
 
-        for org in self.admin_of.all():
-            q.put(org)
-            while not q.empty():
-                top = q.get() # Remove and return an item from the queue
-                org_ids.add(top.id)
-                for child in top.get_children():
-                    if child.id in org_ids: continue
-                    q.put(child)
-        return org_ids
+        # for org in self.admin_of.only('id').all():
+        #     q.put(org)
+        #     while not q.empty():
+        #         top = q.get() # Remove and return an item from the queue
+        #         org_ids.add(top.id)
+        #         for child in top.get_children():
+        #             if child.id in org_ids: continue
+        #             q.put(child)
+        # return org_ids
+
+        results = self.__EXPERIMENTAL__admin_of_org_with_ids
+        return results
+
+    @cached_property
+    def __EXPERIMENTAL__admin_of_org_with_ids(self):
+        from organization.models import Organization
+
+        if self.admin_of.count() == 0:
+            return set()
+
+        q = Q()
+        for org in self.admin_of.all():#order_by('depth').all():
+            q |= Q(id=org.id)
+            q |= Q(id__in=org.get_descendants())
+
+        return set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
 
 
     def __str__(self):

@@ -27,6 +27,9 @@ urlpatterns = [
 
     # Submission
     path('', include('compete.urls')),
+
+    path('__debug__', include('debug_toolbar.urls')),
+
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)

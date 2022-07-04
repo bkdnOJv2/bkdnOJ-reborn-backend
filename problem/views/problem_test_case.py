@@ -17,14 +17,17 @@ class TestCaseListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         problem = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
-        queryset = problem.test_profile.cases
+        probprofile, _ = ProblemTestProfile.objects.prefetch_related('cases').get_or_create(problem=problem)
+        queryset = probprofile.cases
         return queryset
 
     def create(self, request, *args, **kwargs):
         problem = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
-        data = request.data.copy()
+        probprofile, _ = ProblemTestProfile.objects.get_or_create(problem=problem)
 
-        data['test_profile'] = problem.test_profile
+        data = request.data.copy()
+        data['test_profile'] = probprofile
+
         order = data.pop('order', None)
         if order == ['']:
             order = problem.test_profile.cases.count()
@@ -54,7 +57,4 @@ class TestCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get(self, request, shortname, pk):
         case = self.get_object()
         print(case)
-
-
-
         return response.Response(TestCaseSerializer(case).data)

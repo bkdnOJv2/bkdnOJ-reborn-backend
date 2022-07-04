@@ -79,14 +79,12 @@ class MyOrganizationListView(views.APIView):
     """
     queryset = Organization.objects.none()
     serializer_class = OrganizationSerializer
-    permission_classes = [
-        permissions.IsAdminUser
-    ]
+    permission_classes = []
 
     def get(self, request):
         user = request.user
         if not user.is_authenticated:
-            return([])
+            return(Organization.get_public_root_organizations().all())
         profile = user.profile
 
         member_of = []

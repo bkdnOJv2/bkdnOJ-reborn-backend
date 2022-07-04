@@ -514,7 +514,10 @@ class Contest(models.Model):
         if not user.is_authenticated:
             return cls.objects.filter(published=True, is_visible=True).defer('description').distinct()
 
-        queryset = cls.objects.defer('description')
+        queryset = cls.objects.only('key', 'name', 'format_name', 'is_rated', 'published', 'is_visible',
+                    'is_private', 'is_organization_private', 'start_time', 'end_time', 'time_limit',
+                    'enable_frozen', 'frozen_time', 'user_count').filter()
+
         if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')): # superuser included
             q=Q(published=True) & (
                 Q(is_visible=True) |
@@ -792,10 +795,9 @@ class ContestProblem(models.Model):
 
     def save(self, *args, **kwargs):
         self.clean()
-        super().save(args, kwargs)
-
-        ## Delete related cache
-        self.contest.clear_scoreboard_cache();
+        rs = super().save(args, kwargs)
+        self.contest.clear_scoreboard_cache()
+        return rs
 
     def __str__(self):
         return f"Problem {self.problem.shortname} in Contest {self.contest.key}"

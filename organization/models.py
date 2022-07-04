@@ -1,11 +1,13 @@
 from queue import Queue
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.utils.functional import cached_property
+from django.utils import timezone
 from django_extensions.db.models import TimeStampedModel
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -22,6 +24,8 @@ from judger.utils.float_compare import float_compare_equal
 from helpers.fileupload import \
   path_and_rename_org_avatar, DEFAULT_ORG_AVATAR_URL
 
+
+ORGANIZATION_CACHE_DURATION = 30*60 # 30 mins
 
 class Organization(MP_Node):
   # treebeard fields
@@ -68,6 +72,9 @@ class Organization(MP_Node):
     help_text=_('Link to organization logo.'))
   performance_points = models.FloatField(default=0)
   member_count = models.IntegerField(default=0)
+
+  # Use to validate caches
+  modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
 
   _pp_table = [pow(settings.VNOJ_ORG_PP_STEP, i) for i in range(settings.VNOJ_ORG_PP_ENTRIES)]
 
@@ -212,6 +219,8 @@ class Organization(MP_Node):
     return super().add_child(**kwargs)
 
   def move(self, target, pos=None):
+    if self == target:
+      raise ValueError("Node and Parent node must be different.")
     if type(pos) == str:
       if pos.endswith('child'): # Attempts to add child to target
         if target.get_depth() >= settings.BKDNOJ_ORG_TREE_MAX_DEPTH:
@@ -219,8 +228,6 @@ class Organization(MP_Node):
       else: # Attempts to add siblings to target
         if target.get_depth() > settings.BKDNOJ_ORG_TREE_MAX_DEPTH:
           raise OrganizationTooDeepError()
-    if self == target:
-      raise ValueError("Node and Parent node must be different.")
     super().move(target, pos)
 
 
@@ -247,11 +254,6 @@ class Organization(MP_Node):
       raise ValidationError("Slug must be longer than 2 characters")
     return True
 
-  def save(self, *args, **kwargs):
-    self.slug = self.slug.upper()
-    self.clean()
-    return super().save(*args, **kwargs)
-
   #### =================================
   """
     Given a Tree, and two list of nodes A and B, check if exists
@@ -260,18 +262,37 @@ class Organization(MP_Node):
   """
   @classmethod
   def exists_pair_of_ancestor_descendant(cls, ancestors, descendants):
-      # ancestor_ids = set()
-      # for ancestor in ancestors:
-      #   ancestor_ids.add(ancestor.id)
+      ### Implementation 1:
       ancestor_ids = set(ancestors.values_list('id', flat=True))
 
       for descendant in descendants:
-        trvs = descendant
-        while True:
-          if trvs.id in ancestor_ids: return True
-          if trvs.is_root(): break
-          trvs = trvs.get_parent()
+        # trvs = descendant
+        # while True:
+        #   if trvs.id in ancestor_ids: return True
+        #   if trvs.is_root(): break
+        #   trvs = trvs.get_parent()
+
+        if descendant.id in ancestor_ids:
+          return True
+        path = list(descendant.get_ancestors().values_list('id', flat=True))
+        for node_id in path:
+          if node_id in ancestor_ids:
+            return True
       return False
+
+      ### Implementation 2
+      # q1 = Q()
+      # for org in descendants.only('id').all():#order_by('depth').all():
+      #     q1 |= Q(id=org.id)
+      #     q1 |= Q(id__in=org.get_ancestors())
+
+      # q2 = Q()
+      # for org in ancestors.only('id').all():#order_by('depth').all():
+      #     q2 |= Q(id=org.id)
+      #     q2 |= Q(id__in=org.get_descendants())
+
+      # orgs = Organization.objects.only('id').all()
+      # return (orgs.filter(q1) & orgs.filter(q2)).exists()
 
   def is_accessible_by(self, user):
     if not self.is_unlisted:
@@ -351,11 +372,53 @@ class Organization(MP_Node):
   def __str__(self):
     return self.short_name
 
+  @cached_property
+  def _now(self):
+    return timezone.now()
+
   # def get_absolute_url(self):
   #   return reverse('organization_home', args=(self.id, self.slug))
 
   # def get_users_url(self):
   #   return reverse('organization_users', args=(self.id, self.slug))
+
+  @cached_property
+  def cache_key(self):
+    return f"{self.__class__.__name__}-{self.id}"
+
+  def set_cache(self, data):
+    cache_val = {
+      'data': data,
+      'cached_at': self.modified,
+    }
+    cache.set(
+      self.cache_key, cache_val, ORGANIZATION_CACHE_DURATION
+    )
+
+  def get_cache(self):
+    cache_dict = cache.get(self.cache_key)
+    if cache_dict is None:
+      return None
+
+    if cache_dict.get('cached_at') and cache_dict.get('cached_at') == self.modified:
+      return cache_dict.get('data')
+    return None
+
+  def save(self, *args, **kwargs):
+    if not kwargs.get('update_modified_only'):
+      self.slug = self.slug.upper()
+      self.clean()
+    else:
+      kwargs.pop('update_modified_only')
+
+    self.modified = self._now
+
+    res = super().save(*args, **kwargs)
+    if not self.is_root():
+      kwargs['update_modified_only'] = True
+      self.get_parent().save(*args, **kwargs)
+    return res
+
 
   class Meta:
     ordering = ['name']

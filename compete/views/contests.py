@@ -27,20 +27,26 @@ from compete.serializers import *
 from compete.models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
 from compete.ratings import rate_contest
 from compete.exceptions import *
+from compete.tasks import recompute_standing
 
 from helpers.custom_pagination import Page100Pagination, Page10Pagination
 
 __all__ = [
-    'PastContestListView',
-    'AllContestListView', 'ContestListView', 'ContestDetailView',
+    ### Contest View
+    'PastContestListView', 'AllContestListView', 'ContestListView', 'ContestDetailView',
+
+    ### ContestProblem View
     'ContestProblemListView', 'ContestProblemDetailView',
     'ContestProblemSubmitView', 'ContestProblemRejudgeView',
+
+    ### ContestSubmission View
     'ContestSubmissionListView',
 
+    'ContestProblemSubmissionListView', 'ContestProblemSubmissionDetailView',
+
+    ### ContestParticipation View
     'ContestParticipationListView', 'ContestParticipationDetailView',
     'contest_participation_add_many',
-
-    'ContestProblemSubmissionListView', 'ContestProblemSubmissionDetailView',
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
 ]
 
@@ -68,17 +74,14 @@ class PastContestListView(generics.ListAPIView):
     """
         Return a List of all Past Contests
     """
-    serializer_class = ContestBriefSerializer
+    serializer_class = PastContestBriefSerializer
     permission_classes = []
-
-    @cached_property
-    def _now(self):
-        return timezone.now()
 
     def get_queryset(self):
         qs = Contest.get_visible_contests(self.request.user).\
-                filter(end_time__lt=self._now).order_by('-end_time')
+                filter(end_time__lt=timezone.now()).order_by('-end_time')
         return qs
+
 
 class ContestListView(generics.ListCreateAPIView):
     """
@@ -256,6 +259,11 @@ class ContestProblemListView(generics.ListCreateAPIView):
             contest_problem_ids.add(cpf.id)
 
         cproblems.exclude(id__in=contest_problem_ids).delete()
+
+        # Schedule recomputing job after editting Contest Problems list
+        from compete.tasks import recompute_standing
+        async_status = recompute_standing.delay(contest.id)
+
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 class ContestProblemDetailView(generics.RetrieveAPIView):
@@ -338,7 +346,7 @@ class ContestSubmissionListView(generics.ListAPIView):
             ).filter(problem__in=cps)
 
         ## Visible subs
-        if not self.request.user.is_superuser:
+        if not contest.is_testable_by(self.request.user):
             css = css.filter(participation__virtual=ContestParticipation.LIVE)
 
         ## Query params
@@ -444,14 +452,18 @@ class ContestProblemSubmitView(generics.CreateAPIView):
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if contest.is_testable_by(user):
-            return contest
-        if contest.ended:
-            raise ContestEnded
         if not contest.is_in_contest(user):
             raise ContestNotRegistered
+
+        if contest.is_testable_by(user):
+            return contest
+
+        if contest.ended:
+            raise ContestEnded
+
         if not contest.started:
             raise ContestNotStarted
+
         return contest
 
     def create(self, request, *args, **kwargs):

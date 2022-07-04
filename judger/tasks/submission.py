@@ -33,6 +33,7 @@ def rejudge_problem_filter(self, problem_id, id_range=None, languages=None, resu
   queryset = Submission.objects.filter(problem_id=problem_id)
   queryset = apply_submission_filter(queryset, id_range=id_range, languages=languages, results=results)
   user = User.objects.get(id=user_id)
+  logger.info("Job: Rejudge job acknowledged.")
 
   rejudged = 0
   with Progress(self, queryset.count()) as p:
@@ -41,6 +42,7 @@ def rejudge_problem_filter(self, problem_id, id_range=None, languages=None, resu
       rejudged += 1
       if rejudged % 10 == 0:
         p.done = rejudged
+  logger.info("Job: Rejudge job finished.")
   return rejudged
 
 

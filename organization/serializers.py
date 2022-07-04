@@ -1,8 +1,9 @@
 from django.contrib.auth.models import Group
-from rest_framework import serializers
-
+from django.core.cache import cache
 from django.contrib.auth import get_user_model
 User = get_user_model()
+
+from rest_framework import serializers
 
 from auth.serializers import UserSerializer, UserDetailSerializer
 from .models import Organization
@@ -31,13 +32,17 @@ class OrganizationBasicSerializer(serializers.ModelSerializer):
             'suborg_count', 'member_count', 'real_member_count',
         ]
 
-
 class NestedOrganizationBasicSerializer(OrganizationBasicSerializer):
     sub_orgs = serializers.SerializerMethodField()
     def get_sub_orgs(self, org):
         if org.is_leaf():
             return []
-        return NestedOrganizationBasicSerializer(org.get_children(), many=True, read_only=True).data
+
+        data = org.get_cache()
+        if data is None:
+            data = NestedOrganizationBasicSerializer(org.get_children().order_by('-creation_date').all(), many=True, read_only=True).data
+            org.set_cache(data)
+        return data
 
     suborg_count = serializers.SerializerMethodField()
     def get_suborg_count(self, inst):

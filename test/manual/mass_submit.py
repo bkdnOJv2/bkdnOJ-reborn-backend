@@ -2,14 +2,14 @@ import requests as R
 
 HOST = 'http://localhost:8000'
 TEST_USER_PREFIX = 'tester1'
-TEST_USER_COUNT = 80
+TEST_USER_COUNT = 490
 
 users = [TEST_USER_PREFIX+str(i) for i in range(1, TEST_USER_COUNT+1)]
 tokens = [None] * len(users)
 
-TEST_CONTEST = 'icpc2'
-TEST_PROBLEM_CODE_PREFIX = 'ICPC21CENTRAL'
-TEST_PROBLEM_RANGE = range(ord('A'), ord('G')+1)
+TEST_CONTEST = 'icpccentral21mock'
+TEST_PROBLEM_CODE_PREFIX = 'ICPC_CENTRAL_2021_'
+TEST_PROBLEM_RANGE = range(ord('A'), ord('P')+1)
 TEST_PROBLEM = [TEST_PROBLEM_CODE_PREFIX+chr(c) for c in TEST_PROBLEM_RANGE]
 
 RATIO = [28, 1319, 113, 17, 652, 360, 625, 318, 40, 77, 107, 29, 577, 347, 4, 227]
@@ -94,14 +94,14 @@ def spam_random_submit(times=1, tid=None):
         print(f"Thread {tid}: Submitting randomly..")
         req = random_submit()
         print(f"Thread {tid}: Received {req.status_code}")
-        rnd_sleep = random.randint(10, 15)
+        rnd_sleep = random.randint(5*60, 15*60)
         print(f"Thread {tid}: Sleeping for {rnd_sleep}")
         time.sleep( rnd_sleep )
 
 if __name__ == '__main__':
     print('Mass submitting script --')
 
-    THREADS = 4
+    THREADS = 2
 
     threads = []
     for tid in range(THREADS):
@@ -120,7 +120,7 @@ if __name__ == '__main__':
         if not os.path.exists(p):
             raise Exception(f"Folder {p} does not exist.")
 
-    SUBS = 500
+    SUBS = 2000
 
     threads = []
     for tid in range(THREADS):

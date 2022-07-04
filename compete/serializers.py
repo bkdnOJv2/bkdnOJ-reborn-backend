@@ -23,7 +23,7 @@ from .models import Contest, ContestProblem, ContestSubmission, ContestParticipa
 
 __all__ = [
     'ContestSerializer',
-    'ContestBriefSerializer',
+    'PastContestBriefSerializer', 'ContestBriefSerializer',
     'ContestDetailSerializer',
     'ContestProblemSerializer',
     'ContestProblemBriefSerializer',
@@ -34,6 +34,36 @@ __all__ = [
 
     'RatingSerializer',
 ]
+
+class PastContestBriefSerializer(serializers.ModelSerializer):
+    spectate_allow = serializers.SerializerMethodField()
+    def get_spectate_allow(self, obj):
+        return False
+
+    register_allow = serializers.SerializerMethodField()
+    def get_register_allow(self, obj):
+        return False
+
+    is_registered = serializers.SerializerMethodField()
+    def get_is_registered(self, obj):
+        return False
+
+    class Meta:
+        model = Contest
+        fields = [
+            'spectate_allow', 'register_allow','is_registered',
+            'key', 'name', 'format_name',
+
+            'is_rated',
+            'published',
+            'is_visible',
+            'is_private',
+            'is_organization_private',
+
+            'start_time', 'end_time', 'time_limit',
+            'enable_frozen', 'frozen_time', 'is_frozen',
+            'user_count',
+        ]
 
 class ContestBriefSerializer(serializers.ModelSerializer):
     spectate_allow = serializers.SerializerMethodField()
@@ -58,6 +88,10 @@ class ContestBriefSerializer(serializers.ModelSerializer):
             virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
             contest=obj, user=user.profile
         ).exists():
+            print(ContestParticipation.objects.filter(
+                virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
+                contest=obj, user=user.profile
+            ))
             return True
         return False
 
@@ -89,7 +123,7 @@ class ContestBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contest
         fields = [
-            'spectate_allow', 'register_allow', 'is_registered',
+            'spectate_allow', 'register_allow','is_registered',
             'key', 'name', 'format_name',
 
             'is_rated',

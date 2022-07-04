@@ -16,8 +16,10 @@ decorator==5.1.1
 Deprecated==1.2.13
 Django==4.0.4
 django-cors-headers==3.11.0
+django-debug-toolbar==3.5.0
 django-extensions==3.1.5
 django-filter==21.1
+django-treebeard==4.5.1
 djangorestframework==3.13.1
 djangorestframework-simplejwt==5.1.0
 executing==0.8.3

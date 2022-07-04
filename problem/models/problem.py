@@ -260,7 +260,14 @@ class Problem(TimeStampedModel):
     if user.has_perm('problem.see_all_problems'): # user.is_superuser also included.
         return cls.objects.defer('content').all()
 
-    queryset = cls.objects.defer('content')
+    # queryset = cls.objects.defer('content')
+    queryset = cls.objects.only(
+            'shortname', 'title', 'solved_count', 'attempted_count', 'points',
+            'partial', 'short_circuit',
+            'is_public', 'is_organization_private',
+            'time_limit', 'memory_limit',
+            'created', 'modified',
+      ).filter()
     # edit_own_problem = user.has_perm('problem.edit_own_problem')
     # edit_public_problem = edit_own_problem and user.has_perm('problem.edit_public_problem')
     # edit_all_problem = edit_own_problem and user.has_perm('problem.edit_all_problem')
@@ -268,22 +275,21 @@ class Problem(TimeStampedModel):
     # if not (user.has_perm('problem.see_private_problem') or edit_all_problem):
     ## << Tab
 
-    member_org_ids = user.profile.member_of_org_with_ids
-    admin_org_ids = user.profile.admin_of_org_with_ids
-    q = (
-      Q(is_public=True) & (
-        Q(is_organization_private=False) |
-        Q(is_organization_private=True, organizations__id__in=member_org_ids) |
-        Q(is_organization_private=True, organizations__id__in=admin_org_ids)
+    # set of ids
+    if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')): # superuser included
+      q = (
+        Q(is_public=True) & (
+          Q(is_organization_private=False) |
+          Q(is_organization_private=True, organizations__id__in=user.profile.member_of_org_with_ids)
+        )
       )
-    )
 
-    ## Special access
-    q |= Q(authors=user.profile)
-    q |= Q(collaborators=user.profile)
-    q |= Q(reviewers=user.profile)
+      ## Special access
+      q |= Q(authors=user.profile)
+      q |= Q(collaborators=user.profile)
+      q |= Q(reviewers=user.profile)
 
-    queryset = queryset.filter(q)
+      queryset = queryset.filter(q)
     return queryset.distinct()
 
   @classmethod

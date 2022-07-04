@@ -25,10 +25,11 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem
         fields = [
-            'shortname', 'title', 'solved_count', 'points', 'time_limit', 'memory_limit',
+            'shortname', 'title',
+            'attempted_count', 'solved_count', 'points',
             'partial', 'short_circuit',
-            'attempted_count', 'points', 'is_public', 'is_organization_private',
-            'created', 'modified',
+            'is_public', 'is_organization_private',
+            'time_limit', 'memory_limit', 'created', 'modified',
         ]
         lookup_field = 'shortname'
         extra_kwargs = {
