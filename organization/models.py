@@ -347,17 +347,23 @@ class Organization(MP_Node):
 
   @classmethod
   def get_visible_organizations(cls, user):
-    ids = set()
-    for org in cls.get_visible_root_organizations(user):
-      q = Queue()
-      q.put(org)
-      while not q.empty():
-        top = q.get()
-        ids.add(top.id)
-        for child in top.get_children():
-          if not child.id in ids:
-            q.put(child)
-    return Organization.objects.filter(id__in=ids)
+    if user.has_perm("organization.see_all_organizations"):
+      return Organization.objects.all()
+
+    # ids = set()
+
+    # for org in cls.get_visible_root_organizations(user):
+    #   q = Queue()
+    #   q.put(org)
+    #   while not q.empty():
+    #     top = q.get()
+    #     ids.add(top.id)
+    #     for child in top.get_children():
+    #       if not child.id in ids:
+    #         q.put(child)
+
+    return Organization.objects.filter(Q(id__in=user.profile.member_of_org_with_ids)
+              | Q(id__in=user.profile.admin_of_org_with_ids) )
 
   def __contains__(self, item):
     if item is None:

@@ -88,10 +88,6 @@ class ContestBriefSerializer(serializers.ModelSerializer):
             virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
             contest=obj, user=user.profile
         ).exists():
-            print(ContestParticipation.objects.filter(
-                virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
-                contest=obj, user=user.profile
-            ))
             return True
         return False
 

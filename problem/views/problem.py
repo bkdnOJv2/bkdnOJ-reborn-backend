@@ -97,6 +97,24 @@ class ProblemDetailView(generics.RetrieveUpdateDestroyAPIView):
               raise PermissionDenied
       return p
 
+  def get_serializer_context(self):
+    return {
+      'request': self.request,
+    }
+
+  def put(self, *args):
+    return self.patch(*args)
+
+  def patch(self, request, shortname):
+    p = self.get_object()
+    data = request.data
+    if data.get('pdf'):
+      p.pdf = data['pdf']
+      p.save()
+      return Response(self.serializer_class(p, context=self.get_serializer_context()).data, status=status.HTTP_200_OK)
+    else:
+      return super().patch(request, shortname)
+
 
 class ProblemSubmitView(generics.CreateAPIView):
   """

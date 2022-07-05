@@ -15,11 +15,8 @@ class JudgeDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_object(self):
         method = self.request.method
         user = self.request.user
-        if method == 'GET':
-            pass
-        else:
-            if not user.is_superuser:
-                raise PermissionDenied
+        if not user.is_superuser:
+            raise PermissionDenied
         return super().get_object()
 
 
