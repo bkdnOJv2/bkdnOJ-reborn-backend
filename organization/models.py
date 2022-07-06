@@ -347,6 +347,9 @@ class Organization(MP_Node):
 
   @classmethod
   def get_visible_organizations(cls, user):
+    if not user.is_authenticated:
+      return Organization.get_visible_root_organizations(user)
+
     if user.has_perm("organization.see_all_organizations"):
       return Organization.objects.all()
 

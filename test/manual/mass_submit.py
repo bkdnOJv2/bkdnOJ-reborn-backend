@@ -2,7 +2,10 @@ import requests as R
 
 HOST = 'http://localhost:8000'
 TEST_USER_PREFIX = 'tester1'
-TEST_USER_COUNT = 20
+TEST_USER_COUNT = 100
+TOTAL_SUBS = 2000
+THREADS = 4
+TIME_SPAN = 60*60 # 30 minutes
 
 users = [TEST_USER_PREFIX+str(i) for i in range(1, TEST_USER_COUNT+1)]
 tokens = [None] * len(users)
@@ -90,6 +93,7 @@ def random_submit():
             'Authorization': 'Bearer '+rnd_tok})
 
 def spam_random_submit(times=1, tid=None):
+    span = TIME_SPAN // times
     for _ in range(times):
         print(f"Thread {tid}: Submitting randomly..")
         req = random_submit()
@@ -101,8 +105,6 @@ def spam_random_submit(times=1, tid=None):
 
 if __name__ == '__main__':
     print('Mass submitting script --')
-
-    THREADS = 2
 
     threads = []
     for tid in range(THREADS):
@@ -121,11 +123,9 @@ if __name__ == '__main__':
         if not os.path.exists(p):
             raise Exception(f"Folder {p} does not exist.")
 
-    SUBS = 100
-
     threads = []
     for tid in range(THREADS):
-        t = threading.Thread(name=f"random_submit-{tid}", target=spam_random_submit, args=(SUBS, tid))
+        t = threading.Thread(name=f"random_submit-{tid}", target=spam_random_submit, args=(TOTAL_SUBS//THREADS, tid))
         t.start()
 
     for th in threads:
