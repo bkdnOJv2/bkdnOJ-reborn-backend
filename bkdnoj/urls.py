@@ -28,12 +28,20 @@ urlpatterns = [
     # Submission
     path('', include('compete.urls')),
 
-    path('__debug__', include('debug_toolbar.urls')),
 
+    # testing
 ]
+
 
 # urlpatterns = format_suffix_patterns(urlpatterns)
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
 if settings.DEBUG:
+    def loader_io(request):
+        return HttpResponse('loaderio-e932291bca6cb4c5ef455de0ed45c6ed', content_type="text/plain")
+
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += [path('__debug__', include('debug_toolbar.urls'))]
+    urlpatterns += [path('loaderio-e932291bca6cb4c5ef455de0ed45c6ed/', loader_io, name='loader-io-view')]
+

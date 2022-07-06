@@ -2,7 +2,7 @@ import requests as R
 
 HOST = 'http://localhost:8000'
 TEST_USER_PREFIX = 'tester1'
-TEST_USER_COUNT = 490
+TEST_USER_COUNT = 20
 
 users = [TEST_USER_PREFIX+str(i) for i in range(1, TEST_USER_COUNT+1)]
 tokens = [None] * len(users)
@@ -94,7 +94,8 @@ def spam_random_submit(times=1, tid=None):
         print(f"Thread {tid}: Submitting randomly..")
         req = random_submit()
         print(f"Thread {tid}: Received {req.status_code}")
-        rnd_sleep = random.randint(5*60, 15*60)
+        #rnd_sleep = random.randint(5*60, 15*60)
+        rnd_sleep = 20#random.randint(5*60, 15*60)
         print(f"Thread {tid}: Sleeping for {rnd_sleep}")
         time.sleep( rnd_sleep )
 
@@ -120,7 +121,7 @@ if __name__ == '__main__':
         if not os.path.exists(p):
             raise Exception(f"Folder {p} does not exist.")
 
-    SUBS = 2000
+    SUBS = 100
 
     threads = []
     for tid in range(THREADS):
