@@ -36,7 +36,8 @@ INSTALLED_APPS = [
     'compete',
 
     ##
-    "debug_toolbar",
+    'dbbackup', # django-dbbackup
+    'debug_toolbar', # django debug toolbar
 ]
 
 MIDDLEWARE = [
@@ -51,6 +52,8 @@ MIDDLEWARE = [
     ##
     "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
+
+# =================================== Django Debug Toolbar
 
 INTERNAL_IPS = [
     "127.0.0.1",
@@ -78,6 +81,11 @@ def show_toolbar_callback(request):
     # return settings.DEBUG and not request.is_ajax()
     return True
 
+# ====================================== Django DBBackup
+DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
+DBBACKUP_STORAGE_OPTIONS = {'location': '/home/nvatuan/bkdnOJ-reborn/backups'}
+
+# ====================================== 
 
 ROOT_URLCONF = 'bkdnoj.urls'
 
@@ -152,7 +160,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 200 * 1024*1024
-## storing into RAM upto 200Mb, someday the server will crash :)
+## Allow file upload to store temp file onto RAM upto 200Mb
+## Someday the server will crash and we all wonder why :)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field

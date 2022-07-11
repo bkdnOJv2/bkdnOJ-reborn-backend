@@ -279,7 +279,6 @@ class Problem(TimeStampedModel):
     if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')): # superuser included
       q = (
         Q(is_public=True) & (
-          Q(is_organization_private=False) |
           Q(is_organization_private=True, organizations__id__in=user.profile.member_of_org_with_ids)
         )
       )
