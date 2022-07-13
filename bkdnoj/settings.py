@@ -83,7 +83,7 @@ def show_toolbar_callback(request):
 
 # ====================================== Django DBBackup
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
-DBBACKUP_STORAGE_OPTIONS = {'location': '/home/nvatuan/bkdnOJ-reborn/backups'}
+DBBACKUP_STORAGE_OPTIONS = {'location': ''}
 
 # ====================================== 
 
@@ -116,8 +116,8 @@ DATABASES = {
         'USER': os.getenv('POSTGRES_USER'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
         'HOST': os.getenv('POSTGRES_HOST'),
-        #'PORT': os.getenv('POSTGRES_PORT'),
-        'PORT': 6432, #os.getenv('POSTGRES_PORT'),
+        'PORT': os.getenv('POSTGRES_PORT'),
+        #'PORT': 6432, #os.getenv('POSTGRES_PORT'),
     }
 }
 
@@ -214,6 +214,14 @@ LOGGING = {
             'level': 'DEBUG',
         },
     },
+}
+
+# CACHING
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379',
+    }
 }
 
 ## Celery -------------------------------------------

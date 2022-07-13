@@ -261,13 +261,7 @@ class Problem(TimeStampedModel):
         return cls.objects.defer('content').all()
 
     # queryset = cls.objects.defer('content')
-    queryset = cls.objects.only(
-            'shortname', 'title', 'solved_count', 'attempted_count', 'points',
-            'partial', 'short_circuit',
-            'is_public', 'is_organization_private',
-            'time_limit', 'memory_limit',
-            'created', 'modified',
-      ).filter()
+    queryset = cls.objects.only('id')
     # edit_own_problem = user.has_perm('problem.edit_own_problem')
     # edit_public_problem = edit_own_problem and user.has_perm('problem.edit_public_problem')
     # edit_all_problem = edit_own_problem and user.has_perm('problem.edit_all_problem')
@@ -279,6 +273,7 @@ class Problem(TimeStampedModel):
     if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')): # superuser included
       q = (
         Q(is_public=True) & (
+          Q(is_organization_private=False) | 
           Q(is_organization_private=True, organizations__id__in=user.profile.member_of_org_with_ids)
         )
       )
@@ -289,7 +284,13 @@ class Problem(TimeStampedModel):
       q |= Q(reviewers=user.profile)
 
       queryset = queryset.filter(q)
-    return queryset.distinct()
+    return cls.objects.only(
+        'shortname', 'title', 'solved_count', 'attempted_count', 'points',
+        'partial', 'short_circuit',
+        'is_public', 'is_organization_private',
+        'time_limit', 'memory_limit',
+        'created', 'modified',
+      ).filter(id__in=queryset)
 
   @classmethod
   def get_editable_problems(cls, user):

@@ -186,7 +186,7 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
         if method == 'GET':
             if not user.is_staff:
                 raise PermissionDenied()
-            if user.is_staff:
+            if not user.is_superuser:
                 qs = qs.filter(is_superuser=False)
         else:
             if not user.is_superuser:

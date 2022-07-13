@@ -31,6 +31,9 @@ from compete.tasks import recompute_standing
 
 from helpers.custom_pagination import Page100Pagination, Page10Pagination
 
+import logging
+logger = logging.getLogger(__name__)
+
 __all__ = [
     ### Contest View
     'PastContestListView', 'AllContestListView', 'ContestListView', 'ContestDetailView',
@@ -693,10 +696,13 @@ def contest_leave_view(request, key):
 from collections import defaultdict, namedtuple
 from django.core.cache import cache
 
-
+from django.utils import timezone
 
 @api_view(['GET'])
 def contest_standing_view(request, key):
+    # now = timezone.now()
+    # logger.info('Received request')
+
     user = request.user
     contest = get_object_or_404(Contest, key=key)
 
@@ -719,10 +725,13 @@ def contest_standing_view(request, key):
         scoreboard_view_mode = 'full'
         scoreboard_serializer = ContestStandingSerializer
 
+    # logger.info("Done permission checking -- %.4fs" % (timezone.now()-now).total_seconds())
+    # now = timezone.now()
+
     cache_key = f"contest-{contest.key}-scoreboard-{scoreboard_view_mode}"
 
     if cache_disabled or cache.get(cache_key) == None:
-        cprobs = contest.contest_problems.all()
+        cprobs = contest.contest_problems.prefetch_related('problem').all()
         problem_data = [{
             'id': p.id,
             'label': p.label,
@@ -730,18 +739,24 @@ def contest_standing_view(request, key):
             'points': p.points,
         } for p in cprobs]
 
+        # logger.info("Done serializing problems -- %.4fs" % (timezone.now()-now).total_seconds())
+        # now = timezone.now()
+
         corgs = Organization.objects.filter(id__in=contest.users\
                     .annotate(org=F('user__display_organization'))\
                     .exclude(org=None)\
                     .values_list('org', flat=True).order_by('org').distinct())
         org_data = OrganizationBasicSerializer(corgs, many=True).data
 
+        # logger.info("Done serializing orgs -- %.4fs" % (timezone.now()-now).total_seconds())
+        # now = timezone.now()
+
         if scoreboard_view_mode == 'froze':
-            queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
+            queryset = contest.users.select_related('user', 'user__user').filter(virtual=ContestParticipation.LIVE).\
                 order_by('-frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
                         'user__id').all()
         else:
-            queryset = contest.users.filter(virtual=ContestParticipation.LIVE).\
+            queryset = contest.users.select_related('user', 'user__user').filter(virtual=ContestParticipation.LIVE).\
                 order_by('-score', 'cumtime', 'tiebreaker', 'user__id').all()
 
         is_frozen = (scoreboard_view_mode == 'froze');
@@ -758,7 +773,11 @@ def contest_standing_view(request, key):
         if not cache_disabled:
             cache.set(cache_key, dat, cache_duration)
     else:
+        # logger.info("Fetch from cache")
         dat = cache.get(cache_key)
+    
+    # logger.info("Done serializing data -- %.4fs" % (timezone.now()-now).total_seconds())
+    # now = timezone.now()
 
     if can_break_ice:
         dat['can_break_ice'] = True

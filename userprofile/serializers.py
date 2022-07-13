@@ -19,7 +19,7 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
             return None
         return prf.display_organization.slug
         #return OrganizationBasicSerializer(prf.organization).data
-
+    
     class Meta:
         model = UserProfile
         fields = [

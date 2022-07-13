@@ -323,3 +323,4 @@ class SubmissionTestCase(models.Model):
     unique_together = ('submission', 'case')
     verbose_name = _('submission test case')
     verbose_name_plural = _('submission test cases')
+    ordering = ['case', 'id']

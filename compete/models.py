@@ -654,6 +654,8 @@ class ContestParticipation(models.Model):
     virtual = models.IntegerField(
         verbose_name=_('virtual participation id'), default=LIVE,
         help_text=_('0 means non-virtual, otherwise the n-th virtual participation.'))
+    
+    modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
 
     def recompute_results(self):
         with transaction.atomic():
@@ -722,6 +724,13 @@ class ContestParticipation(models.Model):
     @property
     def is_frozen(self):
         return self.contest.is_frozen
+
+    # ========================== Cache helpers
+
+    # ========================== Others
+    def save(self, *args, **kwargs):
+        self.modified = self._now
+        return super().save(*args, **kwargs);
 
     def __str__(self):
         if self.spectate:
@@ -798,6 +807,10 @@ class ContestProblem(models.Model):
         rs = super().save(args, kwargs)
         self.contest.clear_scoreboard_cache()
         return rs
+
+    @cached_property
+    def _now(self):
+        return timezone.now()
 
     def __str__(self):
         return f"Problem {self.problem.shortname} in Contest {self.contest.key}"
