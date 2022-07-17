@@ -164,27 +164,31 @@ class UserProfile(TimeStampedModel):
 
     @property
     def __cache_key_member_of_org_with_ids(self):
-        return f"{self.__class__.__name__}-{self.id}-org-ids"
+        return f"{self.__class__.__name__}-{self.id}-member-org-ids"
 
     """
         Return a SET of ID of organizations that this profile is a member of
     """
     @cached_property
     def member_of_org_with_ids(self):
-        # org_ids = set( self.admin_of.values_list('id', flat=True) ) # Admins are also members
-        # org_ids = self.admin_of_org_with_ids # Admins are also members
-        # org_ids = set()
-        # for org in self.organizations.only('id').all():
-        #     trvs = org
-        #     while True:
-        #         org_ids.add(trvs.id)
-        #         if trvs.is_root(): break
-        #         trvs = trvs.get_parent()
-        # return org_ids
+        from organization.models import Organization
 
-        results = self.__EXPERIMENTAL__member_of_org_with_ids
-        return results
+        q = None
+        for org in self.organizations.all():#order_by('depth').all():
+            if q is None: q = Q(id=org.id) 
+            else: q |= Q(id=org.id)
+            q |= Q(id__in=org.get_ancestors())
 
+        for org in self.admin_of.all():#order_by('depth').all():
+            if q is None: q = Q(id=org.id)
+            else: q |= Q(id=org.id)
+            q |= Q(id__in=org.get_descendants())
+        
+        if q is None:
+            return set()
+
+        data = set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
+        return data
 
     """
         Experimental implementation for member_of_org_with_ids in attempt to improve speed
@@ -194,59 +198,64 @@ class UserProfile(TimeStampedModel):
             2.a Improved by cache the whole tree in memory, avoding N+1 problem.
     """
     @cached_property
-    def __EXPERIMENTAL__member_of_org_with_ids(self):
-        from organization.models import Organization
+    def __EXPERIMENTAL_member_of_org_with_ids(self):
+        if data is None:
+            from organization.models import Organization
 
-        if self.organizations.count() == 0 and self.admin_of.count() == 0:
-            return set()
+            q = Q()
+            for org in self.organizations.all():#order_by('depth').all():
+                q |= Q(id=org.id)
+                q |= Q(id__in=org.get_ancestors())
 
-        q = Q()
-        for org in self.organizations.all():#order_by('depth').all():
-            q |= Q(id=org.id)
-            q |= Q(id__in=org.get_ancestors())
+            for org in self.admin_of.all():#order_by('depth').all():
+                q |= Q(id=org.id)
+                q |= Q(id__in=org.get_descendants())
 
-        for org in self.admin_of.all():#order_by('depth').all():
-            q |= Q(id=org.id)
-            q |= Q(id__in=org.get_descendants())
+            data = set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
+            cache.set(self.__cache_key_member_of_org_with_ids, data, PROFILE_ORG_IDS_CACHE_TIMEOUT)
+        return data
 
-        return set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
-
+    @property
+    def __cache_key_admin_of_org_with_ids(self):
+        return f"{self.__class__.__name__}-{self.id}-admin-org-ids"
 
     """
         Return a SET of ID of organizations that this profile is an admin of
     """
     @cached_property
     def admin_of_org_with_ids(self):
-        # org_ids = set()
-        # q = Queue()
-
-        # for org in self.admin_of.only('id').all():
-        #     q.put(org)
-        #     while not q.empty():
-        #         top = q.get() # Remove and return an item from the queue
-        #         org_ids.add(top.id)
-        #         for child in top.get_children():
-        #             if child.id in org_ids: continue
-        #             q.put(child)
-        # return org_ids
-
-        results = self.__EXPERIMENTAL__admin_of_org_with_ids
-        return results
-
-    @cached_property
-    def __EXPERIMENTAL__admin_of_org_with_ids(self):
+        # data = cache.get(self.__cache_key_admin_of_org_with_ids)
         from organization.models import Organization
-
-        if self.admin_of.count() == 0:
-            return set()
 
         q = Q()
         for org in self.admin_of.all():#order_by('depth').all():
             q |= Q(id=org.id)
             q |= Q(id__in=org.get_descendants())
 
-        return set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
+        data = set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
+        return data
+    
+    """ Using cache, but doesn't improve much """
+    def __EXPERIMENTAL_admin_of_org_with_ids(self):
+        if self.admin_of.count() == 0:
+            return set()
 
+        data = cache.get(self.__cache_key_admin_of_org_with_ids)
+        if data is None:
+            from organization.models import Organization
+
+            q = Q()
+            for org in self.admin_of.all():#order_by('depth').all():
+                q |= Q(id=org.id)
+                q |= Q(id__in=org.get_descendants())
+
+            data = set( Organization.objects.only('id').filter(q).distinct().values_list('id', flat=True) )
+            cache.set(self.__cache_key_admin_of_org_with_ids, data, PROFILE_ORG_IDS_CACHE_TIMEOUT)
+        return data
+
+    def __invalidate_cache(self):
+        cache.delete(self.__cache_key_admin_of_org_with_ids)
+        cache.delete(self.__cache_key_member_of_org_with_ids)
 
     def __str__(self):
         name = f"{self.first_name} {self.last_name}"

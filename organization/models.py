@@ -365,8 +365,7 @@ class Organization(MP_Node):
     #       if not child.id in ids:
     #         q.put(child)
 
-    return Organization.objects.filter(Q(id__in=user.profile.member_of_org_with_ids)
-              | Q(id__in=user.profile.admin_of_org_with_ids) )
+    return Organization.objects.filter( Q(id__in=user.profile.member_of_org_with_ids) )
 
   def __contains__(self, item):
     if item is None:

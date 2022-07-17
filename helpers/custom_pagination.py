@@ -17,9 +17,6 @@ class FasterDjangoPaginator(Paginator):
 
 class PageCountPagination(pagination.PageNumberPagination):
     django_paginator_class = FasterDjangoPaginator
-    # @cached_property
-    # def count(self):
-    #     return 9999999999
 
     def get_paginated_response(self, data):
         return Response({

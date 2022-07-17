@@ -7,6 +7,7 @@ from celery.signals import task_failure
 app = Celery('bkdnoj')
 
 from django.conf import settings  # noqa: E402, I202, django must be imported here
+settings.configure()
 app.config_from_object(settings, namespace='CELERY')
 
 if hasattr(settings, 'CELERY_BROKER_URL_SECRET'):

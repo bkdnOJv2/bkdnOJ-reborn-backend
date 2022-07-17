@@ -57,7 +57,7 @@ class AllContestListView(generics.ListAPIView):
     """
         Return a List of all Contests
     """
-    serializer_class = ContestBriefSerializer
+    serializer_class = PastContestBriefSerializer
     permission_classes = [permissions.IsAdminUser]
     filter_backends = [
         django_filters.rest_framework.DjangoFilterBackend,

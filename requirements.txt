@@ -23,9 +23,11 @@ django-filter==21.1
 django-treebeard==4.5.1
 djangorestframework==3.13.1
 djangorestframework-simplejwt==5.1.0
+-e git+https://github.com/DMOJ/judge-server.git@12b42f6171de0f0ac8cd71f74f1b636b5e93fda0#egg=dmoj
 executing==0.8.3
 fake-factory==9999.9.9
 Faker==13.11.0
+gunicorn==20.1.0
 idna==3.3
 importlib-metadata==4.11.3
 ipython==8.2.0
@@ -47,6 +49,7 @@ pure-eval==0.2.2
 Pygments==2.11.2
 PyJWT==2.3.0
 pyllist==0.3
+pylru==1.2.1
 pyparsing==3.0.9
 python-dateutil==2.8.2
 python-dotenv==0.20.0
@@ -54,13 +57,16 @@ pytz==2022.1
 PyYAML==6.0
 redis==4.3.3
 requests==2.28.0
+setproctitle==1.2.3
 six==1.16.0
 sqlparse==0.4.2
 stack-data==0.2.0
+termcolor==1.1.0
 traitlets==5.1.1
 urllib3==1.26.9
 uWSGI==2.0.20
 vine==5.0.0
+watchdog==2.1.9
 wcwidth==0.2.5
 wrapt==1.14.1
 zipp==3.8.0
