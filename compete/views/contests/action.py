@@ -7,6 +7,7 @@ from django.utils.functional import cached_property
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
+from django.core.cache import cache
 
 import django_filters
 
@@ -276,6 +277,7 @@ def contest_participate_view(request, key):
     profile.save()
     contest._updating_stats_only = True
     contest.update_user_count()
+    cache.delete(contest.participants_cache_key)
     return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -338,6 +340,10 @@ def contest_participation_add_many(request, key):
         contest._updating_stats_only = True
         contest.update_user_count()
         contest.save()
+
+        ## Delete participants cache
+        cache.delete(contest.participants_cache_key)
+
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
     except KeyError as ke:

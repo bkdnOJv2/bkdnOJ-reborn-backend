@@ -7,6 +7,7 @@ from django.utils.functional import cached_property
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
+from django.core.cache import cache
 
 import django_filters
 
@@ -37,7 +38,7 @@ from userprofile.models import UserProfile as Profile
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
 
 
-from helpers.custom_pagination import Page100Pagination, Page10Pagination
+from helpers.custom_pagination import Page100Pagination, Page50Pagination, Page10Pagination
 
 import logging
 logger = logging.getLogger(__name__)
@@ -423,6 +424,7 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class ContestParticipantListView(generics.ListAPIView):
     serializer_class = ProfileSerializer
+    pagination_class = Page50Pagination
 
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
@@ -430,15 +432,40 @@ class ContestParticipantListView(generics.ListAPIView):
             raise Http404()
         return contest
     
+    @cached_property
+    def contest(self):
+        return self.get_contest()
+    
     def get_queryset(self):
-        queryset = Profile.objects.select_related('user').filter(id__in=self.get_contest().users.values_list('user_id', flat=True))
+        queryset = Profile.objects.select_related('user').filter(
+            id__in=self.contest.users.filter(virtual=0).values_list('user_id', flat=True))
         return queryset
         
     def get(self, request, key):
         if request.query_params.get('view_full', False) not in ['true', '1']: 
-            return super().get(request, key)
-        
-        return Response(
-            self.get_serializer_class()(self.get_queryset(), many=True, context={'request': request}).data,
-            status=status.HTTP_200_OK
-        )
+            view_full = '0'
+        else:
+            view_full = '1'
+
+        # Cache is 
+        if view_full == '1':
+            contest = self.contest
+            # cache_duration = c.scoreboard_cache_duration
+            cache_duration = max( int( (contest.end_time - contest.start_time).total_seconds() ), 300 ) ## Extra 5 mins
+            cache_disabled = (cache_duration == 0)
+            cache_key = contest.participants_cache_key
+            data = None
+
+            if cache_disabled or cache.get(cache_key) == None:
+                data = self.get_serializer_class()(self.get_queryset(), many=True, context={'request': request}).data
+                if not cache_disabled:
+                    cache.set(cache_key, data, cache_duration)
+            else:
+                data = cache.get(cache_key)
+
+            return Response(data, status=status.HTTP_200_OK)
+        else:
+            data = self.paginate_queryset(self.get_queryset())
+            data = self.get_serializer_class()(data, many=True, context={'request': request}).data,
+            return self.get_paginated_response(data)
+            

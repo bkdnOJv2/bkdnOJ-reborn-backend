@@ -554,6 +554,12 @@ class Contest(models.Model):
             cache_key = f"contest-{self.key}-scoreboard-{view_mode}"
             cache.delete(cache_key)
 
+    ## cache_keys
+    @property
+    def participants_cache_key(self):
+        cache_key = 'contest-{self.key}-participants-full'
+        return cache_key
+
     ## Django model methods
     def clean(self):
         if self.time_limit != None and self.time_limit.total_seconds() < 0:
