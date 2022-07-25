@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = False #os.getenv('DEBUG').lower() in ['True', '1']
+DEBUG = True#os.getenv('DEBUG').lower() in ['True', '1']
 ALLOWED_HOSTS = ['1509.ddns.net', 'localhost', '127.0.0.1']
 
 # Application definition -------------------------------
@@ -301,4 +301,4 @@ BRIDGED_DJANGO_ADDRESS = [('localhost', 9998)]
 BRIDGED_DJANGO_CONNECT = None
 
 ## --------------------------------------------------
-from .celery import app as celery_app
+#from .celery import app as celery_app

@@ -165,7 +165,17 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = []
 
     def get_object(self, *a):
-        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        contest = get_object_or_404(
+            Contest.objects.prefetch_related(
+                'problems', 'contest_problems', 'contest_problems__problem',
+                'authors', 'authors__user',
+                'collaborators', 'collaborators__user',
+                'reviewers', 'reviewers__user',
+                'private_contestants', 'private_contestants__user',
+                'organizations',
+            ),
+            key=self.kwargs['key']
+        )
         user = self.request.user
         method = self.request.method
 
@@ -775,7 +785,7 @@ def contest_standing_view(request, key):
     else:
         # logger.info("Fetch from cache")
         dat = cache.get(cache_key)
-    
+
     # logger.info("Done serializing data -- %.4fs" % (timezone.now()-now).total_seconds())
     # now = timezone.now()
 

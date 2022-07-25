@@ -11,6 +11,33 @@ from judger.restful.serializers import LanguageBasicSerializer
 
 from compete.ratings import rating_class, rating_level, rating_name
 
+
+class UserProfileBaseSerializer(serializers.ModelSerializer):
+    username = serializers.SerializerMethodField()
+    def get_username(self, profile):
+        return profile.user.username
+
+    first_name = serializers.SerializerMethodField()
+    def get_first_name(self, profile):
+        return profile.user.first_name
+
+    last_name = serializers.SerializerMethodField()
+    def get_last_name(self, profile):
+        return profile.user.last_name
+
+    email = serializers.SerializerMethodField()
+    def get_email(self, profile):
+        return profile.user.email
+
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'username', 'avatar', 'first_name', 'last_name', 'email',
+            'rating',
+        ]
+
+
 class UserProfileBasicSerializer(serializers.ModelSerializer):
 
     organization = serializers.SerializerMethodField()
@@ -19,7 +46,7 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
             return None
         return prf.display_organization.slug
         #return OrganizationBasicSerializer(prf.organization).data
-    
+
     class Meta:
         model = UserProfile
         fields = [
