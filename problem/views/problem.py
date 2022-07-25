@@ -25,6 +25,7 @@ from problem.models import Problem, ProblemTestProfile
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
   SubmissionBasicSerializer
+from organization.models import Organization
 
 from helpers.string_process import ustrip
 
@@ -63,7 +64,21 @@ class ProblemListView(generics.ListCreateAPIView):
 
   def get_queryset(self):
       user = self.request.user
+      if not user.is_authenticated:
+        return Problem.get_public_problems()
+
       return Problem.get_visible_problems(user)
+
+      org = self.request.query_params.get('org', None)
+      if org:
+        org = Organization.objects.filter(slug=org).first()
+        if org and org.id in user.profile.member_of_org_with_ids:
+          return Problem.get_org_visible_problems(org)
+        else:
+          return Problem.objects.none()
+      else:
+        # return Problem.get_visible_problems(user)
+        return Problem.get_public_problems()
 
   def post(self, request):
       self.check_perms(request)

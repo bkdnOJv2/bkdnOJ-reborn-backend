@@ -247,32 +247,38 @@ class ContestProblemSerializer(ContestProblemBriefSerializer):
             'label',
         ]
 
+from userprofile.serializers import UserProfileBaseSerializer
 
 class ContestDetailSerializer(ContestBriefSerializer):
-    authors = serializers.SerializerMethodField()
-    def get_authors(self, contest):
-        users = User.objects.filter(profile__in=contest.authors.all())
-        return UserDetailSerializer(users, many=True).data
+    authors = UserProfileBaseSerializer(many=True, read_only=True)
+    # serializers.SerializerMethodField()
+    # def get_authors(self, contest):
+    #     users = User.objects.filter(profile__in=contest.authors.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    collaborators = serializers.SerializerMethodField()
-    def get_collaborators(self, contest):
-        users = User.objects.filter(profile__in=contest.collaborators.all())
-        return UserDetailSerializer(users, many=True).data
+    collaborators = UserProfileBaseSerializer(many=True, read_only=True)
+    # serializers.SerializerMethodField()
+    # def get_collaborators(self, contest):
+    #     users = User.objects.filter(profile__in=contest.collaborators.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    reviewers = serializers.SerializerMethodField()
-    def get_reviewers(self, contest):
-        users = User.objects.filter(profile__in=contest.reviewers.all())
-        return UserDetailSerializer(users, many=True).data
+    reviewers = UserProfileBaseSerializer(many=True, read_only=True)
+    # serializers.SerializerMethodField()
+    # def get_reviewers(self, contest):
+    #     users = User.objects.filter(profile__in=contest.reviewers.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    private_contestants = serializers.SerializerMethodField()
-    def get_private_contestants(self, contest):
-        users = User.objects.filter(profile__in=contest.private_contestants.all())
-        return UserDetailSerializer(users, many=True).data
+    private_contestants = UserProfileBaseSerializer(many=True, read_only=True)
+    # serializers.SerializerMethodField()
+    # def get_private_contestants(self, contest):
+    #     users = User.objects.filter(profile__in=contest.private_contestants.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    banned_users = serializers.SerializerMethodField()
-    def get_banned_users(self, contest):
-        users = User.objects.filter(profile__in=contest.banned_users.all())
-        return UserDetailSerializer(users, many=True).data
+    banned_users = UserProfileBaseSerializer(many=True, read_only=True)
+    # serializers.SerializerMethodField()
+    # def get_banned_users(self, contest):
+    #     users = User.objects.filter(profile__in=contest.banned_users.all())
+    #     return UserDetailSerializer(users, many=True).data
 
     organizations = serializers.SerializerMethodField()
     def get_organizations(self, contest):
@@ -326,6 +332,9 @@ class ContestDetailSerializer(ContestBriefSerializer):
     class Meta:
         model = Contest
         fields = '__all__'
+        # fields = [
+        #     'id', 'spectate_allow', 'register_allow', 'is_registered',
+        #     'authors', 'collaborators', 'reviewers', 'private_contestants', 'banned_users', 'organizations', 'problems'        ]#'__all__'
         optional_fields = ['is_registered', 'spectate_allow', 'register_allow']
         lookup_field = 'key'
         extra_kwargs = {
@@ -390,9 +399,10 @@ class ContestStandingFrozenSerializer(serializers.ModelSerializer):
     #user = ProfileSerializer(required=False)
     user = serializers.SerializerMethodField()
     def get_user(self, obj):
-        ser_context = {'request': self.context.get('request')}
-        user_ser = ProfileSerializer(obj.user, context=ser_context)
-        return user_ser.data
+        return obj.user.username
+        # ser_context = {'request': self.context.get('request')}
+        # user_ser = ProfileSerializer(obj.user, context=ser_context)
+        # return user_ser.data
 
     format_data = serializers.SerializerMethodField()
     def get_format_data(self, obj):

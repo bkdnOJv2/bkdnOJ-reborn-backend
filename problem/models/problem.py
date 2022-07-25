@@ -118,7 +118,7 @@ class Problem(TimeStampedModel):
     help_text=_("Publish date of problem"),
   )
 
-  is_organization_private = models.BooleanField(default=False,
+  is_organization_private = models.BooleanField(default=False, db_index=True,
     help_text=_("If private only added, organizations may see "
                 "and submit to the problem."),
   )
@@ -141,11 +141,11 @@ class Problem(TimeStampedModel):
     validators=[MinValueValidator(settings.BKDNOJ_PROBLEM_MIN_PROBLEM_POINTS)],
   )
   partial = models.BooleanField(
-    verbose_name=_('allow earning partial points'), default=False,
+    verbose_name=_('allow earning partial points'), default=False, db_index=True,
     help_text=_("Allow solvers to earn points for each testcase they did right.")
   )
   short_circuit = models.BooleanField(
-    verbose_name=_('stop on unacceptted testcase'), default=False,
+    verbose_name=_('stop on unacceptted testcase'), default=False, db_index=True,
     help_text=_("Stop grading as soon as there is one not acceptted testcase."),
   )
 
@@ -284,6 +284,42 @@ class Problem(TimeStampedModel):
       q |= Q(reviewers=user.profile)
 
       queryset = queryset.filter(q)
+    return cls.objects.only(
+        'shortname', 'title', 'solved_count', 'attempted_count', 'points',
+        'partial', 'short_circuit',
+        'is_public', 'is_organization_private',
+        'time_limit', 'memory_limit',
+        'created', 'modified',
+      ).filter(id__in=queryset)
+
+  @classmethod
+  def get_org_visible_problems(cls, org):
+    q = (
+      Q(is_public=True, is_organization_private=True) &
+      (Q(organizations__id=org.id) | Q(organizations__id__in=org.get_ancestors().values_list('id', flat=True)))
+    )
+    return cls.objects.only(
+        'shortname', 'title', 'solved_count', 'attempted_count', 'points',
+        'partial', 'short_circuit',
+        'is_public', 'is_organization_private',
+        'time_limit', 'memory_limit',
+        'created', 'modified',
+      ).filter(q)
+
+  @classmethod
+  def get_readonly_problems(cls, user):
+    if not user.is_authenticated: return cls.get_public_problems()
+    if user.has_perm('problem.edit_all_problem') or user.has_perm('problem.see_all_problem'): return cls.objects.all() # user.is_superuser included
+
+    q = (
+      Q(is_public=True) & (
+        Q(is_organization_private=False) | 
+        Q(is_organization_private=True, organizations__id__in=user.profile.member_of_org_with_ids)
+      )
+    )
+
+    q |= Q(reviewers=user.profile)
+    queryset = queryset.filter(q)
     return cls.objects.only(
         'shortname', 'title', 'solved_count', 'attempted_count', 'points',
         'partial', 'short_circuit',

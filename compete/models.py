@@ -74,8 +74,8 @@ class Contest(models.Model):
     key = models.CharField(max_length=20, verbose_name=_('contest identifier'),
         unique=True, db_index=True, #unique implies db_index=True
         validators=[
-            RegexValidator('^[a-z][a-z0-9]+$',
-               _('Contest identifier must starts with a letter, contains only lowercase letters.')),
+            RegexValidator('^[a-z][a-z0-9\-_]+$',
+               _('Contest identifier must starts with a letter, contains only letters (lowercase), digits, and dashes.')),
             MinLengthValidator(4),
         ]
     )
@@ -553,6 +553,12 @@ class Contest(models.Model):
         for view_mode in ['full', 'froze']:
             cache_key = f"contest-{self.key}-scoreboard-{view_mode}"
             cache.delete(cache_key)
+
+    ## cache_keys
+    @property
+    def participants_cache_key(self):
+        cache_key = 'contest-{self.key}-participants-full'
+        return cache_key
 
     ## Django model methods
     def clean(self):
