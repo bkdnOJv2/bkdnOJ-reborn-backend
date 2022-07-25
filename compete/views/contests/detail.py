@@ -438,7 +438,7 @@ class ContestParticipantListView(generics.ListAPIView):
     
     def get_queryset(self):
         queryset = Profile.objects.select_related('user').filter(
-            id__in=self.contest.users.filter(virtual=0).values_list('user_id', flat=True))
+            id__in=self.contest.users.filter(virtual=0).values_list('user__id', flat=True))
         return queryset
         
     def get(self, request, key):
@@ -454,6 +454,7 @@ class ContestParticipantListView(generics.ListAPIView):
             cache_duration = max( int( (contest.end_time - contest.start_time).total_seconds() ), 300 ) ## Extra 5 mins
             cache_disabled = (cache_duration == 0)
             cache_key = contest.participants_cache_key
+            cache.delete(cache_key)
             data = None
 
             if cache_disabled or cache.get(cache_key) == None:

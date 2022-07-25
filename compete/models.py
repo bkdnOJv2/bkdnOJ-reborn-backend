@@ -557,7 +557,7 @@ class Contest(models.Model):
     ## cache_keys
     @property
     def participants_cache_key(self):
-        cache_key = 'contest-{self.key}-participants-full'
+        cache_key = f"contest-{self.key}-participants-full"
         return cache_key
 
     ## Django model methods
