@@ -1,7 +1,7 @@
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 
 
-def ranker(iterable, key=attrgetter('points'), rank=0):
+def ranker(iterable, key=itemgetter('points'), rank=0):
     delta = 1
     last = None
     for item in iterable:

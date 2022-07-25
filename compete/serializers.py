@@ -399,9 +399,10 @@ class ContestStandingFrozenSerializer(serializers.ModelSerializer):
     #user = ProfileSerializer(required=False)
     user = serializers.SerializerMethodField()
     def get_user(self, obj):
-        ser_context = {'request': self.context.get('request')}
-        user_ser = ProfileSerializer(obj.user, context=ser_context)
-        return user_ser.data
+        return obj.user.username
+        # ser_context = {'request': self.context.get('request')}
+        # user_ser = ProfileSerializer(obj.user, context=ser_context)
+        # return user_ser.data
 
     format_data = serializers.SerializerMethodField()
     def get_format_data(self, obj):

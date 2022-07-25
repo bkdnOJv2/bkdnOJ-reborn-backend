@@ -25,7 +25,6 @@ from userprofile.models import UserProfile as Profile
 
 from compete.serializers import *
 from compete.models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
-from compete.ratings import rate_contest
 from compete.exceptions import *
 from compete.tasks import recompute_standing
 
@@ -38,7 +37,6 @@ __all__ = [
     ### Contest View
     'PastContestListView', 'AllContestListView', 'ContestListView', 'ContestDetailView',
 
-    ### ContestProblem View
     'ContestProblemListView', 'ContestProblemDetailView',
     'ContestProblemSubmitView', 'ContestProblemRejudgeView',
 

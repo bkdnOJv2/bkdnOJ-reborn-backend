@@ -41,10 +41,16 @@ urlpatterns = [
         name='contest-rate',
     ),
 
+    path('contest/<str:key>/participants/',
+        ContestParticipantListView.as_view(),
+        name='contestparticipant-list',
+    ),
+
     path('contest/<str:key>/participations/',
         ContestParticipationListView.as_view(),
         name='contestparticipation-list',
     ),
+
     path('contest/<str:key>/participations/add/',
         contest_participation_add_many,
         name='contestparticipation-list-addmany',

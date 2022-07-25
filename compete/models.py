@@ -74,8 +74,8 @@ class Contest(models.Model):
     key = models.CharField(max_length=20, verbose_name=_('contest identifier'),
         unique=True, db_index=True, #unique implies db_index=True
         validators=[
-            RegexValidator('^[a-z][a-z0-9]+$',
-               _('Contest identifier must starts with a letter, contains only lowercase letters.')),
+            RegexValidator('^[a-z][a-z0-9\-_]+$',
+               _('Contest identifier must starts with a letter, contains only letters (lowercase), digits, and dashes.')),
             MinLengthValidator(4),
         ]
     )
