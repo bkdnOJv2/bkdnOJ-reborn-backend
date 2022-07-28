@@ -44,6 +44,7 @@ __all__ = [
     'contest_leave_view', 
 
     ## Contest Admin
+    'ContestRecomputeStandingView',
     'ContestProblemRejudgeView',
     'contest_participation_add_many',
 ]
@@ -195,6 +196,25 @@ class ContestProblemRejudgeView(views.APIView):
         async_status = rejudge_problem_filter.delay(
             problem.id, id_range, user_id=request.user.id)
 
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
+
+class ContestRecomputeStandingView(views.APIView):
+    """
+        Rejudge submissions of a Problem within Contest
+    """
+    queryset = Contest.objects.none()
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        user = self.request.user
+        if not contest.is_testable_by(user):
+            raise PermissionDenied
+        return contest
+    
+    def post(self, request, key):
+        contest = self.get_contest()
+        contest.recompute_standing()
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['POST'])

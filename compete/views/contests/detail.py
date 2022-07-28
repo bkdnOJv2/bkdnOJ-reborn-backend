@@ -103,8 +103,22 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def patch(self, request, *args, **kwargs):
         contest = self.get_object()
+        outdated_reasons = []
+        before_updated = {}
+        for field in Contest.STANDING_RELATED_FIELDS:
+            before_updated[field] = getattr(contest, field, None)
+
         try:
-            return super().patch(request, *args, **kwargs)
+            obj = super().patch(request, *args, **kwargs)
+            contest.refresh_from_db()
+
+            for field in Contest.STANDING_RELATED_FIELDS:
+                if before_updated[field] != getattr(contest, field, None):
+                    outdated_reasons.append(f"f '{field}' changed")
+            if outdated_reasons:
+                contest.append_standing_outdated_reason(outdated_reasons)
+
+            return obj
         except ValidationError as e:
             return Response({
                 'general': e,
@@ -148,6 +162,9 @@ class ContestProblemListView(generics.ListCreateAPIView):
         cproblems = contest.contest_problems # Manager
         visproblems = Problem.get_visible_problems(request.user)
 
+        outdated_reasons = []
+        problem_edit_reason_added = False
+
         contest_problem_ids = set()
         for rowidx, problem_kw in enumerate(request.data):
             try:
@@ -159,7 +176,11 @@ class ContestProblemListView(generics.ListCreateAPIView):
                     cpf = ContestProblem(contest=contest, problem=p)
                 for k, v in problem_kw.items():
                     if k in ContestProblemListView.NON_ASSOCIATE_FIELDS:
-                        setattr(cpf, k, v)
+                        if getattr(cpf, k, None) != v:
+                            if not problem_edit_reason_added :
+                                outdated_reasons.append(f"{cpf} changed")
+                                problem_edit_reason_added = True
+                            setattr(cpf, k, v)
             except Problem.DoesNotExist:
                 return Response({ 'detail': _(f"Row {rowidx}: Problem '{problem_kw['shortname']}' "
                                     "does not exist or you do not have permission to it.")},
@@ -176,11 +197,13 @@ class ContestProblemListView(generics.ListCreateAPIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             contest_problem_ids.add(cpf.id)
 
-        cproblems.exclude(id__in=contest_problem_ids).delete()
-
-        # Schedule recomputing job after editting Contest Problems list
-        from compete.tasks import recompute_standing
-        async_status = recompute_standing.delay(contest.id)
+        to_be_deleted = cproblems.exclude(id__in=contest_problem_ids)
+        if to_be_deleted.exists():
+            outdated_reasons.append(f"Some Problems were deleted")
+            to_be_deleted.delete()
+        
+        if outdated_reasons:
+            contest.append_standing_outdated_reason(outdated_reasons)
 
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 

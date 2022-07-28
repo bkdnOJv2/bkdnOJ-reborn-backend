@@ -252,7 +252,7 @@ __prob_attrib_2_confkey = {
   'short_circuit': ['short_circuit', 'skip_non_ac', 'icpc'],
   'partial': ['partial', 'allow_partial', 'ioi'],
 
-  'is_public': ['is_public', 'public', 'allow_submit']
+  'is_public': ['is_public', 'public', ]
 }
 
 @api_view(['POST'])

@@ -35,6 +35,10 @@ urlpatterns = [
         contest_standing_view,
         name='contest-standing',
     ),
+    path('contest/<str:key>/standing/recompute/',
+        ContestRecomputeStandingView.as_view(),
+        name='contest-standing-recompute',
+    ),
 
     path('contest/<str:key>/rate/',
         ContestRateView.as_view(),

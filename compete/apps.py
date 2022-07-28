@@ -6,3 +6,6 @@ class CompeteConfig(AppConfig):
     name = 'compete'
     verbose_name = _("Competition")
     verbose_name_plural = _("Competitions")
+
+    def ready(self):
+        import compete.signal

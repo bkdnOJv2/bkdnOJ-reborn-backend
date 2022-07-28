@@ -179,8 +179,11 @@ class Submission(models.Model):
 
   abort.alters_data = True
 
-  def can_see_detail(self, user):
+  def can_see_detail(self, user, contest=None):
     if not user.is_authenticated:
+      return False
+
+    if not self.problem.is_accessible_by(user, contest):
       return False
 
     profile = user.profile
@@ -192,21 +195,6 @@ class Submission(models.Model):
 
     if self.problem.is_editable_by(user):
       return True
-
-    if not self.problem.is_accessible_by(user):
-      return False
-
-    # If user is an author or curator of the contest the
-    # submission was made in, or they can see in-contest subs
-    contest = self.contest_object
-    if contest is not None:
-      from organization.models import Organization
-      if (user.profile.id in contest.editor_ids or
-        (contest.published and contest.is_organization_private and Organization.exists_pair_of_ancestor_descendant(
-          user.profile.admin_of.all(), contest.organizations.all()
-        ))
-      ):
-          return True
 
     if user.has_perm('submission.view_all_submission') or user.is_superuser:
       return True

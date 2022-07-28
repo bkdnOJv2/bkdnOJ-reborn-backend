@@ -10,6 +10,7 @@ from .serializers import SubmissionSerializer, SubmissionTestCaseSerializer, \
     SubmissionDetailSerializer, SubmissionResultSerializer, SubmissionBasicSerializer
 from .models import Submission, SubmissionTestCase
 from problem.models import Problem
+from compete.models import Contest
 
 
 class SubmissionListView(generics.ListAPIView):
@@ -34,8 +35,13 @@ class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self, *args, **kwargs):
         sub = super().get_object(*args)
+
         user = self.request.user
-        if sub.can_see_detail(user):
+        
+        contest_key = self.request.query_params.get('contest', None)
+        contest = Contest.objects.filter(key=contest_key).first()
+
+        if sub.can_see_detail(user, contest):
             return sub
         raise PermissionDenied
 
