@@ -198,12 +198,8 @@ class Problem(TimeStampedModel):
     if user.is_superuser: #or user.has_perm("problem.see_all_problems"):
         return True
 
-    # Belong in a public contest
-    if self.contest_set.filter(published=True, is_visible=True).exists():
-        return True
-
     # Given contest, if user still have participation in that contest
-    if contest != None and user.is_authenticated:
+    if contest != None:
         if contest.is_accessible_by(user):
             return True
         # if contest.is_editable_by(user):

@@ -83,6 +83,7 @@ class ContestRateView(generics.RetrieveAPIView):
 
         try:
             contest.rate()
+            contest.clear_cache()
         except Exception:
             raise
         return Response({}, status=status.HTTP_204_NO_CONTENT)

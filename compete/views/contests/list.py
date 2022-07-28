@@ -270,10 +270,7 @@ class ContestProblemListView(generics.ListCreateAPIView):
             contest_problem_ids.add(cpf.id)
 
         cproblems.exclude(id__in=contest_problem_ids).delete()
-
-        # Schedule recomputing job after editting Contest Problems list
-        from compete.tasks import recompute_standing
-        async_status = recompute_standing.delay(contest.id)
+        contest.save()
 
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 

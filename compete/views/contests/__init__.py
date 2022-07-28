@@ -9,6 +9,7 @@ __all__ = [
 
     'ContestProblemListView', 'ContestProblemDetailView',
     'ContestProblemSubmitView', 'ContestProblemRejudgeView',
+    'ContestRecomputeStandingView',
 
     ### ContestSubmission View
     'ContestSubmissionListView',

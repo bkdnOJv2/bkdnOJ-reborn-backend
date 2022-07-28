@@ -257,6 +257,19 @@ class Contest(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(10)],
         help_text=_('Number of digits to round points to.'))
 
+    modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
+    standing_date = models.DateTimeField(verbose_name=_('standing date'), null=True, auto_now_add=True)
+    standing_outdated_reason = models.CharField(verbose_name=_('standing outdated reason'),
+        max_length=255, blank=True, default='', help_text=_('reason for why Standing is outdated'))
+    
+    STANDING_RELATED_FIELDS = ['frozen_time', 'format_name', 'points_precision', 'format_config', 'banned_users']
+    def __init__(self, *args, **kwargs):
+        super(Contest, self).__init__(*args, **kwargs)
+
+        ## BUG: `getattr`` cause a recursion with 'format_config' and 'banned_users', might be mutability issue
+        # for field in Contest.STANDING_RELATED_FIELDS:
+        #     setattr(self, f"__{field}", getattr(self, field, None))
+
     @cached_property
     def format_class(self):
         return contest_format.formats[self.format_name]
@@ -377,8 +390,23 @@ class Contest(models.Model):
             return self.frozen_time <= self._now
         return False
 
+    def set_standing_outdated_reason(self, reasons):
+        Contest.objects.filter(id=self.id).update(standing_outdated_reason=(', '.join(reasons))[:255])
+
+    def append_standing_outdated_reason(self, new_reasons):
+        reasons = self.standing_outdated_reason.split(', ')
+        reasons += new_reasons
+        reasons = [rs for rs in reasons if rs.strip() != '']
+        self.set_standing_outdated_reason(reasons)
+
     # def get_absolute_url(self):
     #    return reverse('contest_view', args=(self.key,))
+    def recompute_standing(self):
+        # Schedule recomputing job after editting Contest Problems list
+        from compete.tasks import recompute_standing
+        async_status = recompute_standing.delay(self.id)
+        Contest.objects.filter(id=self.id).update(standing_date=self.modified, standing_outdated_reason='')
+        self.clear_cache()
 
     def update_user_count(self):
         self.user_count = self.users.filter(virtual=0).count()
@@ -559,6 +587,10 @@ class Contest(models.Model):
     def participants_cache_key(self):
         cache_key = f"contest-{self.key}-participants-full"
         return cache_key
+    
+    def clear_cache(self):
+        cache.delete(self.participants_cache_key)
+        self.clear_scoreboard_cache()
 
     ## Django model methods
     def clean(self):
