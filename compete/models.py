@@ -406,6 +406,7 @@ class Contest(models.Model):
         from compete.tasks import recompute_standing
         async_status = recompute_standing.delay(self.id)
         Contest.objects.filter(id=self.id).update(standing_date=self.modified, standing_outdated_reason='')
+        self.clear_cache()
 
     def update_user_count(self):
         self.user_count = self.users.filter(virtual=0).count()
