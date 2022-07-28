@@ -586,6 +586,10 @@ class Contest(models.Model):
     def participants_cache_key(self):
         cache_key = f"contest-{self.key}-participants-full"
         return cache_key
+    
+    def clear_cache(self):
+        cache.delete(self.participants_cache_key)
+        self.clear_scoreboard_cache()
 
     ## Django model methods
     def clean(self):
