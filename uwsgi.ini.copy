@@ -1,12 +1,20 @@
 [uwsgi]
 # Socket and pid file location/permission.
-; socket = localhost:8001 # localhost only, let nginx deal with the outside
+
+## Configure server address and protocols
+# localhost only, use when behind a reverse proxy (nginx), and let it deal with the outside
+; socket = localhost:8001 
+# Use below to start serving incoming requests to port 8000, uwsgi is directly facing the internet
 http = 0.0.0.0:8000
+
 pidfile = /tmp/bkdnoj-site.pid
 chmod-pidfile = 666
 
 # Paths.
 chdir = .
+
+# Mapping static files requests to directories
+static-map = /media=<path-to-backend>/media
 
 # Details regarding bkdnoj application.
 protocol = uwsgi
@@ -15,8 +23,6 @@ plugins = python
 env = DJANGO_SETTINGS_MODULE=bkdnoj.settings
 module = bkdnoj.wsgi:application
 optimize = 2
-
-; static-map = /media=/home/ubuntu/backend/media
 
 # Scaling settings. Tune as you like.
 memory-report = true

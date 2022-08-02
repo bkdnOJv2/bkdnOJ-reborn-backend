@@ -250,35 +250,35 @@ class ContestProblemSerializer(ContestProblemBriefSerializer):
 from userprofile.serializers import UserProfileBaseSerializer
 
 class ContestDetailSerializer(ContestBriefSerializer):
-    authors = UserProfileBaseSerializer(many=True, read_only=True)
-    # serializers.SerializerMethodField()
-    # def get_authors(self, contest):
-    #     users = User.objects.filter(profile__in=contest.authors.all())
-    #     return UserDetailSerializer(users, many=True).data
+    # authors = UserProfileBaseSerializer(many=True, read_only=True)
+    authors = serializers.SerializerMethodField()
+    def get_authors(self, contest):
+        users = User.objects.filter(profile__in=contest.authors.all())
+        return UserDetailSerializer(users, many=True).data
 
-    collaborators = UserProfileBaseSerializer(many=True, read_only=True)
-    # serializers.SerializerMethodField()
-    # def get_collaborators(self, contest):
-    #     users = User.objects.filter(profile__in=contest.collaborators.all())
-    #     return UserDetailSerializer(users, many=True).data
+    # collaborators = UserProfileBaseSerializer(many=True, read_only=True)
+    collaborators = serializers.SerializerMethodField()
+    def get_collaborators(self, contest):
+        users = User.objects.filter(profile__in=contest.collaborators.all())
+        return UserDetailSerializer(users, many=True).data
 
-    reviewers = UserProfileBaseSerializer(many=True, read_only=True)
-    # serializers.SerializerMethodField()
-    # def get_reviewers(self, contest):
-    #     users = User.objects.filter(profile__in=contest.reviewers.all())
-    #     return UserDetailSerializer(users, many=True).data
+    # reviewers = UserProfileBaseSerializer(many=True, read_only=True)
+    reviewers = serializers.SerializerMethodField()
+    def get_reviewers(self, contest):
+        users = User.objects.filter(profile__in=contest.reviewers.all())
+        return UserDetailSerializer(users, many=True).data
 
-    private_contestants = UserProfileBaseSerializer(many=True, read_only=True)
-    # serializers.SerializerMethodField()
-    # def get_private_contestants(self, contest):
-    #     users = User.objects.filter(profile__in=contest.private_contestants.all())
-    #     return UserDetailSerializer(users, many=True).data
+    # private_contestants = UserProfileBaseSerializer(many=True, read_only=True)
+    private_contestants = serializers.SerializerMethodField()
+    def get_private_contestants(self, contest):
+        users = User.objects.filter(profile__in=contest.private_contestants.all())
+        return UserDetailSerializer(users, many=True).data
 
-    banned_users = UserProfileBaseSerializer(many=True, read_only=True)
-    # serializers.SerializerMethodField()
-    # def get_banned_users(self, contest):
-    #     users = User.objects.filter(profile__in=contest.banned_users.all())
-    #     return UserDetailSerializer(users, many=True).data
+    # banned_users = UserProfileBaseSerializer(many=True, read_only=True)
+    banned_users = serializers.SerializerMethodField()
+    def get_banned_users(self, contest):
+        users = User.objects.filter(profile__in=contest.banned_users.all())
+        return UserDetailSerializer(users, many=True).data
 
     organizations = serializers.SerializerMethodField()
     def get_organizations(self, contest):
