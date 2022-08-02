@@ -53,8 +53,25 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
             return Response({
                 'errors': "You cannot set both 'Become Root?' and 'Change Parent Org'."
             }, status=status.HTTP_400_BAD_REQUEST)
-        obj = self.get_object()
 
+        if data.get('become_root'):
+            if not user.has_perm('organization.create_root_organization') or not user.has_perm('organization.move_organization_anywhere'):
+                raise PermissionDenied()
+        
+        parent = None
+        try:
+            if data.get('new_parent_org'):
+                parent = get_object_or_404( Organization, slug=data['new_parent_org']['slug'] )
+                # If the user doesn't have the permission to move org anywhere, and the destination is also not managed by the user
+                # Deny the request
+                if not user.has_perm('organization.move_organization_anywhere') and not parent.is_editable_by(user):
+                    raise PermissionDenied()
+        except KeyError:
+            return Response({
+                'errors': "Bad request."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        obj = self.get_object()
         res = super().patch(request, slug)
 
         try:
@@ -63,13 +80,13 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
                 obj.become_root()
                 # Organization.reupdate_tree_member_count(old_root)
             if data.get('new_parent_org'):
-                parent = Organization.objects.get(slug=data['new_parent_org']['slug'])
                 obj.become_child_of(parent)
                 # Organization.reupdate_tree_member_count(parent.get_root())
         except Exception as e:
             return Response({
                 'detail': str(e),
             }, status=status.HTTP_400_BAD_REQUEST)
+        
         obj.refresh_from_db()
         return Response( self.get_serializer_class()( obj ).data )
 
@@ -131,7 +148,9 @@ class OrganizationMembersView(generics.ListAPIView):
 
 class OrganizationSubOrgListView(generics.ListCreateAPIView):
     """
-        Return a List of all organizations
+        Return a list of child organizations of the current selected org
+        Query Params:
+            - slug: Org's slug to be selected. Leave none to select root orgs.
     """
     queryset = Organization.objects.none()
     serializer_class = OrganizationSerializer
@@ -151,7 +170,12 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
 
     @cached_property
     def selected_org(self):
-        org = get_object_or_404(Organization, slug=self.kwargs['slug'].upper())
+        slug = self.kwargs.get('slug', None)
+        if slug is None:
+            return None
+
+        org = get_object_or_404(Organization, slug=slug.upper())
+
         if self.request.method == 'GET':
             if not org.is_accessible_by(self.request.user):
                 raise PermissionDenied()
@@ -161,24 +185,45 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
         return org
 
     def get_queryset(self):
+        if self.selected_org is None:
+            if not user.is_authenticated:
+                return Organization.get_public_root_organizations()
+            return user.profile.organizations.all()
+        
         return self.selected_org.get_children()
 
     def post(self, request, slug):
         user = request.user
+
+        org = self.selected_org
+
         if not user.is_staff: #or not user.has_perm("organization.create_organization"):
             raise PermissionDenied()
 
-        org = self.selected_org
+        if org is None:
+            if not user.has_perm('organization.create_root_organization'):
+                raise PermissionDenied()
+        else: # Is checked by line 166
+            pass
 
         try:
             data = request.data.copy()
             for key in OrganizationSerializer.Meta.read_only_fields:
                 data.pop(key, None)
-            with transaction.atomic():
-                child = org.add_child(**data)
-                # child.admins.add(user.profile) # Don't need because user is already admin of child's ancestor
-                child.save()
+
+            if org is None:
+                with transaction.atomic():
+                    node = Organization.add_root(**data)
+                    node.admins.add(user.profile)
+                    node.save()
+            else:
+                with transaction.atomic():
+                    child = org.add_child(**data)
+                    # child.admins.add(user.profile) # Don't need because user is already admin of child's ancestor
+                    child.save()
+
             return Response(data, status=status.HTTP_201_CREATED)
+
         except IntegrityError as ie:
             return Response({
                 'detail': ie.args[0],

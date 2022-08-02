@@ -111,6 +111,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
     def get_real_member_count(self, inst):
         return inst.members.count()
 
+    # Convert username into profiles...
     def to_internal_value(self, data):
         user_fields = ['admins']
         qs = UserProfile.objects.select_related('user')
@@ -148,5 +149,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
 
             'suborg_count', 'member_count', #'performance_points'
             'real_member_count',
+
+            'access_code_prompt', 'is_protected',
         ]
         read_only_fields = ('member_count', 'suborg_count')

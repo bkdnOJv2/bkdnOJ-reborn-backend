@@ -41,10 +41,9 @@ class OrganizationListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-         
-        # queryset = Organization.get_visible_organizations(user)
-        queryset = user.profile.organizations.filter()
-        return queryset
+        if not user.is_authenticated:
+            return Organization.get_public_root_organizations()
+        return user.profile.organizations.all()
 
     def post(self, request):
         user = request.user
