@@ -68,6 +68,13 @@ class OrganizationMembershipView(views.APIView):
                     return Response({
                         'error': "Access code is not correct."
                     }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not org.is_root():
+            org_parent = org.get_parent()
+            if not org_parent.filter(id=user.profile.id).exists():
+                return Response({
+                    'error': f"You must be a member of organization '{org_parent.slug}' before joining."
+                }, status=status.HTTP_400_BAD_REQUEST)
        
         org.add_members([request.user.profile])
         return Response({

@@ -15,7 +15,8 @@ urlpatterns = [
     # ),
 
     path('orgs/',
-        OrganizationListView.as_view(),
+        OrganizationSubOrgListView.as_view(),
+        # OrganizationListView.as_view(),
         name='organization-list',
     ),
     path('orgs/my/',

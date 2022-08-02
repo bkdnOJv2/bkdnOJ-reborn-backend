@@ -39,6 +39,9 @@ class OrganizationListView(generics.ListCreateAPIView):
     ordering_fields = ['creation_date']
     ordering = ['-creation_date']
 
+    def get_serializer_context(self):
+        return {'request': self.request}
+
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated:
@@ -79,6 +82,9 @@ class MyOrganizationListView(views.APIView):
     queryset = Organization.objects.none()
     serializer_class = OrganizationSerializer
     permission_classes = []
+
+    def get_serializer_context(self):
+        return {'request': self.request}
 
     def get(self, request):
         user = request.user

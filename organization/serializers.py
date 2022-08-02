@@ -110,6 +110,13 @@ class OrganizationDetailSerializer(OrganizationSerializer):
     real_member_count = serializers.SerializerMethodField()
     def get_real_member_count(self, inst):
         return inst.members.count()
+    
+    is_member = serializers.SerializerMethodField()
+    def get_is_member(self, inst):
+        user = self.context['request'].user
+        if not user.is_authenticated or not inst.members.filter(id=user.profile.id).exists():
+            return False
+        return True
 
     # Convert username into profiles...
     def to_internal_value(self, data):
@@ -151,5 +158,6 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             'real_member_count',
 
             'access_code_prompt', 'is_protected',
+            'is_member',
         ]
         read_only_fields = ('member_count', 'suborg_count')

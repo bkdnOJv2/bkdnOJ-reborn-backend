@@ -48,6 +48,7 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         return self.patch(*args)
 
     def patch(self, request, slug):
+        user = request.user
         data = request.data
         if data.get('new_parent_org') and data.get('become_root'):
             return Response({
@@ -88,7 +89,7 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         obj.refresh_from_db()
-        return Response( self.get_serializer_class()( obj ).data )
+        return Response( self.get_serializer_class()( obj, context={'request': request} ).data )
 
 class OrganizationMembersView(generics.ListAPIView):
     """
@@ -106,6 +107,8 @@ class OrganizationMembersView(generics.ListAPIView):
     ordering_fields = ['rating', 'user__username']
     ordering = ['-rating', 'user__username']
 
+    def get_serializer_context(self):
+        return {'request': self.request}
 
     def get_object(self):
         org = get_object_or_404(Organization, slug=self.kwargs['slug'])
@@ -122,6 +125,7 @@ class OrganizationMembersView(generics.ListAPIView):
         return org.members.all()
 
     def post(self, request, slug):
+        user = request.user
         org = self.get_object()
 
         toBeMembers = request.data.get('users', [])
@@ -185,16 +189,18 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
         return org
 
     def get_queryset(self):
+        user = self.request.user
         if self.selected_org is None:
-            if not user.is_authenticated:
-                return Organization.get_public_root_organizations()
-            return user.profile.organizations.all()
+            queryset = Organization.get_root_nodes()
+        else:
+            queryset = self.selected_org.get_children()
         
-        return self.selected_org.get_children()
+        if not user.has_perm('organization.see_all_organizations'):
+            queryset = queryset.filter(is_unlisted=False)
+        return queryset
 
     def post(self, request, slug):
         user = request.user
-
         org = self.selected_org
 
         if not user.is_staff: #or not user.has_perm("organization.create_organization"):
