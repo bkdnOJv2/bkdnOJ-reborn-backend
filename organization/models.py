@@ -53,19 +53,30 @@ class Organization(MP_Node):
 
   creation_date = models.DateTimeField(verbose_name=_('creation date'), auto_now_add=True)
 
-  is_open = models.BooleanField(
-    verbose_name=_('is open organization?'),
-    help_text=_('Allow joining organization'), default=True)
   is_unlisted = models.BooleanField(verbose_name=_('is unlisted organization?'),
     help_text=_('Organization will not be listed'), default=True)
 
   slots = models.IntegerField(
     verbose_name=_('maximum size'), null=True, blank=True,
     help_text=_('Maximum amount of users in this organization, '
-          'only applicable to private organizations'))
+                'only applicable to private organizations'))
+
+  is_open = models.BooleanField(
+    verbose_name=_('is open organization?'),
+    help_text=_('Allow joining organization'), default=True)
+
+  is_protected = models.BooleanField(
+    verbose_name=_('is organization protected by an access code?'),
+    help_text=_('Required joining user provide access code'), default=False,
+  )
+  access_code_prompt = models.CharField(
+    max_length=255, help_text=_('Organization access code prompt'),
+    verbose_name=_('access code prompt'), null=True, blank=True,
+  )
   access_code = models.CharField(
     max_length=7, help_text=_('Student access code'),
     verbose_name=_('access code'), null=True, blank=True)
+
   logo_url = models.CharField(
     verbose_name=_('logo url'), default='', max_length=256,
     blank=True,
@@ -302,7 +313,7 @@ class Organization(MP_Node):
       return False
 
     # Unlisted, and User is logged-in
-    if user.is_superuser: # or user.has_perm('organization.see_all_organizations'):
+    if user.has_perm('organization.see_all_organizations'):
       return True
 
     ## Check for member-ship
@@ -430,12 +441,19 @@ class Organization(MP_Node):
 
   class Meta:
     ordering = ['name']
+
     permissions = (
-      ('organization_admin', _('Administer organizations')),
-      ('edit_all_organization', _('Edit all organizations')),
-      ('change_open_organization', _('Change is_open field')),
-      ('spam_organization', _('Create organization without limit')),
+      # ('organization_admin', _('Administer organizations')),
+      # ('edit_all_organization', _('Edit all organizations')),
+      # ('change_open_organization', _('Change is_open field')),
+      # ('spam_organization', _('Create organization without limit')),
+      ('create_root_organization', _('Create root Organization')),
+      ('move_organization_anywhere', _('Move organization to others parents or let it become root itself.')),
+      ('see_all_organizations', _('Can see all organizations, including private ones.')),
+      ('join_private_organization', _('Join private (is_open=False) organization.')),
+      ('join_without_access_code', _('Join protected organization without access code.')),
     )
+
     verbose_name = _('organization')
     verbose_name_plural = _('organizations')
 

@@ -15,6 +15,7 @@ chdir = .
 
 # Mapping static files requests to directories
 static-map = /media=<path-to-backend>/media
+static-map = /static=<path-to-backend>/static
 
 # Details regarding bkdnoj application.
 protocol = uwsgi

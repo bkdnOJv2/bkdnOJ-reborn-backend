@@ -15,7 +15,8 @@ urlpatterns = [
     # ),
 
     path('orgs/',
-        OrganizationListView.as_view(),
+        OrganizationSubOrgListView.as_view(),
+        # OrganizationListView.as_view(),
         name='organization-list',
     ),
     path('orgs/my/',
@@ -31,11 +32,17 @@ urlpatterns = [
         OrganizationMembersView.as_view(),
         name='organization-members',
     ),
-
     path('org/<str:slug>/orgs/',
         OrganizationSubOrgListView.as_view(),
         name='organization-suborg-list',
     ),
+
+    # Join/Leave
+    path('org/<str:slug>/membership/',
+        OrganizationMembershipView.as_view(),
+        name='organization-membership-view',
+    ),
+
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

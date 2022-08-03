@@ -11,105 +11,16 @@ from rest_framework.response import Response
 from userprofile.models import UserProfile as Profile
 from userprofile.serializers import UserProfileBasicSerializer
 from organization.exceptions import OrganizationTooDeepError
-
-from .serializers import OrganizationSerializer, OrganizationDetailSerializer
-from .models import Organization
+from organization.serializers import OrganizationSerializer, OrganizationDetailSerializer
+from organization.models import Organization
 
 import django_filters
 
 __all__ = [
-    'OrganizationListView', 'OrganizationDetailView',
-    'MyOrganizationListView',
+    'OrganizationDetailView',
     'OrganizationSubOrgListView',
     'OrganizationMembersView',
 ]
-
-class OrganizationListView(generics.ListCreateAPIView):
-    """
-        Return a List of all organizations
-    """
-    queryset = Organization.objects.none()
-    serializer_class = OrganizationSerializer
-    permission_classes = []
-    filter_backends = [
-        django_filters.rest_framework.DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
-    search_fields = ['^slug', '@short_name', '@name']
-    filterset_fields = ['is_open', 'is_unlisted']
-    ordering_fields = ['creation_date']
-    ordering = ['-creation_date']
-
-    def get_queryset(self):
-        user = self.request.user
-        queryset = Organization.get_visible_organizations(user)
-        return queryset
-
-    def post(self, request):
-        user = request.user
-        # if not user.is_authenticated or not user.has_perm("organization.create_organization"):
-        if not user.is_staff:
-            raise PermissionDenied()
-
-        try:
-            data = request.data.copy()
-            for key in OrganizationSerializer.Meta.read_only_fields:
-                data.pop(key, None)
-            with transaction.atomic():
-                node = Organization.add_root(**data)
-                node.admins.add(user.profile)
-                node.save()
-            return Response(data, status=status.HTTP_201_CREATED)
-        except IntegrityError as ie:
-            return Response({
-                'detail': ie.args[0],
-            }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({
-                'detail': str(e),
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-
-from organization.serializers import NestedOrganizationBasicSerializer, OrganizationBasicSerializer
-
-class MyOrganizationListView(views.APIView):
-    """
-        Return a List of all organizations
-    """
-    queryset = Organization.objects.none()
-    serializer_class = OrganizationSerializer
-    permission_classes = []
-
-    def get(self, request):
-        user = request.user
-        if not user.is_authenticated:
-            return(Organization.get_public_root_organizations().all())
-        profile = user.profile
-
-        member_of = []
-        for org in profile.organizations.all():
-            data = OrganizationBasicSerializer(org).data
-            data['sub_orgs'] = []
-
-            trv = org
-            while True:
-                if trv.is_root(): break
-                trv = trv.get_parent()
-                parent_data = OrganizationBasicSerializer(trv).data
-                parent_data['sub_orgs'] = [data]
-                data = parent_data
-            member_of.append(data)
-
-        return Response({
-            'member_of': member_of,
-            'admin_of': NestedOrganizationBasicSerializer(
-                # Organization.get_visible_root_organizations(user),
-                profile.admin_of.all(),
-                many=True,
-            ).data
-        })
-
 
 class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -137,13 +48,31 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         return self.patch(*args)
 
     def patch(self, request, slug):
+        user = request.user
         data = request.data
         if data.get('new_parent_org') and data.get('become_root'):
             return Response({
                 'errors': "You cannot set both 'Become Root?' and 'Change Parent Org'."
             }, status=status.HTTP_400_BAD_REQUEST)
-        obj = self.get_object()
 
+        if data.get('become_root'):
+            if not user.has_perm('organization.create_root_organization') or not user.has_perm('organization.move_organization_anywhere'):
+                raise PermissionDenied()
+        
+        parent = None
+        try:
+            if data.get('new_parent_org'):
+                parent = get_object_or_404( Organization, slug=data['new_parent_org']['slug'] )
+                # If the user doesn't have the permission to move org anywhere, and the destination is also not managed by the user
+                # Deny the request
+                if not user.has_perm('organization.move_organization_anywhere') and not parent.is_editable_by(user):
+                    raise PermissionDenied()
+        except KeyError:
+            return Response({
+                'errors': "Bad request."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        obj = self.get_object()
         res = super().patch(request, slug)
 
         try:
@@ -152,15 +81,15 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
                 obj.become_root()
                 # Organization.reupdate_tree_member_count(old_root)
             if data.get('new_parent_org'):
-                parent = Organization.objects.get(slug=data['new_parent_org']['slug'])
                 obj.become_child_of(parent)
                 # Organization.reupdate_tree_member_count(parent.get_root())
         except Exception as e:
             return Response({
                 'detail': str(e),
             }, status=status.HTTP_400_BAD_REQUEST)
+        
         obj.refresh_from_db()
-        return Response( self.get_serializer_class()( obj ).data )
+        return Response( self.get_serializer_class()( obj, context={'request': request} ).data )
 
 class OrganizationMembersView(generics.ListAPIView):
     """
@@ -178,6 +107,8 @@ class OrganizationMembersView(generics.ListAPIView):
     ordering_fields = ['rating', 'user__username']
     ordering = ['-rating', 'user__username']
 
+    def get_serializer_context(self):
+        return {'request': self.request}
 
     def get_object(self):
         org = get_object_or_404(Organization, slug=self.kwargs['slug'])
@@ -194,6 +125,7 @@ class OrganizationMembersView(generics.ListAPIView):
         return org.members.all()
 
     def post(self, request, slug):
+        user = request.user
         org = self.get_object()
 
         toBeMembers = request.data.get('users', [])
@@ -220,7 +152,9 @@ class OrganizationMembersView(generics.ListAPIView):
 
 class OrganizationSubOrgListView(generics.ListCreateAPIView):
     """
-        Return a List of all organizations
+        Return a list of child organizations of the current selected org
+        Query Params:
+            - slug: Org's slug to be selected. Leave none to select root orgs.
     """
     queryset = Organization.objects.none()
     serializer_class = OrganizationSerializer
@@ -240,7 +174,12 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
 
     @cached_property
     def selected_org(self):
-        org = get_object_or_404(Organization, slug=self.kwargs['slug'].upper())
+        slug = self.kwargs.get('slug', None)
+        if slug is None:
+            return None
+
+        org = get_object_or_404(Organization, slug=slug.upper())
+
         if self.request.method == 'GET':
             if not org.is_accessible_by(self.request.user):
                 raise PermissionDenied()
@@ -250,24 +189,47 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
         return org
 
     def get_queryset(self):
-        return self.selected_org.get_children()
+        user = self.request.user
+        if self.selected_org is None:
+            queryset = Organization.get_root_nodes()
+        else:
+            queryset = self.selected_org.get_children()
+        
+        if not user.has_perm('organization.see_all_organizations'):
+            queryset = queryset.filter(is_unlisted=False)
+        return queryset
 
-    def post(self, request, slug):
+    def post(self, request, slug=None):
         user = request.user
+        org = self.selected_org
+
         if not user.is_staff: #or not user.has_perm("organization.create_organization"):
             raise PermissionDenied()
 
-        org = self.selected_org
+        if org is None:
+            if not user.has_perm('organization.create_root_organization'):
+                raise PermissionDenied()
+        else: # Is checked by line 166
+            pass
 
         try:
             data = request.data.copy()
             for key in OrganizationSerializer.Meta.read_only_fields:
                 data.pop(key, None)
-            with transaction.atomic():
-                child = org.add_child(**data)
-                # child.admins.add(user.profile) # Don't need because user is already admin of child's ancestor
-                child.save()
+
+            if org is None:
+                with transaction.atomic():
+                    node = Organization.add_root(**data)
+                    node.admins.add(user.profile)
+                    node.save()
+            else:
+                with transaction.atomic():
+                    child = org.add_child(**data)
+                    # child.admins.add(user.profile) # Don't need because user is already admin of child's ancestor
+                    child.save()
+
             return Response(data, status=status.HTTP_201_CREATED)
+
         except IntegrityError as ie:
             return Response({
                 'detail': ie.args[0],
