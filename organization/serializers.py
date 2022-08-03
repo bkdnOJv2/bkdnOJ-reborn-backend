@@ -118,6 +118,13 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             return False
         return True
 
+    access_code = serializers.SerializerMethodField()
+    def get_access_code(self, inst):
+        user = self.context['request'].user
+        if inst.is_editable_by(user):
+            return inst.access_code
+        return None
+
     # Convert username into profiles...
     def to_internal_value(self, data):
         user_fields = ['admins']
@@ -136,11 +143,17 @@ class OrganizationDetailSerializer(OrganizationSerializer):
                     raise ValidationError(f"User '{username}' does not exist.")
                 profile_ids.append(p.first().id)
             profile_dict[field] = profile_ids
+        
+        # access_code
+        acode = data.pop('access_code', None)
 
         val_data = super().to_internal_value(data)
 
+        # profiles
         for k, v in profile_dict.items():
             val_data[k] = v
+        # access_code
+        val_data['access_code'] = acode
         return val_data
 
     class Meta:
@@ -158,6 +171,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             'real_member_count',
 
             'access_code_prompt', 'is_protected',
+            'access_code',
             'is_member',
         ]
         read_only_fields = ('member_count', 'suborg_count')

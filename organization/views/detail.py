@@ -199,7 +199,7 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
             queryset = queryset.filter(is_unlisted=False)
         return queryset
 
-    def post(self, request, slug):
+    def post(self, request, slug=None):
         user = request.user
         org = self.selected_org
 
