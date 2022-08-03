@@ -236,11 +236,11 @@ class Problem(TimeStampedModel):
     ## ================= is_editable_by BEGIN
     if user.has_perm('problem.edit_all_problem'): return True
     if user.profile.id in self.editor_ids: return True
-    # If Problem is shared among organizations
-    # Check if exists an organization that User is admin of.
-    if self.is_organization_private:
-      if Organization.exists_pair_of_ancestor_descendant(user.profile.admin_of.all(), self.organizations.all()):
-        return True
+    ## If Problem is shared among organizations
+    ## Check if exists an organization that User is admin of.
+    #if self.is_organization_private:
+    #  if Organization.exists_pair_of_ancestor_descendant(user.profile.admin_of.all(), self.organizations.all()):
+    #    return True
     ## ================= is_editable_by END
     return False
 
