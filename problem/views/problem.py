@@ -37,6 +37,8 @@ __all__ = [
 import logging
 logger = logging.getLogger(__name__)
 
+from problem.utils import user_completed_ids, user_attempted_ids
+
 class ProblemListView(generics.ListCreateAPIView):
   """
     Return a list of Problems
@@ -54,6 +56,14 @@ class ProblemListView(generics.ListCreateAPIView):
   ordering_fields = ['modified', 'created', 'points']
   ordering = ['-created']
 
+  def get_serializer_context(self):
+    user = self.request.user
+    return {
+      'request': self.request,
+      'solved': user_completed_ids(user.profile) if user.is_authenticated else set(),
+      'attempted': user_attempted_ids(user.profile) if user.is_authenticated else set(),
+    }
+
   def check_perms(self, request):
       if request.method == 'GET':
           pass
@@ -67,18 +77,21 @@ class ProblemListView(generics.ListCreateAPIView):
       if not user.is_authenticated:
         return Problem.get_public_problems()
 
-      return Problem.get_visible_problems(user)
-
       org = self.request.query_params.get('org', None)
       if org:
         org = Organization.objects.filter(slug=org).first()
+
         if org and org.id in user.profile.member_of_org_with_ids:
+
+          if self.request.query_params.get('recursive'):
+            return Problem.get_org_visible_problems(org, True)
+
           return Problem.get_org_visible_problems(org)
+
         else:
           return Problem.objects.none()
       else:
-        # return Problem.get_visible_problems(user)
-        return Problem.get_public_problems()
+        return Problem.get_visible_problems(user)
 
   def post(self, request):
       self.check_perms(request)

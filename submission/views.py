@@ -11,7 +11,7 @@ from .serializers import SubmissionSerializer, SubmissionTestCaseSerializer, \
 from .models import Submission, SubmissionTestCase
 from problem.models import Problem
 from compete.models import Contest
-
+from organization.models import Organization
 
 class SubmissionListView(generics.ListAPIView):
     """
@@ -21,8 +21,21 @@ class SubmissionListView(generics.ListAPIView):
     permission_classes = []
 
     def get_queryset(self):
-        probs = Problem.get_visible_problems(self.request.user)
-        return Submission.objects.filter(problem_id__in=probs)
+        user = self.request.user
+        org = self.request.query_params.get('org', None)
+        qs = None
+        if org:
+            org = Organization.objects.filter(slug=org).first()
+            if org and org.id in user.profile.member_of_org_with_ids:
+                if self.request.query_params.get('recursive'):
+                    qs = Problem.get_org_visible_problems(org, True)
+                else:
+                    qs = Problem.get_org_visible_problems(org)
+            else:
+                return Submission.objects.none()
+        else:
+            qs = Problem.get_visible_problems(user)
+        return Submission.objects.filter(problem_id__in=qs)
 
 
 class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -37,7 +50,7 @@ class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
         sub = super().get_object(*args)
 
         user = self.request.user
-        
+
         contest_key = self.request.query_params.get('contest', None)
         contest = Contest.objects.filter(key=contest_key).first()
 

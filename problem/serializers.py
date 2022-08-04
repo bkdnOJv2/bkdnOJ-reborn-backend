@@ -22,9 +22,25 @@ class ProblemBasicSerializer(serializers.ModelSerializer):
         }
 
 class ProblemBriefSerializer(serializers.ModelSerializer):
+    solved = serializers.SerializerMethodField()
+    def get_solved(self, problem):
+        context = self.context
+        if problem.id in context.get('solved', []):
+            return True
+        return False
+
+    attempted = serializers.SerializerMethodField()
+    def get_attempted(self, problem):
+        context = self.context
+        if problem.id in context.get('attempted', []):
+            return context['attempted'][problem.id]
+        return None
+
     class Meta:
         model = Problem
         fields = [
+            'solved', 'attempted',
+
             'shortname', 'title',
             'attempted_count', 'solved_count', 'points',
             'partial', 'short_circuit',

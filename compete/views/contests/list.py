@@ -68,8 +68,19 @@ class AllContestListView(generics.ListAPIView):
     ordering = ['-end_time']
 
     def get_queryset(self):
-        qs = Contest.get_visible_contests(self.request.user)
-        return qs
+        user = self.request.user
+        org = self.request.query_params.get('org', None)
+        if org:
+            org = Organization.objects.filter(slug=org).first()
+
+            if org and org.id in user.profile.member_of_org_with_ids:
+                if self.request.query_params.get('recursive'):
+                    return Contest.get_org_visible_contests(org, True)
+                return Contest.get_org_visible_contests(org)
+            else:
+                return Contest.objects.none()
+
+        return Contest.get_visible_contests(user)
 
 class PastContestListView(generics.ListAPIView):
     """
@@ -79,8 +90,24 @@ class PastContestListView(generics.ListAPIView):
     permission_classes = []
 
     def get_queryset(self):
-        qs = Contest.get_visible_contests(self.request.user).\
-                filter(end_time__lt=timezone.now()).order_by('-end_time')
+        qs = None
+        user = self.request.user
+
+        org = self.request.query_params.get('org', None)
+        if org:
+            org = Organization.objects.filter(slug=org).first()
+
+            if org and org.id in user.profile.member_of_org_with_ids:
+                if self.request.query_params.get('recursive'):
+                    qs = Contest.get_org_visible_contests(org, True)
+                else:
+                    qs = Contest.get_org_visible_contests(org)
+            else:
+                qs = Contest.objects.none()
+        else:
+            qs = Contest.get_visible_contests(user)
+
+        qs = qs.filter(end_time__lt=timezone.now()).order_by('-end_time')
         return qs
 
 
@@ -96,7 +123,23 @@ class ContestListView(generics.ListCreateAPIView):
         return timezone.now()
 
     def _get_queryset(self):
-        qs = Contest.get_visible_contests(self.request.user)
+        qs = None
+        user = self.request.user
+
+        org = self.request.query_params.get('org', None)
+        if org:
+            org = Organization.objects.filter(slug=org).first()
+
+            if org and org.id in user.profile.member_of_org_with_ids:
+                if self.request.query_params.get('recursive'):
+                    qs = Contest.get_org_visible_contests(org, True)
+                else:
+                    qs = Contest.get_org_visible_contests(org)
+            else:
+                qs = Contest.objects.none()
+        else:
+            qs = Contest.get_visible_contests(user)
+
         return qs.prefetch_related('tags', 'organizations', 'authors', 'collaborators', 'reviewers')
 
     def get_queryset(self):

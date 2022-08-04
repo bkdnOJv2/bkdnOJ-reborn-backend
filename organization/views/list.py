@@ -89,7 +89,10 @@ class MyOrganizationListView(views.APIView):
     def get(self, request):
         user = request.user
         if not user.is_authenticated:
-            return(Organization.get_public_root_organizations().all())
+            return Response({
+                'member_of': [],
+                'admin_of': [],
+            })
         profile = user.profile
 
         member_of = []
@@ -114,4 +117,3 @@ class MyOrganizationListView(views.APIView):
                 many=True,
             ).data
         })
-

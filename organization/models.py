@@ -90,7 +90,7 @@ class Organization(MP_Node):
   _pp_table = [pow(settings.VNOJ_ORG_PP_STEP, i) for i in range(settings.VNOJ_ORG_PP_ENTRIES)]
 
   def calculate_points(self, table=_pp_table):
-    raise NotImplementedError
+    pass
     # data = self.members.get_queryset().order_by('-performance_points') \
     #      .values_list('performance_points', flat=True).filter(performance_points__gt=0)
     # pp = settings.VNOJ_ORG_PP_SCALE * sum(ratio * pp for ratio, pp in zip(table, data))
