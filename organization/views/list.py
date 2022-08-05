@@ -74,6 +74,7 @@ class OrganizationListView(generics.ListCreateAPIView):
 
 
 from organization.serializers import NestedOrganizationBasicSerializer, OrganizationBasicSerializer
+from organization.utils import organizations_of_member
 
 class MyOrganizationListView(views.APIView):
     """
@@ -94,21 +95,7 @@ class MyOrganizationListView(views.APIView):
                 'admin_of': [],
             })
         profile = user.profile
-
-        member_of = []
-        for org in profile.organizations.all():
-            data = OrganizationBasicSerializer(org).data
-            data['sub_orgs'] = []
-
-            trv = org
-            while True:
-                if trv.is_root(): break
-                trv = trv.get_parent()
-                parent_data = OrganizationBasicSerializer(trv).data
-                parent_data['sub_orgs'] = [data]
-                data = parent_data
-            member_of.append(data)
-
+        member_of = organizations_of_member(user.profile)
         return Response({
             'member_of': member_of,
             'admin_of': NestedOrganizationBasicSerializer(
