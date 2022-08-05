@@ -90,7 +90,7 @@ class OrganizationMembershipView(views.APIView):
                 'error': "You are not a member of this organization."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if not org.is_leaf() and org.get_children().filter(id__in=user.profile.member_of_org_with_ids).exists():
+        if not org.is_leaf() and org.get_children().filter(id__in=user.profile.organizations.values_list('id', flat=True)).exists():
             return Response({
                 'error': "You must leave all child organizations before leaving this organization."
             }, status=status.HTTP_400_BAD_REQUEST)

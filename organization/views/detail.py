@@ -139,14 +139,35 @@ class OrganizationMembersView(generics.ListAPIView):
                 'errors': f"Cannot find some of the users: {not_found}"
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        org.add_members(profiles.all())
+        with transaction.atomic():
+            qs = profiles.all()
+
+            org.members.add(*qs)
+            org.save()
+            for anc_org in org.get_ancestors():
+                anc_org.members.add(*qs)
+                anc_org.save()
+
+            Organization.reupdate_tree_member_count(org.get_root(), wrapTransaction=False)
+
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
     def delete(self, request, slug):
         org = self.get_object()
         members = request.data.get('members', [])
         toBeRemoved = org.members.filter(user__username__in=members)
-        org.remove_members(toBeRemoved.all())
+
+        with transaction.atomic():
+            qs = toBeRemoved.all()
+
+            org.members.remove(*qs)
+            org.save()
+            for des_org in org.get_descendants():
+                des_org.members.remove(*qs)
+                des_org.save()
+
+            Organization.reupdate_tree_member_count(org.get_root(), wrapTransaction=False)
+
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 
