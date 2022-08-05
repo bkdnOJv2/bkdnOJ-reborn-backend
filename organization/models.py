@@ -322,9 +322,11 @@ class Organization(MP_Node):
 
     ## Check for member-ship
     ## For every org that this person is in, check if this org is a sub_org of `self`
-    for descen_org in user.profile.organizations.all():
-      if self==descen_org or descen_org.is_descendant_of(self):
-        return True
+    # for descen_org in user.profile.organizations.all():
+    #   if self==descen_org or descen_org.is_descendant_of(self):
+    #     return True
+    if user.profile.organizations.filter(id=self.id).exists():
+      return True
 
     ## Check for admin-ship
     ## For every org that this person is an admin of, check if this org is a sub_org of `self`
@@ -358,7 +360,11 @@ class Organization(MP_Node):
     if user.has_perm("organization.see_all_organization") or user.has_perm("organization.edit_all_organization"):
       return cls.get_root_nodes().all()
 
-    return Organization.objects.filter(Q(id__in=user.profile.admin_of.all()) | Q(id__in=user.profile.organizations.all())).distinct()
+    return Organization.get_root_nodes().filter(
+      Q(is_unlisted=False) |
+      Q(id__in=user.profile.admin_of.all()) |
+      Q(id__in=user.profile.organizations.all())
+    ).distinct()
 
   @classmethod
   def get_visible_organizations(cls, user):

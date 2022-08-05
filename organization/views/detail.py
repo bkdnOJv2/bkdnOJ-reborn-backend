@@ -212,7 +212,7 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if self.selected_org is None:
-            queryset = Organization.get_root_nodes()
+            queryset = Organization.get_visible_root_organizations(user)
         else:
             queryset = self.selected_org.get_visible_children(user)
         return queryset
