@@ -25,7 +25,7 @@ from helpers.fileupload import \
   path_and_rename_org_avatar, DEFAULT_ORG_AVATAR_URL
 
 
-ORGANIZATION_CACHE_DURATION = 30*60 # 30 mins
+ORGANIZATION_CACHE_DURATION = 86400
 
 class Organization(MP_Node):
   # treebeard fields
@@ -74,7 +74,7 @@ class Organization(MP_Node):
     verbose_name=_('access code prompt'), null=True, blank=True,
   )
   access_code = models.CharField(
-    max_length=7, help_text=_('Student access code'),
+    max_length=16, help_text=_('Student access code'),
     verbose_name=_('access code'), null=True, blank=True)
 
   logo_url = models.CharField(
@@ -90,7 +90,7 @@ class Organization(MP_Node):
   _pp_table = [pow(settings.VNOJ_ORG_PP_STEP, i) for i in range(settings.VNOJ_ORG_PP_ENTRIES)]
 
   def calculate_points(self, table=_pp_table):
-    raise NotImplementedError
+    pass
     # data = self.members.get_queryset().order_by('-performance_points') \
     #      .values_list('performance_points', flat=True).filter(performance_points__gt=0)
     # pp = settings.VNOJ_ORG_PP_SCALE * sum(ratio * pp for ratio, pp in zip(table, data))
@@ -140,12 +140,16 @@ class Organization(MP_Node):
     self.members.add(*qs)
     self.save()
     self.on_user_changes()
+    from organization.utils import clear_cache_many as clear_org_cache_many
+    clear_org_cache_many(qs)
 
   def remove_members(self, qs):
     self._old_member_count = self.members.count()
     self.members.remove(*qs)
     self.save()
     self.on_user_changes()
+    from organization.utils import clear_cache_many as clear_org_cache_many
+    clear_org_cache_many(qs)
 
   #### ==================================== Ancestors/Descendants helpers
   def is_suborg_of(self, org):
@@ -378,6 +382,19 @@ class Organization(MP_Node):
 
     return Organization.objects.filter( Q(id__in=user.profile.member_of_org_with_ids) )
 
+  def get_visible_children(self, user):
+    if self.is_leaf():
+      return []
+    if not user.is_authenticated:
+      return self.get_children().filter(is_unlisted=False)
+
+    if user.has_perm('see_all_organizations'):
+      return self.get_children().filter()
+
+    return self.get_children().filter(
+      Q(is_unlisted=False) | Q(id__in=user.profile.member_of_org_with_ids)
+    )
+
   def __contains__(self, item):
     if item is None:
       return False
@@ -403,7 +420,7 @@ class Organization(MP_Node):
 
   @cached_property
   def cache_key(self):
-    return f"{self.__class__.__name__}-{self.id}"
+    return f"generic-{self.__class__.__name__}-{self.id}"
 
   def set_cache(self, data):
     cache_val = {

@@ -261,7 +261,7 @@ class Contest(models.Model):
     standing_date = models.DateTimeField(verbose_name=_('standing date'), null=True, auto_now_add=True)
     standing_outdated_reason = models.CharField(verbose_name=_('standing outdated reason'),
         max_length=255, blank=True, default='', help_text=_('reason for why Standing is outdated'))
-    
+
     STANDING_RELATED_FIELDS = ['frozen_time', 'format_name', 'points_precision', 'format_config', 'banned_users']
     def __init__(self, *args, **kwargs):
         super(Contest, self).__init__(*args, **kwargs)
@@ -538,9 +538,13 @@ class Contest(models.Model):
         return None
 
     @classmethod
+    def get_public_contests(cls):
+        return cls.objects.filter(published=True, is_visible=True).defer('description').distinct()
+
+    @classmethod
     def get_visible_contests(cls, user):
         if not user.is_authenticated:
-            return cls.objects.filter(published=True, is_visible=True).defer('description').distinct()
+            return cls.get_public_contests()
 
         queryset = cls.objects.only('key', 'name', 'format_name', 'is_rated', 'published', 'is_visible',
                     'is_private', 'is_organization_private', 'start_time', 'end_time', 'time_limit',
@@ -560,6 +564,23 @@ class Contest(models.Model):
             queryset = queryset.filter(q)
         return queryset.distinct()
 
+    @classmethod
+    def get_org_visible_contests(cls, org, recursive=False):
+        queryset = cls.objects.only('key', 'name', 'format_name', 'is_rated', 'published', 'is_visible',
+                    'is_private', 'is_organization_private', 'start_time', 'end_time', 'time_limit',
+                    'enable_frozen', 'frozen_time', 'user_count').filter()
+
+        if recursive:
+            q = (
+                Q(published=True, is_organization_private=True) & (
+                    Q(organizations__id=org.id) | Q(organizations__id__in=org.get_ancestors().values_list('id', flat=True))
+                )
+            )
+        else:
+            q = Q(published=True, is_organization_private=True) & Q(organizations__id=org.id)
+
+        return queryset.filter(q).distinct()
+
     def rate(self):
         with transaction.atomic():
             Rating.objects.filter(contest__end_time__range=(self.end_time, self._now)).delete()
@@ -578,19 +599,24 @@ class Contest(models.Model):
 
     ## Clear scoreboard cache
     def clear_scoreboard_cache(self):
+        keys = []
         for view_mode in ['full', 'froze']:
             cache_key = f"contest-{self.key}-scoreboard-{view_mode}"
-            cache.delete(cache_key)
+            keys.append(cache_key)
+        cache.delete_many(keys)
 
     ## cache_keys
     @property
     def participants_cache_key(self):
         cache_key = f"contest-{self.key}-participants-full"
         return cache_key
-    
+
     def clear_cache(self):
-        cache.delete(self.participants_cache_key)
-        self.clear_scoreboard_cache()
+        keys = [self.participants_cache_key]
+        for view_mode in ['full', 'froze']:
+            cache_key = f"contest-{self.key}-scoreboard-{view_mode}"
+            keys.append(cache_key)
+        cache.delete_many(keys)
 
     ## Django model methods
     def clean(self):
@@ -692,7 +718,7 @@ class ContestParticipation(models.Model):
     virtual = models.IntegerField(
         verbose_name=_('virtual participation id'), default=LIVE,
         help_text=_('0 means non-virtual, otherwise the n-th virtual participation.'))
-    
+
     modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
 
     def recompute_results(self):

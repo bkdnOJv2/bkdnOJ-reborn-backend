@@ -269,7 +269,7 @@ class Problem(TimeStampedModel):
     if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')): # superuser included
       q = (
         Q(is_public=True) & (
-          Q(is_organization_private=False) | 
+          Q(is_organization_private=False) |
           Q(is_organization_private=True, organizations__id__in=user.profile.member_of_org_with_ids)
         )
       )
@@ -289,11 +289,16 @@ class Problem(TimeStampedModel):
       ).filter(id__in=queryset)
 
   @classmethod
-  def get_org_visible_problems(cls, org):
-    q = (
-      Q(is_public=True, is_organization_private=True) &
-      (Q(organizations__id=org.id) | Q(organizations__id__in=org.get_ancestors().values_list('id', flat=True)))
-    )
+  def get_org_visible_problems(cls, org, recursive=False):
+    if recursive:
+      q = (
+        Q(is_public=True, is_organization_private=True) & (
+          Q(organizations__id=org.id) | Q(organizations__id__in=org.get_ancestors().values_list('id', flat=True))
+        )
+      )
+    else:
+      q = Q(is_public=True, is_organization_private=True) & Q(organizations__id=org.id)
+
     return cls.objects.only(
         'shortname', 'title', 'solved_count', 'attempted_count', 'points',
         'partial', 'short_circuit',
@@ -309,7 +314,7 @@ class Problem(TimeStampedModel):
 
     q = (
       Q(is_public=True) & (
-        Q(is_organization_private=False) | 
+        Q(is_organization_private=False) |
         Q(is_organization_private=True, organizations__id__in=user.profile.member_of_org_with_ids)
       )
     )

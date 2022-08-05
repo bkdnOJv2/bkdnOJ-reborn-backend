@@ -58,7 +58,7 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
         if data.get('become_root'):
             if not user.has_perm('organization.create_root_organization') or not user.has_perm('organization.move_organization_anywhere'):
                 raise PermissionDenied()
-        
+
         parent = None
         try:
             if data.get('new_parent_org'):
@@ -87,7 +87,7 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
             return Response({
                 'detail': str(e),
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         obj.refresh_from_db()
         return Response( self.get_serializer_class()( obj, context={'request': request} ).data )
 
@@ -193,10 +193,7 @@ class OrganizationSubOrgListView(generics.ListCreateAPIView):
         if self.selected_org is None:
             queryset = Organization.get_root_nodes()
         else:
-            queryset = self.selected_org.get_children()
-        
-        if not user.has_perm('organization.see_all_organizations'):
-            queryset = queryset.filter(is_unlisted=False)
+            queryset = self.selected_org.get_visible_children(user)
         return queryset
 
     def post(self, request, slug=None):

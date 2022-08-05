@@ -37,11 +37,7 @@ class NestedOrganizationBasicSerializer(OrganizationBasicSerializer):
     def get_sub_orgs(self, org):
         if org.is_leaf():
             return []
-
-        data = org.get_cache()
-        if data is None:
-            data = NestedOrganizationBasicSerializer(org.get_children().order_by('-creation_date').all(), many=True, read_only=True).data
-            org.set_cache(data)
+        data = NestedOrganizationBasicSerializer(org.get_children().order_by('-creation_date').all(), many=True, read_only=True).data
         return data
 
     suborg_count = serializers.SerializerMethodField()
@@ -53,6 +49,13 @@ class NestedOrganizationBasicSerializer(OrganizationBasicSerializer):
     real_member_count = serializers.SerializerMethodField()
     def get_real_member_count(self, inst):
         return inst.members.count()
+
+    def to_representation(self, inst):
+        data = inst.get_cache()
+        if data is None:
+            data = super().to_representation(inst)
+            inst.set_cache(data)
+        return data
 
     class Meta:
         model = Organization
@@ -110,7 +113,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
     real_member_count = serializers.SerializerMethodField()
     def get_real_member_count(self, inst):
         return inst.members.count()
-    
+
     is_member = serializers.SerializerMethodField()
     def get_is_member(self, inst):
         user = self.context['request'].user
@@ -143,7 +146,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
                     raise ValidationError(f"User '{username}' does not exist.")
                 profile_ids.append(p.first().id)
             profile_dict[field] = profile_ids
-        
+
         # access_code
         acode = data.pop('access_code', None)
 

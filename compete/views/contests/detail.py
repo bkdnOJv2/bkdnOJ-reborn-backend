@@ -125,6 +125,9 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
+from problem.utils import user_completed_ids, user_attempted_ids
+from compete.utils import contest_completed_ids, contest_attempted_ids
+
 class ContestProblemListView(generics.ListCreateAPIView):
     """
         Problems within contests view
@@ -132,6 +135,24 @@ class ContestProblemListView(generics.ListCreateAPIView):
     serializer_class = ContestProblemBriefSerializer
     pagination_class = Page100Pagination
     lookup_field = 'shortname'
+
+    def get_serializer_context(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return { 'request': self.request, }
+
+        participation = self.participation
+
+        # TODO: In the future, contest can be registered multiple times by one user
+        # due to virtual participation. Every participation will have a new list of solved/unsolved problems.
+        # But for now, one user can only register to one contest only, so
+        if participation:# and not participation.ended:
+            return {
+                'request': self.request,
+                'solved': contest_completed_ids(participation),
+                'attempted': contest_attempted_ids(participation),
+            }
+        return { 'request': self.request, }
 
     def get_object(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
@@ -152,13 +173,25 @@ class ContestProblemListView(generics.ListCreateAPIView):
                 raise PermissionDenied()
         return contest
 
+    @cached_property
+    def contest(self):
+        return self.get_object()
+
+    @cached_property
+    def participation(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return None
+        contest = self.contest
+        return contest.users.filter(user=user.profile).last()
+
     def get_queryset(self):
-        contest = self.get_object()
-        return contest.contest_problems.filter()
+        contest = self.contest
+        return contest.contest_problems.prefetch_related('problem').filter()
 
     NON_ASSOCIATE_FIELDS = ('order', 'points', 'partial',)# 'is_pretested', 'max_submissions')
     def create(self, request, *args, **kwargs):
-        contest = self.get_object()
+        contest = self.contest
         cproblems = contest.contest_problems # Manager
         visproblems = Problem.get_visible_problems(request.user)
 
@@ -201,7 +234,7 @@ class ContestProblemListView(generics.ListCreateAPIView):
         if to_be_deleted.exists():
             outdated_reasons.append(f"Some Problems were deleted")
             to_be_deleted.delete()
-        
+
         if outdated_reasons:
             contest.append_standing_outdated_reason(outdated_reasons)
 
@@ -457,23 +490,23 @@ class ContestParticipantListView(generics.ListAPIView):
         if not contest.is_accessible_by(self.request.user):
             raise Http404()
         return contest
-    
+
     @cached_property
     def contest(self):
         return self.get_contest()
-    
+
     def get_queryset(self):
         queryset = Profile.objects.select_related('user').filter(
             id__in=self.contest.users.filter(virtual=0).values_list('user__id', flat=True))
         return queryset
-        
+
     def get(self, request, key):
-        if request.query_params.get('view_full', False) not in ['true', '1']: 
+        if request.query_params.get('view_full', False) not in ['true', '1']:
             view_full = '0'
         else:
             view_full = '1'
 
-        # Cache is 
+        # Cache is
         if view_full == '1':
             contest = self.contest
             # cache_duration = c.scoreboard_cache_duration
@@ -494,4 +527,3 @@ class ContestParticipantListView(generics.ListAPIView):
             data = self.paginate_queryset(self.get_queryset())
             data = self.get_serializer_class()(data, many=True, context={'request': request}).data,
             return self.get_paginated_response(data)
-            

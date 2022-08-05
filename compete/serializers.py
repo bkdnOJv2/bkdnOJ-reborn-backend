@@ -195,6 +195,20 @@ class ContestProblemBasicSerializer(serializers.ModelSerializer):
         ]
 
 class ContestProblemBriefSerializer(serializers.ModelSerializer):
+    solved = serializers.SerializerMethodField()
+    def get_solved(self, problem):
+        context = self.context
+        if problem.problem.id in context.get('solved', []):
+            return True
+        return False
+
+    attempted = serializers.SerializerMethodField()
+    def get_attempted(self, problem):
+        context = self.context
+        if problem.problem.id in context.get('attempted', []):
+            return context['attempted'][problem.problem.id]
+        return None
+
     shortname = serializers.SlugRelatedField(
         source='problem',
         slug_field='shortname',
@@ -218,6 +232,8 @@ class ContestProblemBriefSerializer(serializers.ModelSerializer):
         model = ContestProblem
         fields = [
             'id',
+            'solved', 'attempted',
+
             'shortname', 'title', 'solved_count', 'attempted_count',
             'time_limit', 'memory_limit',
             'contest', 'points', 'partial', 'is_pretested',

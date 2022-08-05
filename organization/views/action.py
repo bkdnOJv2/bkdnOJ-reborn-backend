@@ -41,7 +41,7 @@ class OrganizationMembershipView(views.APIView):
         if not org.is_accessible_by(self.request.user):
             raise PermissionDenied()
         return org
-    
+
     def post(self, request, slug):
         user = request.user
         org = self.get_object()
@@ -68,31 +68,34 @@ class OrganizationMembershipView(views.APIView):
                     return Response({
                         'error': "Access code is not correct."
                     }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         if not org.is_root():
             org_parent = org.get_parent()
             if not org_parent.members.filter(id=user.profile.id).exists():
                 return Response({
                     'error': f"You must be a member of organization '{org_parent.slug}' before joining."
                 }, status=status.HTTP_400_BAD_REQUEST)
-       
+
         org.add_members([request.user.profile])
         return Response({
             'detail': "OK Joined."
         }, status=status.HTTP_204_NO_CONTENT)
-        
+
     def delete(self, request, slug):
         user = request.user
         org = self.get_object()
-        
+
         if not org.members.filter(id=user.profile.id).exists():
             return Response({
                 'error': "You are not a member of this organization."
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        if not org.is_leaf() and org.get_children().filter(id__in=user.profile.member_of_org_with_ids).exists():
+            return Response({
+                'error': "You must leave all child organizations before leaving this organization."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         org.remove_members([request.user.profile])
         return Response({
             'detail': "OK Leave organization."
         }, status=status.HTTP_204_NO_CONTENT)
-
-
