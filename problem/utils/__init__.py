@@ -8,7 +8,7 @@ from userprofile.models import UserProfile
 from problem.models import Problem
 from submission.models import Submission
 
-CACHE_DURATION = 86400
+CACHE_DURATION = 5 * 60 * 60 # 5 hours 
 
 def user_completed_ids(profile: UserProfile):
   key = 'user_completed:%d' % profile.id

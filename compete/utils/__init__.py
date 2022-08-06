@@ -9,10 +9,10 @@ from compete.models import Contest, ContestParticipation
 from problem.models import Problem
 from submission.models import Submission
 
-CACHE_DURATION = 86400
+CACHE_DURATION = 5 * 60 * 60 # 5 hours 
 
 def contest_completed_ids(participation: ContestParticipation):
-    key = 'contest_complete:%d' % participation.id
+    key = 'contest_completed:%d' % participation.id
     result = cache.get(key)
     if result is None:
         result = set(
