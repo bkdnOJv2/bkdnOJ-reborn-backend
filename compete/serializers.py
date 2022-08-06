@@ -14,7 +14,7 @@ from userprofile.serializers import UserProfileBasicSerializer as ProfileSeriali
 from userprofile.models import UserProfile as Profile
 
 from organization.models import Organization
-from organization.serializers import OrganizationSerializer
+from organization.serializers import OrganizationSerializer, OrganizationIdentitySerializer
 
 from problem.models import Problem
 from problem.serializers import ProblemInContestSerializer, ProblemBasicSerializer
@@ -65,6 +65,8 @@ class PastContestBriefSerializer(serializers.ModelSerializer):
             'user_count',
         ]
 
+from compete.utils import contest_registered_ids
+
 class ContestBriefSerializer(serializers.ModelSerializer):
     spectate_allow = serializers.SerializerMethodField()
     def get_spectate_allow(self, obj):
@@ -79,17 +81,19 @@ class ContestBriefSerializer(serializers.ModelSerializer):
         return obj.is_registerable_by(user)
 
     is_registered = serializers.SerializerMethodField()
-    def get_is_registered(self, obj):
+    def get_is_registered(self, contest):
         user = self.context['request'].user
         if not user.is_authenticated:
             return False
+        
+        return user.profile.id in contest_registered_ids(contest)
 
-        if ContestParticipation.objects.filter(
-            virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
-            contest=obj, user=user.profile
-        ).exists():
-            return True
-        return False
+        # if ContestParticipation.objects.filter(
+        #     virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
+        #     contest=obj, user=user.profile
+        # ).exists():
+        #     return True
+        # return False
 
     def to_internal_value(self, data):
         user_fields = ['authors']
@@ -266,40 +270,40 @@ class ContestProblemSerializer(ContestProblemBriefSerializer):
 from userprofile.serializers import UserProfileBaseSerializer
 
 class ContestDetailSerializer(ContestBriefSerializer):
-    # authors = UserProfileBaseSerializer(many=True, read_only=True)
-    authors = serializers.SerializerMethodField()
-    def get_authors(self, contest):
-        users = User.objects.filter(profile__in=contest.authors.all())
-        return UserDetailSerializer(users, many=True).data
+    authors = UserProfileBaseSerializer(many=True, read_only=True)
+    # authors = serializers.SerializerMethodField()
+    # def get_authors(self, contest):
+    #     users = User.objects.filter(profile__in=contest.authors.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    # collaborators = UserProfileBaseSerializer(many=True, read_only=True)
-    collaborators = serializers.SerializerMethodField()
-    def get_collaborators(self, contest):
-        users = User.objects.filter(profile__in=contest.collaborators.all())
-        return UserDetailSerializer(users, many=True).data
+    collaborators = UserProfileBaseSerializer(many=True, read_only=True)
+    # collaborators = serializers.SerializerMethodField()
+    # def get_collaborators(self, contest):
+    #     users = User.objects.filter(profile__in=contest.collaborators.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    # reviewers = UserProfileBaseSerializer(many=True, read_only=True)
-    reviewers = serializers.SerializerMethodField()
-    def get_reviewers(self, contest):
-        users = User.objects.filter(profile__in=contest.reviewers.all())
-        return UserDetailSerializer(users, many=True).data
+    reviewers = UserProfileBaseSerializer(many=True, read_only=True)
+    # reviewers = serializers.SerializerMethodField()
+    # def get_reviewers(self, contest):
+    #     users = User.objects.filter(profile__in=contest.reviewers.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    # private_contestants = UserProfileBaseSerializer(many=True, read_only=True)
-    private_contestants = serializers.SerializerMethodField()
-    def get_private_contestants(self, contest):
-        users = User.objects.filter(profile__in=contest.private_contestants.all())
-        return UserDetailSerializer(users, many=True).data
+    private_contestants = UserProfileBaseSerializer(many=True, read_only=True)
+    # private_contestants = serializers.SerializerMethodField()
+    # def get_private_contestants(self, contest):
+    #     users = User.objects.filter(profile__in=contest.private_contestants.all())
+    #     return UserDetailSerializer(users, many=True).data
 
-    # banned_users = UserProfileBaseSerializer(many=True, read_only=True)
-    banned_users = serializers.SerializerMethodField()
-    def get_banned_users(self, contest):
-        users = User.objects.filter(profile__in=contest.banned_users.all())
-        return UserDetailSerializer(users, many=True).data
+    banned_users = UserProfileBaseSerializer(many=True, read_only=True)
+    # banned_users = serializers.SerializerMethodField()
+    # def get_banned_users(self, contest):
+    #     users = User.objects.filter(profile__in=contest.banned_users.all())
+    #     return UserDetailSerializer(users, many=True).data
 
     organizations = serializers.SerializerMethodField()
     def get_organizations(self, contest):
-        orgs = Organization.objects.filter(id__in=contest.organizations.all())
-        return OrganizationSerializer(orgs, many=True).data
+        orgs = contest.organizations.all()
+        return OrganizationIdentitySerializer(orgs, many=True).data
 
 
     def to_internal_value(self, data):
@@ -347,10 +351,13 @@ class ContestDetailSerializer(ContestBriefSerializer):
 
     class Meta:
         model = Contest
-        fields = '__all__'
-        # fields = [
-        #     'id', 'spectate_allow', 'register_allow', 'is_registered',
-        #     'authors', 'collaborators', 'reviewers', 'private_contestants', 'banned_users', 'organizations', 'problems'        ]#'__all__'
+        # fields = '__all__'
+        fields = [
+            'id', 'spectate_allow', 'register_allow', 'is_registered',
+            'authors', 
+            'collaborators', 'reviewers', 'private_contestants', 'banned_users', 'organizations', 
+            'problems'
+        ]#'__all__'
         optional_fields = ['is_registered', 'spectate_allow', 'register_allow']
         lookup_field = 'key'
         extra_kwargs = {

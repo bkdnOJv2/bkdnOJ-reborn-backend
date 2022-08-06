@@ -217,6 +217,10 @@ class ContestRecomputeStandingView(views.APIView):
         contest.recompute_standing()
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 
+
+from compete.utils import key_contest_registered_ids
+
+
 @api_view(['POST'])
 def contest_participate_view(request, key):
     def not_found():
@@ -297,7 +301,12 @@ def contest_participate_view(request, key):
     profile.save()
     contest._updating_stats_only = True
     contest.update_user_count()
-    cache.delete(contest.participants_cache_key)
+
+    cache.delete_many([ 
+        contest.participants_cache_key,
+        key_contest_registered_ids(contest)
+    ])
+
     return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 

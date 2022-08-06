@@ -9,9 +9,17 @@ from auth.serializers import UserSerializer, UserDetailSerializer
 from .models import Organization
 
 __all__ = [
+    'OrganizationIdentitySerializer',
     'OrganizationBasicSerializer',
     'NestedOrganizationBasicSerializer', 'OrganizationSerializer'
 ]
+
+class OrganizationIdentitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = [
+            'slug', 'short_name', 'name', 'logo_url',
+        ]
 
 class OrganizationBasicSerializer(serializers.ModelSerializer):
     suborg_count = serializers.SerializerMethodField()

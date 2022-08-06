@@ -74,10 +74,10 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
             Contest.objects.prefetch_related(
                 'problems', 'contest_problems', 'contest_problems__problem',
                 'authors', 'authors__user',
-                'collaborators', 'collaborators__user',
-                'reviewers', 'reviewers__user',
-                'private_contestants', 'private_contestants__user',
-                'organizations',
+                # 'collaborators', 'collaborators__user',
+                # 'reviewers', 'reviewers__user',
+                # 'private_contestants', 'private_contestants__user',
+                # 'organizations',
             ),
             key=self.kwargs['key']
         )
