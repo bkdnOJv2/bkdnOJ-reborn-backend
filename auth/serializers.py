@@ -1,10 +1,14 @@
-from wsgiref.validate import validator
-from rest_framework import serializers
+from string import ascii_lowercase, digits
+ALLOWED_CHARSET = set('' + ascii_lowercase + digits + '-_')
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
+from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
-from django.contrib.auth.password_validation import validate_password
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenVerifySerializer
 
@@ -23,9 +27,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(required=True, min_length=4, max_length=30,
-        validators=[UniqueValidator(queryset=User.objects.all())]
-    )
+    username = serializers.CharField(required=True, min_length=4, max_length=30,)
     email = serializers.EmailField(
         required=False,
     )
@@ -39,6 +41,30 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ('username', 'email', 'password', 'password_confirm', 'first_name', 'last_name')
         optional_fields = ['email', 'first_name', 'last_name']
+    
+    def validate_username(self, username):
+        if len(username) < 4 and len(username) > 30:
+            raise ValidationError('Username must be between 4 and 30 characters long')
+        
+        if settings.BKDNOJ_EASTER_EGG_ENABLE:
+            if username == '1509':
+                raise ValidationError('Believe in yourself. No matter how long it will take.')
+            if username == 'undefined':
+                raise ValidationError('Your username will confuse the JS devs! Please choose another username!')
+
+        if not (ord('a') <= ord(username[0]) <= ord('z')):
+            raise ValidationError('Username must start with an alphabet letter.')
+        if not username.islower():
+            raise ValidationError('Username must be in lowercase.')
+        
+        for c in username:
+            if not c in ALLOWED_CHARSET:
+                raise ValidationError('Username must only contains alphabet letters, digits, dashes (-) and underscores (_).')
+
+        if User.objects.filter(username=username).exists():
+            raise ValidationError(f"This username is already taken.")
+
+        return username
 
     def validate(self, attrs):
         # if attrs.get('email', '') != '':

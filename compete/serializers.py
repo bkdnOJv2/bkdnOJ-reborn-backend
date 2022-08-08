@@ -10,11 +10,11 @@ from rest_framework import serializers
 
 from auth.serializers import UserSerializer, UserDetailSerializer
 
-from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
+from userprofile.serializers import UserProfileWithRoleSerializer
 from userprofile.models import UserProfile as Profile
 
 from organization.models import Organization
-from organization.serializers import OrganizationSerializer
+from organization.serializers import OrganizationSerializer, OrganizationIdentitySerializer
 
 from problem.models import Problem
 from problem.serializers import ProblemInContestSerializer, ProblemBasicSerializer
@@ -24,7 +24,10 @@ from .models import Contest, ContestProblem, ContestSubmission, ContestParticipa
 __all__ = [
     'ContestSerializer',
     'PastContestBriefSerializer', 'ContestBriefSerializer',
-    'ContestDetailSerializer',
+
+    'ContestDetailUserSerializer',
+    'ContestDetailAdminSerializer',
+
     'ContestProblemSerializer',
     'ContestProblemBriefSerializer',
     'ContestSubmissionSerializer',
@@ -65,6 +68,8 @@ class PastContestBriefSerializer(serializers.ModelSerializer):
             'user_count',
         ]
 
+from compete.utils import contest_registered_ids
+
 class ContestBriefSerializer(serializers.ModelSerializer):
     spectate_allow = serializers.SerializerMethodField()
     def get_spectate_allow(self, obj):
@@ -79,17 +84,19 @@ class ContestBriefSerializer(serializers.ModelSerializer):
         return obj.is_registerable_by(user)
 
     is_registered = serializers.SerializerMethodField()
-    def get_is_registered(self, obj):
+    def get_is_registered(self, contest):
         user = self.context['request'].user
         if not user.is_authenticated:
             return False
+        
+        return user.profile.id in contest_registered_ids(contest)
 
-        if ContestParticipation.objects.filter(
-            virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
-            contest=obj, user=user.profile
-        ).exists():
-            return True
-        return False
+        # if ContestParticipation.objects.filter(
+        #     virtual__in=[ContestParticipation.LIVE, ContestParticipation.SPECTATE],
+        #     contest=obj, user=user.profile
+        # ).exists():
+        #     return True
+        # return False
 
     def to_internal_value(self, data):
         user_fields = ['authors']
@@ -265,41 +272,52 @@ class ContestProblemSerializer(ContestProblemBriefSerializer):
 
 from userprofile.serializers import UserProfileBaseSerializer
 
-class ContestDetailSerializer(ContestBriefSerializer):
-    # authors = UserProfileBaseSerializer(many=True, read_only=True)
-    authors = serializers.SerializerMethodField()
-    def get_authors(self, contest):
-        users = User.objects.filter(profile__in=contest.authors.all())
-        return UserDetailSerializer(users, many=True).data
 
+class ContestDetailUserSerializer(ContestBriefSerializer):
+    authors = UserProfileBaseSerializer(many=True, read_only=True)
     # collaborators = UserProfileBaseSerializer(many=True, read_only=True)
-    collaborators = serializers.SerializerMethodField()
-    def get_collaborators(self, contest):
-        users = User.objects.filter(profile__in=contest.collaborators.all())
-        return UserDetailSerializer(users, many=True).data
-
     # reviewers = UserProfileBaseSerializer(many=True, read_only=True)
-    reviewers = serializers.SerializerMethodField()
-    def get_reviewers(self, contest):
-        users = User.objects.filter(profile__in=contest.reviewers.all())
-        return UserDetailSerializer(users, many=True).data
 
     # private_contestants = UserProfileBaseSerializer(many=True, read_only=True)
-    private_contestants = serializers.SerializerMethodField()
-    def get_private_contestants(self, contest):
-        users = User.objects.filter(profile__in=contest.private_contestants.all())
-        return UserDetailSerializer(users, many=True).data
-
     # banned_users = UserProfileBaseSerializer(many=True, read_only=True)
-    banned_users = serializers.SerializerMethodField()
-    def get_banned_users(self, contest):
-        users = User.objects.filter(profile__in=contest.banned_users.all())
-        return UserDetailSerializer(users, many=True).data
 
     organizations = serializers.SerializerMethodField()
     def get_organizations(self, contest):
-        orgs = Organization.objects.filter(id__in=contest.organizations.all())
-        return OrganizationSerializer(orgs, many=True).data
+        orgs = contest.organizations.all()
+        return OrganizationIdentitySerializer(orgs, many=True).data
+
+    class Meta:
+        model = Contest
+        fields = [
+            'id', 'spectate_allow', 'register_allow', 'is_registered',
+            'authors', 'organizations', 'tags',
+            'published', 'is_visible', 'is_organization_private',
+            'key', 'name', 'description', 'start_time', 'end_time',
+            'scoreboard_cache_duration', 
+            'enable_frozen', 'frozen_time',
+            'use_clarifications',
+            'is_rated', 'rating_floor', 'rating_ceiling',
+            'user_count', 
+        ]#'__all__'
+        optional_fields = ['is_registered', 'spectate_allow', 'register_allow']
+        lookup_field = 'key'
+        extra_kwargs = {
+            'url': {'lookup_field': 'key'}
+        }
+
+class ContestDetailAdminSerializer(ContestBriefSerializer):
+    authors = UserProfileWithRoleSerializer(many=True, read_only=True)
+    collaborators = UserProfileWithRoleSerializer(many=True, read_only=True)
+    reviewers = UserProfileWithRoleSerializer(many=True, read_only=True)
+    private_contestants = UserProfileWithRoleSerializer(many=True, read_only=True)
+    banned_users = UserProfileWithRoleSerializer(many=True, read_only=True)
+    view_contest_scoreboard = UserProfileWithRoleSerializer(many=True, read_only=True)
+    rate_exclude = UserProfileWithRoleSerializer(many=True, read_only=True)
+
+    organizations = serializers.SerializerMethodField()
+    def get_organizations(self, contest):
+        orgs = contest.organizations.all()
+        return OrganizationIdentitySerializer(orgs, many=True).data
 
 
     def to_internal_value(self, data):
@@ -341,16 +359,22 @@ class ContestDetailSerializer(ContestBriefSerializer):
         val_data['organizations'] = org_ids
         return val_data
 
-    problems = ContestProblemBriefSerializer(many=True, read_only=True,
-        source='contest_problems'
-    )
+    # problems = ContestProblemBriefSerializer(many=True, read_only=True,
+    #     source='contest_problems'
+    # )
 
     class Meta:
         model = Contest
-        fields = '__all__'
+        # fields = '__all__'
+        exclude = ('problems',)
         # fields = [
         #     'id', 'spectate_allow', 'register_allow', 'is_registered',
-        #     'authors', 'collaborators', 'reviewers', 'private_contestants', 'banned_users', 'organizations', 'problems'        ]#'__all__'
+        #     'authors', 
+        #     'collaborators', 'reviewers', 'private_contestants', 'banned_users', 'organizations', 
+        #     'published', 'is_visible', 'is_organization_private',
+        #     'key', 'name', 'format_name', 'start_time', 'end_time',
+        #     # 'problems'
+        # ]#'__all__'
         optional_fields = ['is_registered', 'spectate_allow', 'register_allow']
         lookup_field = 'key'
         extra_kwargs = {

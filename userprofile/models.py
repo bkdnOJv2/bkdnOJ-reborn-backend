@@ -32,6 +32,17 @@ class UserProfile(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name='profile',
     )
+
+    first_name = models.CharField(
+        max_length=50, verbose_name=_('first name'), blank=True
+    )
+    last_name = models.CharField(
+        max_length=50, verbose_name=_('first name'), blank=True
+    )
+    email = models.EmailField(
+        max_length=256, verbose_name=_('email'), blank=True
+    )
+
     about = models.TextField(verbose_name=_("self-description"),
         null=True, blank=True)
     timezone = models.CharField(
@@ -94,20 +105,14 @@ class UserProfile(TimeStampedModel):
     @property
     def owner(self):
         return self.user
-
-    @property
-    def first_name(self):
-        return self.user.first_name
-    @property
-    def last_name(self):
-        return self.user.last_name
+    
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
 
     @cached_property
     def username(self):
-        return self.user.username
+        return self.username_display_override or self.user.username
 
     @cached_property
     def display_name(self):
