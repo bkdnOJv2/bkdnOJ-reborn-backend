@@ -53,7 +53,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 raise ValidationError('Your username will confuse the JS devs! Please choose another username!')
 
         if not (ord('a') <= ord(username[0]) <= ord('z')):
-            raise ValidationError('Username must start with an alphabet letter.')
+            raise ValidationError('Username must start with a lowercase alphabet letter.')
         if not username.islower():
             raise ValidationError('Username must be in lowercase.')
         
