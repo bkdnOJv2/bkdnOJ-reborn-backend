@@ -234,6 +234,14 @@ class ContestProblemBriefSerializer(serializers.ModelSerializer):
     memory_limit = serializers.SerializerMethodField()
     def get_memory_limit(self, cp):
         return cp.problem.memory_limit
+    
+    solved_count = serializers.SerializerMethodField()
+    def get_solved_count(self, cp):
+        return cp.frozen_solved_count if cp.contest.is_frozen else cp.solved_count 
+    
+    attempted_count = serializers.SerializerMethodField()
+    def get_attempted_count(self, cp):
+        return cp.frozen_attempted_count if cp.contest.is_frozen else cp.attempted_count
 
     class Meta:
         model = ContestProblem
@@ -295,7 +303,7 @@ class ContestDetailUserSerializer(ContestBriefSerializer):
             'key', 'name', 'description', 'start_time', 'end_time',
             'scoreboard_cache_duration', 
             'enable_frozen', 'frozen_time',
-            'use_clarifications',
+            'use_clarifications', 'format_name',
             'is_rated', 'rating_floor', 'rating_ceiling',
             'user_count', 
         ]#'__all__'
