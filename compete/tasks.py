@@ -29,6 +29,10 @@ def recompute_standing(self, contest_id):
         p.done = recompute
     contest.clear_scoreboard_cache()
 
+  logger.info("Job: Recomputing stats for ContestProblem(s) %s.." % contest.key)
+  for p in contest.contest_problems.all():
+    p.expensive_recompute_stats(force_update=True)
+
   logger.info("Finished: Recomputing standing for contest %s." % contest.key)
   return recompute
 

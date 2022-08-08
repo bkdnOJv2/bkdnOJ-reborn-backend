@@ -383,12 +383,14 @@ class Contest(models.Model):
     @cached_property
     def started(self):
         return self.start_time <= self._now
+    
+    @cached_property
+    def is_frozen_time(self):
+        return self.frozen_time <= self._now
 
     @cached_property
     def is_frozen(self):
-        if self.enable_frozen:
-            return self.frozen_time <= self._now
-        return False
+        return self.enable_frozen and self.is_frozen_time
 
     def set_standing_outdated_reason(self, reasons):
         Contest.objects.filter(id=self.id).update(standing_outdated_reason=(', '.join(reasons))[:255])
@@ -839,25 +841,40 @@ class ContestProblem(models.Model):
     attempted_count = models.PositiveIntegerField(default=0,
         help_text=_("Number of users who has attempted this problem"),
     )
+    frozen_solved_count = models.PositiveIntegerField(default=0,
+        help_text=_("Number of users who has solved this problem before frozen time"),
+    )
+    frozen_attempted_count = models.PositiveIntegerField(default=0,
+        help_text=_("Number of users who has attempted this problem before frozen time"),
+    )
+    modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
 
     @cached_property
     def label(self):
         return self.contest.get_label_for_problem(self.order)
 
-    def expensive_recompute_stats(self):
+    def expensive_recompute_stats(self, force_update=False):
         contest = self.contest
         queryset = self.submissions.prefetch_related('submission')
 
-        if contest.is_frozen:
-            queryset = queryset.filter(submission__date__lt=contest.frozen_time)
-
         totals = queryset.values_list('submission__user').distinct().count()
-
         ## ContestSubmission.points >= ContestProblem.points AND result = 'AC'
         solves = queryset.filter(points__gte=self.points, submission__result='AC').\
                     values_list('submission__user').distinct().count()
-        self.solved_count = solves
         self.attempted_count = totals
+        self.solved_count = solves
+
+        should_refresh = force_update or (not (contest.modified < self.modified))
+        if should_refresh:
+            queryset = queryset.filter(submission__date__lt=contest.frozen_time)
+            self.frozen_attempted_count = queryset.values_list('submission__user').distinct().count()
+            self.frozen_solved_count = queryset.filter(points__gte=self.points, submission__result='AC').\
+                                        values_list('submission__user').distinct().count()
+        else:
+            if not contest.is_frozen_time:
+                self.frozen_attempted_count = totals
+                self.frozen_solved_count = solves
+
         self.save()
 
     def clean(self):
