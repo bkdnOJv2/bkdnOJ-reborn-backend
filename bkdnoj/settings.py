@@ -275,6 +275,9 @@ BKDNOJ_DISPLAY_RANKS = (
   ('admin', _('Admin')),
 )
 
+# Misc.
+BKDNOJ_EASTER_EGG_ENABLE = True
+
 ## --------- Points scaling params
 ## Refer to dmoj.ca/post/103-point-system-rework
 DMOJ_PP_STEP = 0.95

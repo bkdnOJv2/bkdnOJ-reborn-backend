@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from django.shortcuts import get_object_or_404
 from django.http import Http404, HttpResponseBadRequest
 from django.conf import settings
@@ -66,22 +68,34 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Contest.objects.none()
     lookup_field = 'key'
-    serializer_class = ContestDetailSerializer
     permission_classes = []
 
-    def get_object(self, *a):
-        contest = get_object_or_404(
-            Contest.objects.prefetch_related(
-                'problems', 'contest_problems', 'contest_problems__problem',
-                'authors', 'authors__user',
-                # 'collaborators', 'collaborators__user',
-                # 'reviewers', 'reviewers__user',
-                # 'private_contestants', 'private_contestants__user',
-                # 'organizations',
-            ),
-            key=self.kwargs['key']
-        )
+    @lru_cache
+    def get_object(self):
         user = self.request.user
+
+        try:
+            if user.is_staff:
+                contest = Contest.objects.prefetch_related(
+                    'authors', 'authors__user',
+                    'collaborators', 'collaborators__user',
+                    'reviewers', 'reviewers__user',
+                    'private_contestants', 'private_contestants__user',
+                    'banned_users', 'banned_users__user',
+                    'view_contest_scoreboard', 'view_contest_scoreboard__user',
+                    'rate_exclude', 'rate_exclude__user',
+                    'organizations',
+                    'tags',
+                ).get(key=self.kwargs['key'])
+            else:
+                contest = Contest.objects.prefetch_related(
+                    'authors', 'authors__user',
+                    'organizations',
+                    'tags',
+                ).get(key=self.kwargs['key'])
+        except Contest.DoesNotExist:
+            raise Http404()
+
         method = self.request.method
 
         if method == 'GET':
@@ -97,6 +111,13 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
             if not contest.is_editable_by(user):
                 raise PermissionDenied()
         return contest
+    
+    def get_serializer_class(self):
+        user = self.request.user
+        contest = self.get_object()
+        if contest.is_editable_by(user):
+            return ContestDetailAdminSerializer
+        return ContestDetailUserSerializer
 
     def put(self, *args, **kwargs):
         return self.patch(*args, **kwargs)

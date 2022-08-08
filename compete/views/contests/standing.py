@@ -50,6 +50,10 @@ def contest_standing_view(request, key):
     user = request.user
     contest = get_object_or_404(Contest, key=key)
 
+    if not contest.started:
+        if not contest.is_editable_by(user):
+            raise ContestNotStarted
+
     if not contest.is_accessible_by(user):
         return Response({
             'detail': "Contest is not public to view."

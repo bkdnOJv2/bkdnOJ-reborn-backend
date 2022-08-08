@@ -15,19 +15,19 @@ from compete.ratings import rating_class, rating_level, rating_name
 class UserProfileBaseSerializer(serializers.ModelSerializer):
     username = serializers.SerializerMethodField()
     def get_username(self, profile):
-        return profile.user.username
+        return profile.username
 
     first_name = serializers.SerializerMethodField()
     def get_first_name(self, profile):
-        return profile.user.first_name
+        return profile.first_name
 
     last_name = serializers.SerializerMethodField()
     def get_last_name(self, profile):
-        return profile.user.last_name
+        return profile.last_name
 
     email = serializers.SerializerMethodField()
     def get_email(self, profile):
-        return profile.user.email
+        return profile.email
 
 
     class Meta:
@@ -35,6 +35,44 @@ class UserProfileBaseSerializer(serializers.ModelSerializer):
         fields = [
             'username', 'avatar', 'first_name', 'last_name', 'email',
             'rating',
+        ]
+
+
+class UserProfileWithRoleSerializer(serializers.ModelSerializer):
+    username = serializers.SerializerMethodField()
+    def get_username(self, profile):
+        return profile.username
+
+    first_name = serializers.SerializerMethodField()
+    def get_first_name(self, profile):
+        return profile.first_name
+
+    last_name = serializers.SerializerMethodField()
+    def get_last_name(self, profile):
+        return profile.last_name
+
+    email = serializers.SerializerMethodField()
+    def get_email(self, profile):
+        return profile.email
+
+    is_active = serializers.SerializerMethodField()
+    def get_is_active(self, profile):
+        return profile.user.is_active
+
+    is_staff = serializers.SerializerMethodField()
+    def get_is_staff(self, profile):
+        return profile.user.is_staff
+
+    is_superuser = serializers.SerializerMethodField()
+    def get_is_superuser(self, profile):
+        return profile.user.is_superuser
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'username', 'avatar', 'first_name', 'last_name', 'email',
+            'rating',
+            'is_staff', 'is_superuser', 'is_active',
         ]
 
 
