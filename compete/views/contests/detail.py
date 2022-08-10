@@ -111,7 +111,7 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
             if not contest.is_editable_by(user):
                 raise PermissionDenied()
         return contest
-    
+
     def get_serializer_class(self):
         user = self.request.user
         contest = self.get_object()
@@ -338,7 +338,9 @@ class ContestSubmissionListView(generics.ListAPIView):
 
         cps = ContestProblem.objects.filter(contest=contest).all()
         css = ContestSubmission.objects.select_related(
-                ## 'participation', 'participation__contest', 'problem', 'submission'
+                # 'participation', 'participation__contest', 'problem',
+                # 'submission', 'submission__user', 'submission__user__user', 'submission__contest_object',
+                # 'submission__problem', 'submission__language',
                 # For some reasons, commenting this reduces some of the SQL queries (~99 -> ~30)
                 # But it increase SQL time (60ms -> 90ms ??)
                 # I guess it is better to have few SQL queries, as time can be affect by constants as well

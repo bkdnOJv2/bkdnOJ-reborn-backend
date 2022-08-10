@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import errno
 from django.utils.translation import gettext_lazy as _
 
@@ -177,6 +179,7 @@ class Problem(TimeStampedModel):
   def is_tester(self, user):
     return self.reviewers.filter(id=user.profile.id).eixsts()
 
+  @lru_cache
   def is_editable_by(self, user):
       if not user.is_authenticated: return False
       if user.is_superuser: return True
@@ -194,6 +197,7 @@ class Problem(TimeStampedModel):
           return True
       return False
 
+  @lru_cache
   def is_accessible_by(self, user, contest=None):
     if user.is_superuser: #or user.has_perm("problem.see_all_problems"):
         return True

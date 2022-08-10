@@ -192,7 +192,7 @@ class Submission(models.Model):
     ## Overwrite FOLLOW because we haven't set up this yet
     if source_visibility == SubmissionSourceAccess.FOLLOW:
         source_visibility = SubmissionSourceAccess.ONLY_OWN
-    
+
     if contest!=None and contest.is_editable_by(user):
       return True
     if self.problem.is_editable_by(user):

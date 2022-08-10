@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     ### Contest View
-    'PastContestListView', 'AllContestListView', 'ContestListView', 
+    'PastContestListView', 'AllContestListView', 'ContestListView',
 ]
 
 class AllContestListView(generics.ListAPIView):
@@ -66,8 +66,10 @@ class AllContestListView(generics.ListAPIView):
                 return Contest.get_org_visible_contests(org)
             else:
                 return Contest.objects.none()
-
-        return Contest.get_visible_contests(user)
+        elif org == '':
+            return Contest.get_public_contests()
+        else: # org is None
+            return Contest.get_visible_contests(user)
 
 class PastContestListView(generics.ListAPIView):
     """
@@ -91,7 +93,9 @@ class PastContestListView(generics.ListAPIView):
                     qs = Contest.get_org_visible_contests(org)
             else:
                 qs = Contest.objects.none()
-        else:
+        elif org == '':
+            qs = Contest.get_public_contests()
+        else: # org is None
             qs = Contest.get_visible_contests(user)
 
         qs = qs.filter(end_time__lt=timezone.now()).order_by('-end_time')
@@ -123,7 +127,9 @@ class ContestListView(generics.ListCreateAPIView):
                     qs = Contest.get_org_visible_contests(org)
             else:
                 qs = Contest.objects.none()
-        else:
+        elif org == '':
+            qs = Contest.get_public_contests()
+        else: # org is None
             qs = Contest.get_visible_contests(user)
 
         return qs.prefetch_related('tags', 'organizations', 'authors', 'collaborators', 'reviewers')
@@ -180,4 +186,3 @@ class ContestListView(generics.ListCreateAPIView):
                 'errors': str(excp),
             }, status=status.HTTP_400_BAD_REQUEST)
         return Response(seri.data, status=status.HTTP_201_CREATED)
-

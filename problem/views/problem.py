@@ -90,8 +90,13 @@ class ProblemListView(generics.ListCreateAPIView):
 
         else:
           return Problem.objects.none()
+
       else:
-        return Problem.get_visible_problems(user)
+        if org == '':
+          qs = Problem.get_public_problems()
+        else:
+          qs = Problem.get_visible_problems(user)
+        return qs
 
   def post(self, request):
       self.check_perms(request)

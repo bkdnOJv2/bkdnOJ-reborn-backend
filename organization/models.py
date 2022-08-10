@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from queue import Queue
 from django.conf import settings
 from django.core.exceptions import ValidationError

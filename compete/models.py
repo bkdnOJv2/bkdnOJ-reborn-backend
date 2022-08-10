@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from django.utils.timezone import timedelta
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, \
@@ -383,7 +385,7 @@ class Contest(models.Model):
     @cached_property
     def started(self):
         return self.start_time <= self._now
-    
+
     @cached_property
     def is_frozen_time(self):
         return self.frozen_time <= self._now
@@ -425,6 +427,7 @@ class Contest(models.Model):
     """
         User can edit Contest details
     """
+    @lru_cache
     def is_editable_by(self, user):
         if not user.is_authenticated:
             return False
@@ -446,6 +449,7 @@ class Contest(models.Model):
     """
         User can test Contest
     """
+    @lru_cache
     def is_testable_by(self, user):
         if not user.is_authenticated:
             return False
@@ -456,6 +460,7 @@ class Contest(models.Model):
     """
         User can see contest details
     """
+    @lru_cache
     def is_accessible_by(self, user):
         # Unauthenticated users can only see visible, non-private contests
         if not user.is_authenticated:

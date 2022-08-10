@@ -10,7 +10,7 @@ from .serializers import SubmissionSerializer, SubmissionTestCaseSerializer, \
     SubmissionDetailSerializer, SubmissionResultSerializer, SubmissionBasicSerializer
 from .models import Submission, SubmissionTestCase
 from problem.models import Problem
-from compete.models import Contest
+from compete.models import Contest, ContestParticipation
 from organization.models import Organization
 
 class SubmissionListView(generics.ListAPIView):
@@ -28,17 +28,21 @@ class SubmissionListView(generics.ListAPIView):
             org = Organization.objects.filter(slug=org).first()
             if org and org.id in user.profile.member_of_org_with_ids:
                 if self.request.query_params.get('recursive'):
-                    qs = Problem.get_org_visible_problems(org, True)
+                    probs = Problem.get_org_visible_problems(org, True)
+                    contests = Contest.get_org_visible_contests(org, True)
                 else:
-                    qs = Problem.get_org_visible_problems(org)
+                    probs = Problem.get_org_visible_problems(org)
+                    contests = Contest.get_org_visible_contests(org)
             else:
                 return Submission.objects.none()
         else:
             probs = Problem.get_visible_problems(user)
             contests = Contest.get_visible_contests(user)
-        return Submission.objects.prefetch_related('problem', 'user', 'user__user', 'language', 'contest_object') \
+        return Submission.objects.prefetch_related('problem', 'user', 'user__user', 'language', 'contest_object',
+                                                    'contest', 'contest__participation')\
                 .filter(
-                    Q(contest_object=None, problem_id__in=probs) | Q(contest_object_id__in=contests)
+                    Q(contest_object=None, problem_id__in=probs) |
+                    Q(contest_object_id__in=contests, contest__participation__virtual=ContestParticipation.LIVE)
                 )
 
 
