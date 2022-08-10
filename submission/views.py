@@ -34,9 +34,12 @@ class SubmissionListView(generics.ListAPIView):
             else:
                 return Submission.objects.none()
         else:
-            qs = Problem.get_visible_problems(user)
+            probs = Problem.get_visible_problems(user)
+            contests = Contest.get_visible_contests(user)
         return Submission.objects.prefetch_related('problem', 'user', 'user__user', 'language', 'contest_object') \
-                .filter(problem_id__in=qs)
+                .filter(
+                    Q(contest_object=None, problem_id__in=probs) | Q(contest_object_id__in=contests)
+                )
 
 
 class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
