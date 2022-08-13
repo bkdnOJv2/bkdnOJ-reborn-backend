@@ -298,7 +298,7 @@ class ContestDetailUserSerializer(ContestBriefSerializer):
     def get_problems(self, contest):
         data = []
         if contest.started:
-            for p in contest.contest_problems.select_related('problem').all():
+            for p in contest.contest_problems.all():
                 data.append({
                     'label': p.label,
                     'title': p.problem.title,
@@ -346,7 +346,7 @@ class ContestDetailAdminSerializer(ContestBriefSerializer):
     def get_problems(self, contest):
         data = []
         if contest.started:
-            for p in contest.contest_problems.select_related('problem').all():
+            for p in contest.contest_problems.all():
                 data.append({
                     'label': p.label,
                     'title': p.problem.title,

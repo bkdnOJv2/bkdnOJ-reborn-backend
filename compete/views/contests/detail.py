@@ -84,6 +84,7 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
                     'banned_users', 'banned_users__user',
                     'view_contest_scoreboard', 'view_contest_scoreboard__user',
                     'rate_exclude', 'rate_exclude__user',
+                    'contest_problems', 'contest_problems__problem',
                     'organizations',
                     'tags',
                 ).get(key=self.kwargs['key'])
