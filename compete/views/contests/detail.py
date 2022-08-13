@@ -357,25 +357,33 @@ class ContestSubmissionListView(generics.ListAPIView):
             ).filter(problem__in=cps)
 
         ## Visible subs
-        is_editor = contest.is_editable_by(self.request.user)
-        is_frozen = contest.is_frozen
+        profile = None
+        is_editor = False
+        if self.request.user.is_authenticated:
+            profile = self.request.user.profile
+            is_editor = contest.is_editable_by(self.request.user)
 
+        is_frozen = contest.is_frozen
 
         if is_editor:
             get_spectators_sub = not not self.request.query_params.get('spectators')
             if get_spectators_sub:
-                css = css.filter(participation__virtual=ContestParticipation.LIVE)
+                css = css.filter(participation__virtual=ContestParticipation.SPECTATE)
 
             get_participants_sub = not not self.request.query_params.get('participants')
             if get_participants_sub:
-                css = css.filter(participation__virtual=ContestParticipation.SPECTATE)
+                css = css.filter(participation__virtual=ContestParticipation.LIVE)
         else:
-            css = css.filter(participation__virtual=ContestParticipation.LIVE)
+            get_spectators_sub = not not self.request.query_params.get('spectators')
+            if get_spectators_sub:
+                css = ContestSubmission.objects.none()
+            else:
+                css = css.filter(participation__virtual=ContestParticipation.LIVE)
 
         ## Query params
         if self.request.query_params.get('me'):
-            if self.request.user.is_authenticated:
-                css = css.filter(participation__user__user__username=self.request.user.username)
+            if profile:
+                css = css.filter(participation__user=profile)
         else:
             username = self.request.query_params.get('user')
             if username is not None:
@@ -389,17 +397,39 @@ class ContestSubmissionListView(generics.ListAPIView):
         if lang is not None:
             css = css.filter(submission__language__common_name=lang)
         
+        ##
         verdict = self.request.query_params.get('verdict')
-        if verdict is not None:
-            if not is_editor and is_frozen:
+        order_by = self.request.query_params.get('order_by')
+        order_dec = self.request.query_params.get('dec')
+        should_hide_frozen_sub = (not is_editor) and is_frozen and (verdict or (order_by and (not order_by=='date')))
+        
+        if should_hide_frozen_sub:
+            if profile:
+                css = css.filter(
+                    Q(submission__date__lt=contest.frozen_time) | Q(participation__user=profile)
+                )
+            else:
                 css = css.filter(submission__date__lt=contest.frozen_time)
 
+        if verdict is not None:
             if verdict == 'RTE':
                 css = css.filter(submission__result__in=['RTE', 'IR'])
             if is_editor and verdict == 'IE':
                 css = css.filter(submission__result__in=['IE', 'AB'])
             else:
                 css = css.filter(submission__result=verdict)
+
+        if order_by is not None:
+            key = order_by
+            if order_by in ['time', 'memory', 'date']:
+                key = f"submission__{order_by}"
+
+            if order_dec:
+                key = '-'+key
+            try:
+                css = css.order_by(key)
+            except:
+                return ContestSubmission.objects.none()
 
         return css
 
