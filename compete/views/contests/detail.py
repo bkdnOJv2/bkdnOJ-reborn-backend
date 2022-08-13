@@ -332,32 +332,74 @@ class ContestSubmissionListView(generics.ListAPIView):
     @cached_property
     def contest(self):
         return self.get_contest()
-
+    
     def get_queryset(self):
         contest = self.contest
 
         cps = ContestProblem.objects.filter(contest=contest).all()
         css = ContestSubmission.objects.select_related(
-                # 'participation', 'participation__contest', 'problem',
-                # 'submission', 'submission__user', 'submission__user__user', 'submission__contest_object',
-                # 'submission__problem', 'submission__language',
+                'participation', 
+                'participation__contest', 
+                'problem',
+                'problem__contest',
+                'problem__problem',
+                'submission', 
+                'submission__user', 
+                'submission__user__user', 
+                'submission__problem', 
+                'submission__language',
+                'submission__contest_object',
+
                 # For some reasons, commenting this reduces some of the SQL queries (~99 -> ~30)
                 # But it increase SQL time (60ms -> 90ms ??)
                 # I guess it is better to have few SQL queries, as time can be affect by constants as well
             ).filter(problem__in=cps)
 
         ## Visible subs
-        if not contest.is_testable_by(self.request.user):
+        is_editor = contest.is_editable_by(self.request.user)
+        is_frozen = contest.is_frozen
+
+
+        if is_editor:
+            get_spectators_sub = not not self.request.query_params.get('spectators')
+            if get_spectators_sub:
+                css = css.filter(participation__virtual=ContestParticipation.LIVE)
+
+            get_participants_sub = not not self.request.query_params.get('participants')
+            if get_participants_sub:
+                css = css.filter(participation__virtual=ContestParticipation.SPECTATE)
+        else:
             css = css.filter(participation__virtual=ContestParticipation.LIVE)
 
         ## Query params
-        username = self.request.query_params.get('user')
-        if username is not None:
-            css = css.filter(participation__user__user__username=username)
+        if self.request.query_params.get('me'):
+            if self.request.user.is_authenticated:
+                css = css.filter(participation__user__user__username=self.request.user.username)
+        else:
+            username = self.request.query_params.get('user')
+            if username is not None:
+                css = css.filter(participation__user__user__username=username)
 
         prob_shortname = self.request.query_params.get('problem')
         if prob_shortname is not None:
             css = css.filter(problem__problem__shortname=prob_shortname)
+
+        lang = self.request.query_params.get('language')
+        if lang is not None:
+            css = css.filter(submission__language__common_name=lang)
+        
+        verdict = self.request.query_params.get('verdict')
+        if verdict is not None:
+            if not is_editor and is_frozen:
+                css = css.filter(submission__date__lt=contest.frozen_time)
+
+            if verdict == 'RTE':
+                css = css.filter(submission__result__in=['RTE', 'IR'])
+            if is_editor and verdict == 'IE':
+                css = css.filter(submission__result__in=['IE', 'AB'])
+            else:
+                css = css.filter(submission__result=verdict)
+
         return css
 
 
