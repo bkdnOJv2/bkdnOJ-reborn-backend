@@ -420,6 +420,7 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
     is_frozen = serializers.SerializerMethodField()
     @cache
     def get_is_frozen(self, obj):
+        # return self.context['should_freeze_result']
         user = self.context['request'].user
         return obj.submission.is_frozen_to(user)
 
@@ -449,6 +450,14 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
         if self.get_is_frozen(cs):
             return None
         return cs.points
+    
+    virtual = serializers.SerializerMethodField()
+    def get_virtual(self, cs):
+        if cs.participation.virtual == ContestParticipation.LIVE:
+            return 'live'
+        if cs.participation.virtual == ContestParticipation.SPECTATE:
+            return 'spectate'
+        return 'virtual' 
 
     user = serializers.ReadOnlyField(source='submission.user.username')
     language = serializers.ReadOnlyField(source='submission.language.name')
@@ -458,9 +467,10 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContestSubmission
-        fields = ['id', 'date', 'is_frozen',
+        fields = [
+            'id', 'date', 'is_frozen',
             'time', 'memory', 'status', 'result', 'user', 'language', 'problem',
-            'points'
+            'points', 'virtual'
         ]
 
 import json
