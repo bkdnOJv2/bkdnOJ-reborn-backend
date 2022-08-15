@@ -333,21 +333,21 @@ class ContestSubmissionListView(generics.ListAPIView):
     @cached_property
     def contest(self):
         return self.get_contest()
-
+    
     def get_queryset(self):
         contest = self.contest
 
         cps = ContestProblem.objects.filter(contest=contest).all()
         css = ContestSubmission.objects.select_related(
-                'participation',
-                'participation__contest',
+                'participation', 
+                'participation__contest', 
                 'problem',
                 'problem__contest',
                 'problem__problem',
-                'submission',
-                'submission__user',
-                'submission__user__user',
-                'submission__problem',
+                'submission', 
+                'submission__user', 
+                'submission__user__user', 
+                'submission__problem', 
                 'submission__language',
                 'submission__contest_object',
 
@@ -396,7 +396,7 @@ class ContestSubmissionListView(generics.ListAPIView):
         lang = self.request.query_params.get('language')
         if lang is not None:
             css = css.filter(submission__language__common_name=lang)
-
+        
         ##
         verdict = self.request.query_params.get('verdict')
         order_by = self.request.query_params.get('order_by')
