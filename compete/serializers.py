@@ -88,7 +88,7 @@ class ContestBriefSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         if not user.is_authenticated:
             return False
-        
+
         return user.profile.id in contest_registered_ids(contest)
 
         # if ContestParticipation.objects.filter(
@@ -234,11 +234,11 @@ class ContestProblemBriefSerializer(serializers.ModelSerializer):
     memory_limit = serializers.SerializerMethodField()
     def get_memory_limit(self, cp):
         return cp.problem.memory_limit
-    
+
     solved_count = serializers.SerializerMethodField()
     def get_solved_count(self, cp):
-        return cp.frozen_solved_count if cp.contest.is_frozen else cp.solved_count 
-    
+        return cp.frozen_solved_count if cp.contest.is_frozen else cp.solved_count
+
     attempted_count = serializers.SerializerMethodField()
     def get_attempted_count(self, cp):
         return cp.frozen_attempted_count if cp.contest.is_frozen else cp.attempted_count
@@ -294,6 +294,18 @@ class ContestDetailUserSerializer(ContestBriefSerializer):
         orgs = contest.organizations.all()
         return OrganizationIdentitySerializer(orgs, many=True).data
 
+    problems = serializers.SerializerMethodField()
+    def get_problems(self, contest):
+        data = []
+        if contest.started:
+            for p in contest.contest_problems.all():
+                data.append({
+                    'label': p.label,
+                    'title': p.problem.title,
+                    'shortname': p.problem.shortname,
+                })
+        return data
+
     class Meta:
         model = Contest
         fields = [
@@ -301,11 +313,14 @@ class ContestDetailUserSerializer(ContestBriefSerializer):
             'authors', 'organizations', 'tags',
             'published', 'is_visible', 'is_organization_private',
             'key', 'name', 'description', 'start_time', 'end_time',
-            'scoreboard_cache_duration', 
+
+            'problems',
+            'scoreboard_cache_duration',
             'enable_frozen', 'frozen_time',
             'use_clarifications', 'format_name',
+
             'is_rated', 'rating_floor', 'rating_ceiling',
-            'user_count', 
+            'user_count',
         ]#'__all__'
         optional_fields = ['is_registered', 'spectate_allow', 'register_allow']
         lookup_field = 'key'
@@ -327,6 +342,17 @@ class ContestDetailAdminSerializer(ContestBriefSerializer):
         orgs = contest.organizations.all()
         return OrganizationIdentitySerializer(orgs, many=True).data
 
+    problems = serializers.SerializerMethodField()
+    def get_problems(self, contest):
+        data = []
+        if contest.started:
+            for p in contest.contest_problems.all():
+                data.append({
+                    'label': p.label,
+                    'title': p.problem.title,
+                    'shortname': p.problem.shortname,
+                })
+        return data
 
     def to_internal_value(self, data):
         ## Users
@@ -367,18 +393,14 @@ class ContestDetailAdminSerializer(ContestBriefSerializer):
         val_data['organizations'] = org_ids
         return val_data
 
-    # problems = ContestProblemBriefSerializer(many=True, read_only=True,
-    #     source='contest_problems'
-    # )
-
     class Meta:
         model = Contest
-        # fields = '__all__'
-        exclude = ('problems',)
+        fields = '__all__'
+        # exclude = ('problems',)
         # fields = [
         #     'id', 'spectate_allow', 'register_allow', 'is_registered',
-        #     'authors', 
-        #     'collaborators', 'reviewers', 'private_contestants', 'banned_users', 'organizations', 
+        #     'authors',
+        #     'collaborators', 'reviewers', 'private_contestants', 'banned_users', 'organizations',
         #     'published', 'is_visible', 'is_organization_private',
         #     'key', 'name', 'format_name', 'start_time', 'end_time',
         #     # 'problems'
