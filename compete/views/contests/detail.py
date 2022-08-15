@@ -333,21 +333,21 @@ class ContestSubmissionListView(generics.ListAPIView):
     @cached_property
     def contest(self):
         return self.get_contest()
-    
+
     def get_queryset(self):
         contest = self.contest
 
         cps = ContestProblem.objects.filter(contest=contest).all()
         css = ContestSubmission.objects.select_related(
-                'participation', 
-                'participation__contest', 
+                'participation',
+                'participation__contest',
                 'problem',
                 'problem__contest',
                 'problem__problem',
-                'submission', 
-                'submission__user', 
-                'submission__user__user', 
-                'submission__problem', 
+                'submission',
+                'submission__user',
+                'submission__user__user',
+                'submission__problem',
                 'submission__language',
                 'submission__contest_object',
 
@@ -396,13 +396,13 @@ class ContestSubmissionListView(generics.ListAPIView):
         lang = self.request.query_params.get('language')
         if lang is not None:
             css = css.filter(submission__language__common_name=lang)
-        
+
         ##
         verdict = self.request.query_params.get('verdict')
         order_by = self.request.query_params.get('order_by')
         order_dec = self.request.query_params.get('dec')
         should_hide_frozen_sub = (not is_editor) and is_frozen and (verdict or (order_by and (not order_by=='date')))
-        
+
         if should_hide_frozen_sub:
             if profile:
                 css = css.filter(
@@ -426,6 +426,7 @@ class ContestSubmissionListView(generics.ListAPIView):
 
             if order_dec:
                 key = '-'+key
+
             try:
                 css = css.order_by(key)
             except:
@@ -592,8 +593,34 @@ class ContestParticipantListView(generics.ListAPIView):
         return self.get_contest()
 
     def get_queryset(self):
-        queryset = Profile.objects.select_related('user').filter(
-            id__in=self.contest.users.filter(virtual=0).values_list('user__id', flat=True))
+        request = self.request
+
+        queryset = Profile.objects.select_related('user', 'display_organization')
+        if self.contest.is_editable_by(self.request.user):
+            participation_type = request.query_params.get('type')
+
+            q = Q()
+            if participation_type == 'live':
+                q = Q(virtual=0)
+            elif participation_type == 'spectator':
+                q = Q(virtual=-1)
+            elif participation_type == 'virtual':
+                q = Q(virtual__gt=0)
+
+            queryset = queryset.filter(
+                id__in=self.contest.users.filter(q).values_list('user__id', flat=True)
+            )
+        else:
+            queryset = queryset.filter(
+                id__in=self.contest.users.values_list('user__id', flat=True)
+            )
+
+        if request.query_params.get('user'):
+            uname = request.query_params.get('user')
+            queryset = queryset.filter(user__username__istartswith=uname).order_by('user__username')
+            # Here we order by username to make sure the exact match to be the first result. Eg:
+            # Find `abc`, get ['abc', 'abc1', 'abc2', ...]
+
         return queryset
 
     def get(self, request, key):
