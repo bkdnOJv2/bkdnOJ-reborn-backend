@@ -333,21 +333,22 @@ class ContestSubmissionListView(generics.ListAPIView):
     @cached_property
     def contest(self):
         return self.get_contest()
-    
+
     def get_queryset(self):
+        query_params = self.request.query_params
         contest = self.contest
 
         cps = ContestProblem.objects.filter(contest=contest).all()
         css = ContestSubmission.objects.select_related(
-                'participation', 
-                'participation__contest', 
+                'participation',
+                'participation__contest',
                 'problem',
                 'problem__contest',
                 'problem__problem',
-                'submission', 
-                'submission__user', 
-                'submission__user__user', 
-                'submission__problem', 
+                'submission',
+                'submission__user',
+                'submission__user__user',
+                'submission__problem',
                 'submission__language',
                 'submission__contest_object',
 
@@ -366,41 +367,41 @@ class ContestSubmissionListView(generics.ListAPIView):
         is_frozen = contest.is_frozen
 
         if is_editor:
-            get_spectators_sub = not not self.request.query_params.get('spectators')
+            get_spectators_sub = not not query_params.get('spectators')
             if get_spectators_sub:
                 css = css.filter(participation__virtual=ContestParticipation.SPECTATE)
 
-            get_participants_sub = not not self.request.query_params.get('participants')
+            get_participants_sub = not not query_params.get('participants')
             if get_participants_sub:
                 css = css.filter(participation__virtual=ContestParticipation.LIVE)
         else:
-            get_spectators_sub = not not self.request.query_params.get('spectators')
+            get_spectators_sub = not not query_params.get('spectators')
             if get_spectators_sub:
                 css = ContestSubmission.objects.none()
             else:
                 css = css.filter(participation__virtual=ContestParticipation.LIVE)
 
         ## Query params
-        if self.request.query_params.get('me'):
+        if query_params.get('me'):
             if profile:
                 css = css.filter(participation__user=profile)
         else:
-            username = self.request.query_params.get('user')
+            username = query_params.get('user')
             if username is not None:
                 css = css.filter(participation__user__user__username=username)
 
-        prob_shortname = self.request.query_params.get('problem')
+        prob_shortname = query_params.get('problem')
         if prob_shortname is not None:
-            css = css.filter(problem__problem__shortname=prob_shortname)
+            css = css.filter(problem__problem__shortname=prob_shortname.upper())
 
-        lang = self.request.query_params.get('language')
+        lang = query_params.get('language')
         if lang is not None:
             css = css.filter(submission__language__common_name=lang)
-        
+
         ##
-        verdict = self.request.query_params.get('verdict')
-        order_by = self.request.query_params.get('order_by')
-        order_dec = self.request.query_params.get('dec')
+        verdict = query_params.get('verdict')
+        order_by = query_params.get('order_by')
+        order_dec = query_params.get('dec')
         should_hide_frozen_sub = (not is_editor) and is_frozen and (verdict or (order_by and (not order_by=='date')))
 
         if should_hide_frozen_sub:
@@ -414,8 +415,10 @@ class ContestSubmissionListView(generics.ListAPIView):
         if verdict is not None:
             if verdict == 'RTE':
                 css = css.filter(submission__result__in=['RTE', 'IR'])
-            if is_editor and verdict == 'IE':
+            elif is_editor and verdict == 'IE':
                 css = css.filter(submission__result__in=['IE', 'AB'])
+            elif is_editor and verdict == 'SC':
+                css = css.filter(submission__result='SC')
             else:
                 css = css.filter(submission__result=verdict)
 
@@ -431,6 +434,21 @@ class ContestSubmissionListView(generics.ListAPIView):
                 css = css.order_by(key)
             except:
                 return ContestSubmission.objects.none()
+
+        date_before = query_params.get('date_before')
+        date_after = query_params.get('date_after')
+        from helpers.timezone import datetime_from_z_timestring
+
+        # @duplicate submission.views L101
+        # We are filtering by second-precisions, so submission with
+        # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
+        # would not be included in the queryset
+        # A workaround is to add .999ms the datetimes, basically a way of "rounding"
+        # But let's leave it out for now
+        if date_before is not None:
+            css = css.filter(submission__date__lte=datetime_from_z_timestring(date_before))
+        if date_after is not None:
+            css = css.filter(submission__date__gte=datetime_from_z_timestring(date_after))
 
         return css
 
@@ -450,6 +468,10 @@ class ContestSubmissionListView(generics.ListAPIView):
         data = ContestSubmissionSerializer(page,
                 context=self.get_serializer_context(), many=True).data
         return self.get_paginated_response(data)
+
+    def patch(self, request, key):
+        css = self.get_queryset()
+        return Response({}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 ## SHOULD NOT USE
 class ContestProblemSubmissionListView(generics.ListAPIView):
