@@ -82,7 +82,7 @@ def show_toolbar_callback(request):
 DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_STORAGE_OPTIONS = {'location': ''}
 
-# ====================================== 
+# ======================================
 ROOT_URLCONF = 'bkdnoj.urls'
 WSGI_APPLICATION = 'bkdnoj.wsgi.application'
 
@@ -256,6 +256,9 @@ BKDNOJ_PROBLEM_CONFIG_TOKEN_LENGTH = 2**16
 
 # Allow user to spam submit upto this many subs
 BKDNOJ_SUBMISSION_LIMIT = 5
+
+# Allow rejudging upto this limit, higher require submission.rejudge_many_submission
+BKDNOJ_REJUDGE_LIMIT = 200
 
 BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_PREFIX = int(1000)
 BKDNOJ_DEFAULT_SUBMISSION_OUTPUT_LIMIT = int(1e7)

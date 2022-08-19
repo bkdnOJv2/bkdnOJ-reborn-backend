@@ -1,5 +1,8 @@
 from django.http import Http404
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
+from django.conf import settings
+
+from django.utils.translation import gettext_lazy as _
 
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
@@ -12,6 +15,8 @@ from .models import Submission, SubmissionTestCase
 from problem.models import Problem
 from compete.models import Contest, ContestParticipation
 from organization.models import Organization
+
+from submission.tasks import mass_rejudge
 
 class SubmissionListView(generics.ListAPIView):
     """
@@ -74,6 +79,8 @@ class SubmissionListView(generics.ListAPIView):
         if verdict is not None:
             if verdict == 'RTE':
                 queryset = queryset.filter(result__in=['RTE', 'IR'])
+            elif user.is_staff and verdict == 'Q':
+                queryset = queryset.filter(status__in=['QU', 'P', 'G'])
             elif user.is_staff and verdict == 'IE':
                 queryset = queryset.filter(result__in=['IE', 'AB'])
             elif user.is_staff and verdict == 'SC':
@@ -109,6 +116,25 @@ class SubmissionListView(generics.ListAPIView):
             queryset = queryset.filter(date__gte=datetime_from_z_timestring(date_after))
 
         return queryset
+
+    def patch(self, request):
+        user = request.user
+        if (not user.is_staff) and (not user.has_perm('submission.mass_rejudge')):
+            return Response({
+                'message': _('You do not have permission to mass rejudge.')
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        qs = self.get_queryset()
+        if qs.count() > settings.BKDNOJ_REJUDGE_LIMIT and not user.has_perm('submission.mass_rejudge_many'):
+            return Response({
+                'message': _(f"You need permission to rejudge more than {settings.BKDNOJ_REJUDGE_LIMIT} subs.")
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        async_status = mass_rejudge.delay(
+            sub_ids=list(qs.values_list('id', flat=True)),
+            rejudge_user_id=user.id
+        )
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 
 class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):

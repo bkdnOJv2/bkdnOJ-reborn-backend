@@ -337,6 +337,7 @@ class ContestSubmissionListView(generics.ListAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
         contest = self.contest
+        user = self.request.user
 
         cps = ContestProblem.objects.filter(contest=contest).all()
         css = ContestSubmission.objects.select_related(
@@ -415,6 +416,8 @@ class ContestSubmissionListView(generics.ListAPIView):
         if verdict is not None:
             if verdict == 'RTE':
                 css = css.filter(submission__result__in=['RTE', 'IR'])
+            elif user.is_staff and verdict == 'Q':
+                css = css.filter(submission__status__in=['QU', 'P', 'G'])
             elif is_editor and verdict == 'IE':
                 css = css.filter(submission__result__in=['IE', 'AB'])
             elif is_editor and verdict == 'SC':
@@ -470,7 +473,23 @@ class ContestSubmissionListView(generics.ListAPIView):
         return self.get_paginated_response(data)
 
     def patch(self, request, key):
-        css = self.get_queryset()
+        user = request.user
+        if (not user.is_staff) and (not user.has_perm('submission.mass_rejudge')):
+            return Response({
+                'message': _('You do not have permission to mass rejudge.')
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        qs = self.get_queryset()
+        if qs.count() > settings.BKDNOJ_REJUDGE_LIMIT and not user.has_perm('submission.mass_rejudge_many'):
+            return Response({
+                'message': _(f"You need permission to rejudge more than {settings.BKDNOJ_REJUDGE_LIMIT} subs.")
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        from submission.tasks import mass_rejudge
+        async_status = mass_rejudge.delay(
+            sub_ids=list(qs.values_list('submission__id', flat=True)),
+            rejudge_user_id=user.id
+        )
         return Response({}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 ## SHOULD NOT USE
