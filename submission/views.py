@@ -136,9 +136,9 @@ class SubmissionListView(generics.ListAPIView):
     """
     def patch(self, request):
         user = request.user
-        if (not user.is_staff) and (not user.has_perm('submission.mass_rejudge')):
+        if (not user.is_superuser) and (not user.has_perm('submission.mass_rejudge')):
             return Response({
-                'message': _('You do not have permission to mass rejudge.')
+                'message': _('You do not have permission to mass rejudge public submissions.')
             }, status=status.HTTP_403_FORBIDDEN)
 
         qs = self.get_queryset()
