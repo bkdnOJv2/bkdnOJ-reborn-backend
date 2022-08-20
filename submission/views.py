@@ -77,19 +77,29 @@ class SubmissionListView(generics.ListAPIView):
         order_dec = query_params.get('dec')
 
         if verdict is not None:
-            if verdict == 'RTE':
-                queryset = queryset.filter(result__in=['RTE', 'IR'])
-            elif user.is_staff and verdict == 'Q':
-                queryset = queryset.filter(status__in=['QU', 'P', 'G'])
-            elif user.is_staff and verdict == 'IE':
-                queryset = queryset.filter(result__in=['IE', 'AB'])
-            elif user.is_staff and verdict == 'SC':
-                queryset = queryset.filter(result='SC')
+            if verdict in ['Q', 'IE', 'SC']:
+                if user.is_staff:
+                    if verdict == 'Q':
+                        queryset = queryset.filter(status__in=['QU', 'P', 'G'])
+                    elif verdict == 'IE':
+                        queryset = queryset.filter(result__in=['IE', 'AB'])
+                    elif verdict == 'SC':
+                        queryset = queryset.filter(result='SC')
+                else:
+                    queryset = Submission.objects.none()
             else:
-                queryset = queryset.filter(result=verdict)
+                if verdict == 'RTE':
+                    queryset = queryset.filter(result__in=['RTE', 'IR'])
+                else:
+                    queryset = queryset.filter(result=verdict)
 
         if order_by is not None:
             key = order_by
+
+            if order_by in ['rejudged_date']:
+                if not user.is_staff:
+                    return Submission.objects.none()
+
             if order_by in ['time', 'memory', 'date']:
                 key = f"{order_by}"
 
@@ -105,9 +115,9 @@ class SubmissionListView(generics.ListAPIView):
         date_after = query_params.get('date_after')
         from helpers.timezone import datetime_from_z_timestring
 
-        # We are filtering by second-precisions, so submission with
+        # We are filtering by second-precision, but submission with
         # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
-        # would not be included in the queryset
+        # would not be included in the queryset 
         # A workaround is to add .999ms the datetimes, basically a way of "rounding"
         # But let's leave it out for now
         if date_before is not None:
@@ -117,6 +127,13 @@ class SubmissionListView(generics.ListAPIView):
 
         return queryset
 
+    """
+        Rejudge subs retrieved from `get_queryset()`.
+        Staff above, or user with `submission.mass_rejduge` perm can request rejudge.
+        But user must be able to edit the contest in order to mass rejudge (check via `get_contest()`)
+
+        If the rejudge count is more than settings.BKDNOJ_REJUDGE_LIMIT, user need extra perm `submission.mass_rejudge_many`
+    """
     def patch(self, request):
         user = request.user
         if (not user.is_staff) and (not user.has_perm('submission.mass_rejudge')):

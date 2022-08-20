@@ -414,20 +414,31 @@ class ContestSubmissionListView(generics.ListAPIView):
                 css = css.filter(submission__date__lt=contest.frozen_time)
 
         if verdict is not None:
-            if verdict == 'RTE':
-                css = css.filter(submission__result__in=['RTE', 'IR'])
-            elif user.is_staff and verdict == 'Q':
-                css = css.filter(submission__status__in=['QU', 'P', 'G'])
-            elif is_editor and verdict == 'IE':
-                css = css.filter(submission__result__in=['IE', 'AB'])
-            elif is_editor and verdict == 'SC':
-                css = css.filter(submission__result='SC')
+            if verdict in ['Q', 'IE', 'SC']:
+                if user.is_staff:
+                    if verdict == 'Q':
+                        css = css.filter(submission__status__in=['QU', 'P', 'G'])
+                    elif verdict == 'IE':
+                        css = css.filter(submission__result__in=['IE', 'AB'])
+                    elif verdict == 'SC':
+                        css = css.filter(submission__result='SC')
+                else:
+                    css = Submission.objects.none()
             else:
-                css = css.filter(submission__result=verdict)
+                if verdict == 'RTE':
+                    css = css.filter(submission__result__in=['RTE', 'IR'])
+                else:
+                    css = css.filter(submission__result=verdict)
+
 
         if order_by is not None:
             key = order_by
-            if order_by in ['time', 'memory', 'date']:
+
+            if order_by in ['rejudged_date']:
+                if not user.is_staff:
+                    return Submission.objects.none()
+
+            if order_by in ['time', 'memory', 'date', 'rejudged_date']:
                 key = f"submission__{order_by}"
 
             if order_dec:
@@ -443,9 +454,9 @@ class ContestSubmissionListView(generics.ListAPIView):
         from helpers.timezone import datetime_from_z_timestring
 
         # @duplicate submission.views L101
-        # We are filtering by second-precisions, so submission with
+        # We are filtering by second-precision, but submission with
         # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
-        # would not be included in the queryset
+        # would not be included in the queryset 
         # A workaround is to add .999ms the datetimes, basically a way of "rounding"
         # But let's leave it out for now
         if date_before is not None:
@@ -472,17 +483,27 @@ class ContestSubmissionListView(generics.ListAPIView):
                 context=self.get_serializer_context(), many=True).data
         return self.get_paginated_response(data)
 
+    """
+        Rejudge subs retrieved from `get_queryset()`.
+        Staff above, or user with `submission.mass_rejduge` perm can request rejudge.
+        But user must be able to edit the contest in order to mass rejudge (check via `get_contest()`)
+
+        If the rejudge count is more than settings.BKDNOJ_REJUDGE_LIMIT, user need extra perm `submission.mass_rejudge_many`
+    """
     def patch(self, request, key):
         user = request.user
+
         if (not user.is_staff) and (not user.has_perm('submission.mass_rejudge')):
             return Response({
                 'message': _('You do not have permission to mass rejudge.')
             }, status=status.HTTP_403_FORBIDDEN)
 
+        # get_queryset() checks if user can edit contest object
         qs = self.get_queryset()
+
         if qs.count() > settings.BKDNOJ_REJUDGE_LIMIT and not user.has_perm('submission.mass_rejudge_many'):
             return Response({
-                'message': _(f"You need permission to rejudge more than {settings.BKDNOJ_REJUDGE_LIMIT} subs.")
+                'message': _(f"You need extra permission to request rejudge with more than {settings.BKDNOJ_REJUDGE_LIMIT} subs.")
             }, status=status.HTTP_403_FORBIDDEN)
 
         from submission.tasks import mass_rejudge
@@ -490,9 +511,9 @@ class ContestSubmissionListView(generics.ListAPIView):
             sub_ids=list(qs.values_list('submission__id', flat=True)),
             rejudge_user_id=user.id
         )
-        return Response({}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        return Response({}, status=status.HTTP_204_NO_CONTENT)
 
-## SHOULD NOT USE
+## NOTE: NOT TESTED
 class ContestProblemSubmissionListView(generics.ListAPIView):
     """
         Submissions within contests view
@@ -519,7 +540,7 @@ class ContestProblemSubmissionListView(generics.ListAPIView):
             raise Http404
         return queryset
 
-## SHOULD NOT USE
+## NOTE: NOT TESTED
 class ContestProblemSubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
         Certain Submission within Contest view
