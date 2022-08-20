@@ -38,7 +38,7 @@ def rejudge_problem_filter(self, problem_id, id_range=None, languages=None, resu
   rejudged = 0
   with Progress(self, queryset.count()) as p:
     for submission in queryset.reverse().iterator(): # Reverse because I want earliest sub to be judged first
-      submission.judge(rejudge=True, batch_rejudge=True, rejudge_user=user)
+      submission.judge(rejudge=True, batch_rejudge=True, rejudge_user=user.profile)
       rejudged += 1
       if rejudged % 10 == 0:
         p.done = rejudged

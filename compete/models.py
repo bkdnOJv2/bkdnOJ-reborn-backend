@@ -427,7 +427,6 @@ class Contest(models.Model):
     """
         User can edit Contest details
     """
-    @lru_cache
     def is_editable_by(self, user):
         if not user.is_authenticated:
             return False
@@ -449,7 +448,6 @@ class Contest(models.Model):
     """
         User can test Contest
     """
-    @lru_cache
     def is_testable_by(self, user):
         if not user.is_authenticated:
             return False
@@ -460,7 +458,6 @@ class Contest(models.Model):
     """
         User can see contest details
     """
-    @lru_cache
     def is_accessible_by(self, user):
         # Unauthenticated users can only see visible, non-private contests
         if not user.is_authenticated:
