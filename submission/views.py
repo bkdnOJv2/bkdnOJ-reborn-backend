@@ -117,7 +117,7 @@ class SubmissionListView(generics.ListAPIView):
 
         # We are filtering by second-precision, but submission with
         # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
-        # would not be included in the queryset 
+        # would not be included in the queryset
         # A workaround is to add .999ms the datetimes, basically a way of "rounding"
         # But let's leave it out for now
         if date_before is not None:
