@@ -67,7 +67,20 @@ class ProblemDataCompiler(object):
       cases.append(batch)
 
     def make_checker(case):
+
+      def get_lang_from_checker_name(checker_name):
+        from judger.models.runtime import Language
+        pos = checker_name.find('-')
+        if pos < 0:
+            raise ValidationError("Invalid Checker: Checker name must have format '<checker_type>-<lang_key>'")
+        lang_name = checker_name[pos+1:]
+        lang = Language.objects.filter(key=lang_name)
+        if lang is None:
+            raise ValidationError(f"Invalid Checker: Lang key '{lang_name}' does not exist")
+        return lang_name
+
       checker_name = self.data.checker
+      ## Custom Checker
       if checker_name.startswith("custom"):
         try:
           #custom_checker_path = split_path_first(self.data.custom_checker.name)
@@ -76,12 +89,7 @@ class ProblemDataCompiler(object):
             return custom_checker_basename
 
           else:
-            pos = checker_name.find('-')
-            if pos < 0:
-                raise ValidationError("Invalid Checker type")
-            lang = checker_name[pos+1:]
-            if self.data.custom_checker is None:
-                raise ValidationError("Custom Checker is None");
+            lang = get_lang_from_checker_name(checker_name)
 
             chkargs = {
                 'files': os.path.basename(self.data.custom_checker.name),
@@ -103,12 +111,43 @@ class ProblemDataCompiler(object):
             _("How did the custom checker path get corrupted?")
           )
 
+      ## Custom Interactive Checker
+      if checker_name.startswith("interactive"):
+        try:
+          lang = get_lang_from_checker_name(checker_name)
+
+          chkargs = {
+              'files': os.path.basename(self.data.custom_checker.name),
+              'lang': lang,
+              'type': 'testlib',
+          }
+          if self.data.checker_args:
+              chkargsdict = json.loads(self.data.checker_args)
+              for k, v in chkargsdict.items():
+                  chkargs[k] = v
+          self.data.checker_args = json.dumps(chkargs)
+          self.data.save(update_fields=['checker_args'])
+          return json.loads(self.data.checker_args)
+        except OSError:
+          raise ProblemDataError(
+            _("How did the interactive checker path get corrupted?")
+          )
+
       if case.checker_args:
         return {
           'name': case.checker,
           'args': json.loads(case.checker_args),
         }
       return case.checker
+
+    def assign_checker(yaml_dict, case=None):
+      name = 'checker'
+      if self.data.checker.startswith('interactive'):
+        name = 'interactive'
+        yaml_dict['unbuffered'] = True
+      yaml_dict[name] = make_checker(case)
+
+    # ---------------------------------------------------------
 
     for i, case in enumerate(self.cases, 1):
       if case.type == 'C':
@@ -143,7 +182,7 @@ class ProblemDataCompiler(object):
         if case.output_prefix is not None:
           data['output_prefix_length'] = case.output_prefix
         if case.checker:
-          data['checker'] = make_checker(case)
+          assign_checker(data, case)
         else:
           case.checker_args = ''
         case.save(update_fields=('checker_args', 'is_pretest'))
@@ -165,7 +204,7 @@ class ProblemDataCompiler(object):
         if case.output_prefix is not None:
           batch['output_prefix_length'] = case.output_prefix
         if case.checker:
-          batch['checker'] = make_checker(case)
+          assign_checker(batch, case)
         else:
           case.checker_args = ''
         case.input_file = ''
@@ -212,7 +251,7 @@ class ProblemDataCompiler(object):
     if self.data.output_prefix is not None:
       init['output_prefix_length'] = int(self.data.output_prefix)
     if self.data.checker:
-      init['checker'] = make_checker(self.data)
+      assign_checker(init, self.data)
     else:
       self.data.checker_args = ''
     return init
