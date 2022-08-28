@@ -14,6 +14,8 @@ from django.core.files.base import ContentFile
 
 from django_extensions.db.models import TimeStampedModel
 
+from natsort import natsorted, ns
+
 from organization.models import Organization
 from helpers.problem_data import problem_directory_pdf
 from submission.models import SubmissionSourceAccess
@@ -41,6 +43,7 @@ CHECKERS = (
 
   ('custom-PY3', _("Custom checker (Py3)")),
   ('custom-CPP17', _("Custom checker (C++17)")),
+  ('interactive-CPP17', _("Interactive checker (C++17)")),
 )
 
 from zipfile import BadZipfile, ZipFile
@@ -213,17 +216,32 @@ class ProblemTestProfile(TimeStampedModel):
   def valid_in_ans_files(self):
     in_files = []
     ans_files = []
+    pair_dict = {}
+
     try:
       if self.zipfile:
         file_list = ZipFile(self.zipfile.path).namelist()
+
+        # pair_dict { 'path_name' => [InputFilename, OutputFilename], ... }
         for file in file_list:
           base_name, ext_name = os.path.splitext(file)
+          pair = pair_dict.get(base_name, [None, None])
           if ext_name in settings.BKDNOJ_PROBLEM_DATA_IN_FILE_EXT:
-            in_files.append(file)
+            pair[0] = file
           elif ext_name in settings.BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT:
-            ans_files.append(file)
-        in_files.sort()
-        ans_files.sort()
+            pair[1] = file
+          pair_dict[base_name] = pair
+
+        # Loop through the dict, if both file exists, we add them to in/ans arrays
+        for _, v in pair_dict.items():
+          if all(v):
+            in_files.append(v[0])
+            ans_files.append(v[1])
+
+        # Use natural sort so strings are ordered as if they were integers
+        natsorted(in_files, alg=ns.PATH)
+        natsorted(ans_files, alg=ns.PATH)
+
         return in_files, ans_files
     except BadZipfile:
         pass
