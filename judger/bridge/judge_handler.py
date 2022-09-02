@@ -555,7 +555,7 @@ class JudgeHandler(ZlibPacketHandler):
             test_case.batch = self.batch_id if self.in_batch else None
             test_case.feedback = (result.get('feedback') or '')[:max_feedback]
             test_case.extended_feedback = result.get('extended-feedback') or ''
-            test_case.output = result['output']
+            test_case.output = result['output'].replace("\x00", "")
             bulk_test_case_updates.append(test_case)
 
             json_log.info(self._make_json_log(
