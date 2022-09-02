@@ -20,6 +20,10 @@ from submission.models import Submission, SubmissionTestCase
 logger = logging.getLogger('judge.bridge')
 json_log = logging.getLogger('judge.json.bridge')
 
+## Hotfix to https://github.com/BKDN-University/bkdnOJ-v2/issues/37
+## Prod server is running with 1000 Connections
+SUBMISSIONS_COUNT_TO_CLEAR_IDLE = 330
+
 UPDATE_RATE_LIMIT = 5
 UPDATE_RATE_TIME = 0.5
 SubmissionData = namedtuple('SubmissionData',
@@ -144,6 +148,8 @@ class JudgeHandler(ZlibPacketHandler):
         try:
             Judge.objects.filter(name=self.name).update(ping=self.latency, load=self.load)
         except Exception as e:
+            ## TODO: Maybe this causes https://github.com/BKDN-University/bkdnOJ-v2/issues/37?
+            ##       DMOJ dev might implem solutions that are tied to MySQL only, but we are using Postgres
             # What can I do? I don't want to tie this to MySQL.
             if e.__class__.__name__ == 'OperationalError' and e.__module__ == '_mysql_exceptions' and e.args[0] == 2006:
                 db.connection.close()
@@ -441,6 +447,15 @@ class JudgeHandler(ZlibPacketHandler):
             participation = submission.contest.participation
             event.post('contest_%d' % participation.contest_id, {'type': 'update'})
         self._post_update_submission(submission.id, 'grading-end', done=True)
+
+        if submission.id % SUBMISSIONS_COUNT_TO_CLEAR_IDLE == 0:
+            logger.info('>> Reached %d subs, clearing idle connections...', SUBMISSIONS_COUNT_TO_CLEAR_IDLE)
+            db.close_old_connections()
+            with db.connection.cursor() as cursor:
+                sql = "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle'"
+                cursor.execute(sql)
+                row = cursor.fetchall()
+                logger.info('>> Cleared %d idle connections.', len(row))
 
     def on_compile_error(self, packet):
         logger.info('%s: Submission failed to compile: %s', self.name, packet['submission-id'])
