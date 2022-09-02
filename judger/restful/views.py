@@ -5,7 +5,14 @@ from .serializers import *
 
 class JudgeListView(generics.ListCreateAPIView):
     serializer_class = JudgeSerializer
-    queryset = Judge.objects.all()
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.has_perm('judge.see_all_judges'):
+            queryset = Judge.objects.all()
+        else:
+            queryset = Judge.objects.filter(online=True, is_blocked=False)
+        return queryset
 
 class JudgeDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = JudgeDetailSerializer
