@@ -3,6 +3,7 @@ import json
 import logging
 import threading
 import time
+from typing import Dict
 from collections import deque, namedtuple
 from operator import itemgetter
 
@@ -29,6 +30,15 @@ UPDATE_RATE_TIME = 0.5
 SubmissionData = namedtuple('SubmissionData',
   'time memory short_circuit pretests_only contest_no attempt_no user_id')
 
+def _clean_up_idle_conn_on_submission_finished(id: int):
+    if id % SUBMISSIONS_COUNT_TO_CLEAR_IDLE == 0:
+        logger.info('>> Reached %d subs, clearing idle connections...', SUBMISSIONS_COUNT_TO_CLEAR_IDLE)
+        db.close_old_connections()
+        with db.connection.cursor() as cursor:
+            sql = "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle'"
+            cursor.execute(sql)
+            row = cursor.fetchall()
+            logger.info('>> Cleared %d idle connections.', len(row))
 
 def _ensure_connection():
     try:
@@ -447,15 +457,7 @@ class JudgeHandler(ZlibPacketHandler):
             participation = submission.contest.participation
             event.post('contest_%d' % participation.contest_id, {'type': 'update'})
         self._post_update_submission(submission.id, 'grading-end', done=True)
-
-        if submission.id % SUBMISSIONS_COUNT_TO_CLEAR_IDLE == 0:
-            logger.info('>> Reached %d subs, clearing idle connections...', SUBMISSIONS_COUNT_TO_CLEAR_IDLE)
-            db.close_old_connections()
-            with db.connection.cursor() as cursor:
-                sql = "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle'"
-                cursor.execute(sql)
-                row = cursor.fetchall()
-                logger.info('>> Cleared %d idle connections.', len(row))
+        _clean_up_idle_conn_on_submission_finished(id=submission.id)
 
     def on_compile_error(self, packet):
         logger.info('%s: Submission failed to compile: %s', self.name, packet['submission-id'])
@@ -473,6 +475,7 @@ class JudgeHandler(ZlibPacketHandler):
             logger.warning('Unknown submission: %s', packet['submission-id'])
             json_log.error(self._make_json_log(packet, action='compile-error', info='unknown submission',
                                                log=packet['log'], finish=True, result='CE'))
+        _clean_up_idle_conn_on_submission_finished(id=packet['submission-id'])
 
     def on_compile_message(self, packet):
         logger.info('%s: Submission generated compiler messages: %s', self.name, packet['submission-id'])
