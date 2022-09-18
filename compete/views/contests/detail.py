@@ -456,7 +456,7 @@ class ContestSubmissionListView(generics.ListAPIView):
         # @duplicate submission.views L101
         # We are filtering by second-precision, but submission with
         # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
-        # would not be included in the queryset 
+        # would not be included in the queryset
         # A workaround is to add .999ms the datetimes, basically a way of "rounding"
         # But let's leave it out for now
         if date_before is not None:
@@ -638,6 +638,31 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         queryset = self.get_contest().users.all()
         return queryset
+
+    def get_object(self, *args, **kwargs):
+        return super().get_object(*args, **kwargs)
+
+    def patch(self, *args, **kwargs):
+        return self.put(*args, **kwargs)
+
+    def put(self, request, key, pk):
+        obj = self.get_object()
+        user = request.user
+        part = self.get_object()
+
+        if "organization" in request.data:
+            org = Organization.objects.filter(slug=request.data.get("organization"))
+            if not org.exists():
+                raise Http404()
+            org = org.first()
+            # TODO: Should we check if user can modify org here?
+            part.organization = org
+
+        part.save()
+        return Response(
+            ContestParticipationDetailSerializer(part).data,
+            status=status.HTTP_200_OK
+        )
 
 
 class ContestParticipantListView(generics.ListAPIView):

@@ -64,6 +64,11 @@ class ContestParticipation(models.Model):
 
     modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
 
+    organization = models.ForeignKey(
+        'organization.Organization', verbose_name=_('organization'),
+        blank=True, null=True, on_delete=models.SET_NULL,
+    )
+
     def recompute_results(self):
         with transaction.atomic():
             self.contest.format.update_participation(self)
@@ -151,4 +156,3 @@ class ContestParticipation(models.Model):
         verbose_name_plural = _('contest participations')
         unique_together = ('contest', 'user', 'virtual')
         ordering = ['-id']
-

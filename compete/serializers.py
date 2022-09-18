@@ -5,8 +5,8 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-from django.core.exceptions import ValidationError
 from rest_framework import serializers
+from rest_framework.serializers import ValidationError
 
 from auth.serializers import UserSerializer, UserDetailSerializer
 
@@ -450,14 +450,14 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
         if self.get_is_frozen(cs):
             return None
         return cs.points
-    
+
     virtual = serializers.SerializerMethodField()
     def get_virtual(self, cs):
         if cs.participation.virtual == ContestParticipation.LIVE:
             return 'live'
         if cs.participation.virtual == ContestParticipation.SPECTATE:
             return 'spectate'
-        return 'virtual' 
+        return 'virtual'
 
     user = serializers.ReadOnlyField(source='submission.user.username')
     language = serializers.ReadOnlyField(source='submission.language.name')
@@ -490,10 +490,12 @@ class ContestStandingFrozenSerializer(serializers.ModelSerializer):
         data = json.dumps(data)
         return data
 
+    organization = OrganizationIdentitySerializer()
+
     class Meta:
         model = ContestParticipation
         fields = [
-            'user',
+            'user', 'organization',
             'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
             'virtual', 'is_disqualified', 'is_frozen',
             'format_data',
@@ -509,7 +511,7 @@ class ContestStandingSerializer(ContestStandingFrozenSerializer):
     class Meta:
         model = ContestParticipation
         fields = [
-            'user',
+            'user', 'organization',
             'score', 'cumtime', 'tiebreaker',
             'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
             'virtual', 'is_disqualified', 'is_frozen',
@@ -522,13 +524,15 @@ class ContestParticipationSerializer(serializers.ModelSerializer):
         slug_field='username', queryset=Profile.objects.all(),
     )
 
+    organization = OrganizationIdentitySerializer()
+
     def to_internal_value(self, data):
         data = data.copy()
+
         usernames = data.pop('user', [])
         qs = Profile.objects.filter(owner__username__in=usernames)
         if not qs.exists():
             raise ValidationError(f"User '{usernames[0]}' does not exist.")
-
         data['user'] = qs.first()
         val_data = super().to_internal_value(data)
         return val_data
@@ -536,19 +540,30 @@ class ContestParticipationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContestParticipation
         fields = [
-            'id', 'real_start', 'virtual', 'is_disqualified',
-            'user',]
+            'id', 'user', 'organization', 'real_start',
+            'virtual', 'is_disqualified',
+        ]
 
 
 class ContestParticipationDetailSerializer(serializers.ModelSerializer):
-    user = serializers.SlugRelatedField(
-        slug_field='username',
-        queryset=Profile.objects.all(),
-    )
+    # user = serializers.SlugRelatedField(
+    #     slug_field='user__username',
+    #     queryset=Profile.objects.all(),
+    # )
+    user = serializers.SerializerMethodField()
+    def get_user(self, part):
+        return part.user.user.username
+
+    organization = OrganizationIdentitySerializer()
 
     class Meta:
         model = ContestParticipation
-        fields = '__all__'
+        fields = [
+            'id', 'user', 'organization', 'real_start',
+            'score', 'cumtime', 'tiebreaker',
+            'is_disqualified', 'virtual',
+            'modified',
+        ]
 
 
 class RatingSerializer(serializers.ModelSerializer):
