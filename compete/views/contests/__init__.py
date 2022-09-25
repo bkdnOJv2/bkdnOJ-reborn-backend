@@ -21,6 +21,7 @@ __all__ = [
 
     ### ContestParticipation View
     'ContestParticipationListView', 'ContestParticipationDetailView',
+    'ContestParticipationActView',
     'contest_participation_add_many',
     'contest_participate_view', 'contest_leave_view', 'contest_standing_view',
 ]

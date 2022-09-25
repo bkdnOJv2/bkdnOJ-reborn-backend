@@ -115,6 +115,7 @@ class SubmissionListView(generics.ListAPIView):
         date_after = query_params.get('date_after')
         from helpers.timezone import datetime_from_z_timestring
 
+        # TODO:
         # We are filtering by second-precision, but submission with
         # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
         # would not be included in the queryset
@@ -212,7 +213,7 @@ class SubmissionResultView(views.APIView):
     permission_classes = []
 
     def get_queryset(self):
-        return SubmissionDetailTestCase.objects.filter(
+        return SubmissionTestCase.objects.filter(
             submission=self.kwargs['pk'])
 
     def get(self, request, pk):

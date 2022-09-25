@@ -520,10 +520,7 @@ class ContestStandingSerializer(ContestStandingFrozenSerializer):
 
 
 class ContestParticipationSerializer(serializers.ModelSerializer):
-    user = serializers.SlugRelatedField(
-        slug_field='username', queryset=Profile.objects.all(),
-    )
-
+    user = UserProfileBaseSerializer()
     organization = OrganizationIdentitySerializer()
 
     def to_internal_value(self, data):

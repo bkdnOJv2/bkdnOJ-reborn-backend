@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = os.getenv('DEBUG').lower() in ['true', '1']
+DEBUG = True#os.getenv('DEBUG').lower() in ['true', '1']
 ALLOWED_HOSTS = ['1509.ddns.net', 'localhost', '127.0.0.1']
 
 # Application definition -------------------------------
@@ -184,6 +184,10 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+        'helpers.renderer.BrowsableAPIRendererWithoutForms',
     ),
 }
 

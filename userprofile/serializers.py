@@ -13,6 +13,10 @@ from compete.ratings import rating_class, rating_level, rating_name
 
 
 class UserProfileBaseSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+    def get_display_name(self, profile):
+        return profile.display_name
+
     username = serializers.SerializerMethodField()
     def get_username(self, profile):
         return profile.username
@@ -29,10 +33,10 @@ class UserProfileBaseSerializer(serializers.ModelSerializer):
     def get_email(self, profile):
         return profile.email
 
-
     class Meta:
         model = UserProfile
         fields = [
+            'display_name',
             'username', 'avatar', 'first_name', 'last_name', 'email',
             'rating',
         ]

@@ -1,10 +1,10 @@
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
+from django.db.models.functions import Length
 from django.utils.functional import cached_property
 from django.shortcuts import render, get_object_or_404
 from django.core.exceptions import PermissionDenied
-from pyparsing import Or
 from rest_framework import views, permissions, generics, status, filters
 from rest_framework.response import Response
 
@@ -37,16 +37,14 @@ class OrganizationListView(generics.ListCreateAPIView):
     search_fields = ['^slug', '@short_name', '@name']
     filterset_fields = ['is_open', 'is_unlisted']
     ordering_fields = ['creation_date']
-    ordering = ['-creation_date']
+    ordering = ['slug']
 
     def get_serializer_context(self):
         return {'request': self.request}
 
     def get_queryset(self):
         user = self.request.user
-        if not user.is_authenticated:
-            return Organization.get_public_root_organizations()
-        return user.profile.organizations.all()
+        return Organization.get_visible_organizations(user)
 
     def post(self, request):
         user = request.user
