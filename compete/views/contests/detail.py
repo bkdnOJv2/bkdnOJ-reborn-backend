@@ -789,16 +789,14 @@ class ContestParticipantListView(generics.ListAPIView):
         return queryset
 
     def get(self, request, key):
-        if request.query_params.get('view_full', False) not in ['true', '1']:
-            view_full = '0'
-        else:
-            view_full = '1'
+        view_full = request.query_params.get('view_full', False) in ['true', '1']
 
         # Cache is
-        if view_full == '1':
+        if view_full:
             contest = self.contest
-            # cache_duration = c.scoreboard_cache_duration
-            cache_duration = max( int( (contest.end_time - contest.start_time).total_seconds() ), 120 ) ## Extra 5 mins
+            # cache_duration = contest.scoreboard_cache_duration
+            # cache_duration = max( int( (contest.end_time - contest.start_time).total_seconds() ), 60 ) # seconds
+            cache_duration = 120
             cache_disabled = (cache_duration == 0)
             cache_key = contest.participants_cache_key
             data = None

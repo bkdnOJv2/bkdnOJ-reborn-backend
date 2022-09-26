@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404, HttpResponseBadRequest
 from django.conf import settings
 from django.db.models import Case, Count, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils.functional import cached_property
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -344,7 +344,14 @@ def contest_participation_add_many(request, key):
         if part_type == 'LIVE': part_type = 0
         elif part_type == 'SPECTATE': part_type = -1
 
-        to_be_updated = []
+        set_org_auto = data.get('set_org_auto', False)
+        organization = None
+        if not set_org_auto:
+            try:
+                orgslug=data.get('organization', None)
+                organization = Organization.objects.get(slug=orgslug)
+            except Organization.DoesNotExist:
+                raise ValueError(f"Not found organization (slug={orgslug})")
 
         users = set(data['users'])
         p = Profile.objects.select_related('user').filter(user__username__in=users)
@@ -356,19 +363,30 @@ def contest_participation_add_many(request, key):
                 'detail': {'username': f"Users not found: {', '.join(notfound)}"}
             }, status.HTTP_400_BAD_REQUEST)
 
-        for profile in p:
-            cp, _ = ContestParticipation.objects.get_or_create(
-                user=profile, contest=contest, virtual__in=[0, -1]
-            )
-            # If the participation has different virtual, set them to be updated
-            if cp.virtual != part_type:
+        # to_be_updated = []
+        with transaction.atomic():
+            for profile in p:
+                cp, _ = ContestParticipation.objects.get_or_create(
+                    user=profile, contest=contest, virtual__in=[0, -1]
+                )
+                if set_org_auto:
+                    cp.organization = profile.display_organization
+                else:
+                    cp.organization = organization
+                
+                # The recent change that allows organization to be set
+                # made the bulk_update optimization not working
                 cp.virtual = part_type
-                to_be_updated.append(cp)
+                cp.save()
+                # If the participation has different virtual, set them to be updated
+                # if cp.virtual != part_type:
+                #     cp.virtual = part_type
+                #     to_be_updated.append(cp)
 
-        ContestParticipation.objects.bulk_update(to_be_updated, ['virtual'])
-        contest._updating_stats_only = True
-        contest.update_user_count()
-        contest.save()
+            # ContestParticipation.objects.bulk_update(to_be_updated, ['virtual'])
+            contest._updating_stats_only = True
+            contest.update_user_count()
+            contest.save()
 
         ## Delete participants cache
         cache.delete(contest.participants_cache_key)

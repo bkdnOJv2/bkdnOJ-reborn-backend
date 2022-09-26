@@ -1,6 +1,10 @@
 from django.utils.crypto import get_random_string
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db import transaction
+
+from userprofile.models import UserProfile
+from organization.models import Organization
 User = get_user_model()
 
 from django.core.exceptions import PermissionDenied
@@ -81,6 +85,7 @@ from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
 class UserList(generics.ListCreateAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAdminUser]
+    lookup_field = 'username'
 
     filter_backends = [
         django_filters.rest_framework.DjangoFilterBackend,
@@ -150,20 +155,52 @@ def generate_user_from_file(request):
 
         many_data = [line for line in reader]
 
-        for i in range(len(many_data)):
-            data = many_data[i]
-            pwd = None
-            if 'password' in data.keys():
-                pwd = data['password']
-            else:
-                pwd = get_random_string(length=16)
-            data['password'] = data['password_confirm'] = pwd
-            many_data[i] = data
+        with transaction.atomic():
+            for i in range(len(many_data)):
+                data = many_data[i]
+                pwd = None
+                if 'password' in data.keys():
+                    pwd = data['password']
+                else:
+                    pwd = get_random_string(length=16)
+                data['password'] = data['password_confirm'] = pwd
+                many_data[i] = data
 
-        ser = RegisterSerializer(data=many_data, many=True)
-        if not ser.is_valid():
-            return badreq({'detail': "Cannot create some users.", 'errors': ser.errors})
-        ser.save()
+            ser = RegisterSerializer(data=many_data, many=True)
+            if not ser.is_valid():
+                return badreq({'detail': "Cannot create some users.", 'errors': ser.errors})
+
+            users = ser.save()
+
+            # Post value assignment
+            profiledata = {}
+            for i in range(len(many_data)):
+                data = many_data[i]
+                profiledatapoint = {}
+                if 'display_name' in data:
+                    profiledatapoint['display_name'] = data['display_name']
+                if 'organization' in data:
+                    orgslug = data['organization'].upper()
+                    try:
+                        org = Organization.objects.get(slug=orgslug)
+                        profiledatapoint['organization'] = org
+                    except Organization.DoesNotExist:
+                        data['organization'] = ''
+                        profiledatapoint['organization'] = None
+                profiledata[data['username']] = profiledatapoint
+
+            for user in users:
+                profile, _ = UserProfile.objects.get_or_create(user=user)
+                profiledatapoint = profiledata[user.username]
+                print(profiledatapoint)
+                if profiledatapoint.get('display_name', False):
+                    profile.username_display_override = profiledatapoint.get('display_name')
+                if profiledatapoint.get('organization', False):
+                    profile.organizations.add(profiledatapoint.get('organization'))
+                    profile.display_organization = profiledatapoint.get('organization')
+                profile.first_name = user.first_name
+                profile.last_name = user.last_name
+                profile.save()
 
         for data in many_data:
             data.pop('password_confirm', None)
@@ -177,6 +214,7 @@ def generate_user_from_file(request):
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'username'
 
     def get_queryset(self):
         qs = User.objects.all()
@@ -196,8 +234,8 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
 from django.shortcuts import get_object_or_404
 
 @api_view(['POST'])
-def reset_password(request, pk):
-    user = get_object_or_404(User, pk=pk)
+def reset_password(request, username):
+    user = get_object_or_404(User, username=username)
     if (not request.user.is_superuser) or (not user != request.user):
         raise PermissionDenied()
 

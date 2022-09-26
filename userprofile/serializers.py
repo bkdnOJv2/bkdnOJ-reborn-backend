@@ -1,5 +1,6 @@
 from django.contrib.auth.models import Group
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from auth.serializers import UserMoreDetailSerializer
 
@@ -10,6 +11,7 @@ from .models import UserProfile
 from judger.restful.serializers import LanguageBasicSerializer
 
 from compete.ratings import rating_class, rating_level, rating_name
+from organization.models import Organization
 
 
 class UserProfileBaseSerializer(serializers.ModelSerializer):
@@ -81,6 +83,9 @@ class UserProfileWithRoleSerializer(serializers.ModelSerializer):
 
 
 class UserProfileBasicSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+    def get_display_name(self, profile):
+        return profile.display_name
 
     organization = serializers.SerializerMethodField()
     def get_organization(self, prf):
@@ -92,21 +97,26 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'username', 'avatar', 'first_name', 'last_name',
+            'username', 'display_name',
+            'avatar', 'first_name', 'last_name',
             'rating', #'rank', 'rank_class',
             'organization',
         ]
 
 
 class UserProfileSerializer(UserProfileBasicSerializer):
-    user = UserSerializer(required=False)
-    language = LanguageBasicSerializer()
+    user = UserSerializer(required=False, read_only=True)
+    username = serializers.CharField(read_only=True)
+    avatar = serializers.CharField(read_only=True)
+    # language = LanguageBasicSerializer()
 
     organization = serializers.SerializerMethodField()
     def get_organization(self, prf):
         if prf.organization is None:
             return None
         return OrganizationBasicSerializer(prf.organization).data
+    
+    display_name = serializers.CharField(source="username_display_override")
 
     # member_of = serializers.SerializerMethodField()
     # def get_member_of(self, prf):
@@ -129,6 +139,7 @@ class UserProfileSerializer(UserProfileBasicSerializer):
     # def get_admin_of(self, prf):
     #     return NestedOrganizationBasicSerializer(prf.admin_of, many=True).data
 
+
     class Meta:
         model = UserProfile
         fields = [
@@ -137,6 +148,9 @@ class UserProfileSerializer(UserProfileBasicSerializer):
             'username', 'display_name', 'avatar',
             'organization',
             #'member_of', 'admin_of',
-            'about', 'timezone', 'language', 'performance_points', 'problem_count', 'points',
+            'about', 
+            #'timezone', 'language', 
+            'performance_points', 'problem_count', 'points',
             'rating', #'rank', 'rank_class',
         ]
+        read_only_fields = ('username',)
