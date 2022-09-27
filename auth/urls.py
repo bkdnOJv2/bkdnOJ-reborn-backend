@@ -9,6 +9,8 @@ from .views import MyTokenObtainPairView, MyTokenVerifyView, SignOutView, \
     UserList, UserDetail, GroupList, GroupDetail, get_csrf, WhoAmI, \
     generate_user_from_file, reset_password
 
+from auth.views import ActOnUsersView
+
 urlpatterns = [
     path('csrf/', get_csrf, name='get-csrf'),
 
@@ -21,6 +23,7 @@ urlpatterns = [
     path('sign-out/', SignOutView.as_view(), name='user_sign_out'),
 
     path('users/', UserList.as_view(), name='user-list'),
+    path('users/act/', ActOnUsersView.as_view(), name='users-act'),
     path('users/generate/csv/', generate_user_from_file, name='user-gen-csv'),
 
     path('user/<str:username>/', UserDetail.as_view(), name='user-detail'),
