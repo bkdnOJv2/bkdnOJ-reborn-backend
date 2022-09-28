@@ -95,6 +95,8 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'is_staff', 'is_superuser']
+        lookup_field = 'username'
+        
 
 class UserDetailSerializer(UserSerializer):
     class Meta:
@@ -103,6 +105,7 @@ class UserDetailSerializer(UserSerializer):
             'first_name', 'last_name',
             'is_staff', 'is_superuser', 'is_active',
             'date_joined']#, 'last_login']#, 'groups']
+        lookup_field = 'username'
 
 class UserMoreDetailSerializer(UserSerializer):
     class Meta:
@@ -111,6 +114,7 @@ class UserMoreDetailSerializer(UserSerializer):
             'first_name', 'last_name',
             'is_staff', 'is_superuser', 'is_active',
             'date_joined', 'last_login', 'groups']
+        lookup_field = 'username'
 
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:

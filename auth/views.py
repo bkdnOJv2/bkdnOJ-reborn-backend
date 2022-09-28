@@ -1,6 +1,10 @@
 from django.utils.crypto import get_random_string
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db import transaction
+
+from userprofile.models import UserProfile
+from organization.models import Organization
 User = get_user_model()
 
 from django.core.exceptions import PermissionDenied
@@ -77,10 +81,13 @@ import django_filters
 from rest_framework import permissions, generics, filters
 
 from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
+from helpers.custom_pagination import Page50Pagination
 
 class UserList(generics.ListCreateAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = Page50Pagination
+    lookup_field = 'username'
 
     filter_backends = [
         django_filters.rest_framework.DjangoFilterBackend,
@@ -89,7 +96,7 @@ class UserList(generics.ListCreateAPIView):
     ]
     search_fields = ['^username', '@first_name', '@last_name']
     filterset_fields = ['is_active', 'is_staff', 'is_superuser']
-    ordering_fields = ['date_joined']
+    ordering_fields = ['date_joined', 'id', 'username']
     ordering = ['-id']
 
     def get_queryset(self):
@@ -103,7 +110,69 @@ class UserList(generics.ListCreateAPIView):
         else:
             if not user.is_superuser:
                 raise PermissionDenied()
+        
+        query_params = self.request.query_params
+        date_before = query_params.get('date_joined_before')
+        date_after = query_params.get('date_joined_after')
+        from helpers.timezone import datetime_from_z_timestring
+
+        # TODO: same problem as `submission/views/SubmissionListView.get_queryset()`
+        # We are filtering by second-precision, but submission with
+        # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
+        # would not be included in the queryset
+        # A workaround is to add .999ms the datetimes, basically a way of "rounding"
+        # But let's leave it out for now
+        try:
+            if date_before is not None:
+                qs = qs.filter(date_joined__lte=datetime_from_z_timestring(date_before))
+            if date_after is not None:
+                qs = qs.filter(date_joined__gte=datetime_from_z_timestring(date_after))
+        except ValueError:
+            pass
+
         return qs
+
+class ActOnUsersView(views.APIView):
+    serializer_class = UserDetailSerializer
+    permission_classes = [permissions.IsAdminUser]
+    lookup_field = 'username'
+
+    ACTION_DEACTIVATE = 'deactivate'
+    ACTION_ACTIVATE = 'activate'
+    ACTION_DELETE = 'delete'
+    AVAILABLE_ACTIONS = [ACTION_DEACTIVATE, ACTION_ACTIVATE, ACTION_DELETE]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = User.objects.all()
+        if not user.has_perm('user.edit_all_users'):
+            qs = qs.filter(is_superuser=False)
+        return qs
+    
+    def post(self, request):
+        qs = self.get_queryset()
+        action = request.data.get('action')
+        if action not in ActOnUsersView.AVAILABLE_ACTIONS:
+            return Response({
+                'message': f"Unrecognized action '{action}'",
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = request.data.get('data', {})
+        usernames = data.get('users', [])
+        users = qs.filter(username__in=usernames)
+
+        if action == ActOnUsersView.ACTION_ACTIVATE:
+            with transaction.atomic():
+                for user in users: user.is_active = True
+                User.objects.bulk_update(users, ['is_active'])
+        elif action == ActOnUsersView.ACTION_DEACTIVATE:
+            with transaction.atomic():
+                for user in users: user.is_active = False
+                User.objects.bulk_update(users, ['is_active'])
+        elif action == ActOnUsersView.ACTION_DELETE:
+            users.delete()
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 import io, csv
 
@@ -150,20 +219,51 @@ def generate_user_from_file(request):
 
         many_data = [line for line in reader]
 
-        for i in range(len(many_data)):
-            data = many_data[i]
-            pwd = None
-            if 'password' in data.keys():
-                pwd = data['password']
-            else:
-                pwd = get_random_string(length=16)
-            data['password'] = data['password_confirm'] = pwd
-            many_data[i] = data
+        with transaction.atomic():
+            for i in range(len(many_data)):
+                data = many_data[i]
+                pwd = None
+                if 'password' in data.keys():
+                    pwd = data['password']
+                else:
+                    pwd = get_random_string(length=16)
+                data['password'] = data['password_confirm'] = pwd
+                many_data[i] = data
 
-        ser = RegisterSerializer(data=many_data, many=True)
-        if not ser.is_valid():
-            return badreq({'detail': "Cannot create some users.", 'errors': ser.errors})
-        ser.save()
+            ser = RegisterSerializer(data=many_data, many=True)
+            if not ser.is_valid():
+                return badreq({'detail': "Cannot create some users.", 'errors': ser.errors})
+
+            users = ser.save()
+
+            # Post value assignment
+            profiledata = {}
+            for i in range(len(many_data)):
+                data = many_data[i]
+                profiledatapoint = {}
+                if 'display_name' in data:
+                    profiledatapoint['display_name'] = data['display_name']
+                if 'organization' in data:
+                    orgslug = data['organization'].upper()
+                    try:
+                        org = Organization.objects.get(slug=orgslug)
+                        profiledatapoint['organization'] = org
+                    except Organization.DoesNotExist:
+                        data['organization'] = ''
+                        profiledatapoint['organization'] = None
+                profiledata[data['username']] = profiledatapoint
+
+            for user in users:
+                profile, _ = UserProfile.objects.get_or_create(user=user)
+                profiledatapoint = profiledata[user.username]
+                if profiledatapoint.get('display_name', False):
+                    profile.username_display_override = profiledatapoint.get('display_name')
+                if profiledatapoint.get('organization', False):
+                    profile.organizations.add(profiledatapoint.get('organization'))
+                    profile.display_organization = profiledatapoint.get('organization')
+                profile.first_name = user.first_name
+                profile.last_name = user.last_name
+                profile.save()
 
         for data in many_data:
             data.pop('password_confirm', None)
@@ -177,6 +277,7 @@ def generate_user_from_file(request):
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'username'
 
     def get_queryset(self):
         qs = User.objects.all()
@@ -196,8 +297,8 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
 from django.shortcuts import get_object_or_404
 
 @api_view(['POST'])
-def reset_password(request, pk):
-    user = get_object_or_404(User, pk=pk)
+def reset_password(request, username):
+    user = get_object_or_404(User, username=username)
     if (not request.user.is_superuser) or (not user != request.user):
         raise PermissionDenied()
 

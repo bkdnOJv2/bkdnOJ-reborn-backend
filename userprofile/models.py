@@ -112,11 +112,11 @@ class UserProfile(TimeStampedModel):
 
     @cached_property
     def username(self):
-        return self.username_display_override or self.user.username
+        return self.user.username
 
     @cached_property
     def display_name(self):
-        return self.username_display_override or self.username
+        return self.username_display_override
 
     @cached_property
     def has_any_solves(self):

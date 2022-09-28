@@ -1,7 +1,6 @@
 from django.contrib import admin
 from helpers.models import AllFieldModelAdmin
-from .models import Contest, ContestProblem, \
-    ContestParticipation, ContestSubmission, Rating
+from .models import *
 
 class ContestAdmin(AllFieldModelAdmin):
     pass

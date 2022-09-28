@@ -14,6 +14,10 @@ urlpatterns = [
     #     name='organization-detail',
     # ),
 
+    path('orgs/all/',
+        OrganizationListView.as_view(),
+        name='organization-list-all',
+    ),
     path('orgs/',
         OrganizationSubOrgListView.as_view(),
         # OrganizationListView.as_view(),

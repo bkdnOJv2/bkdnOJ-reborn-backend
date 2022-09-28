@@ -1,12 +1,11 @@
 from functools import lru_cache
 
 from django.shortcuts import get_object_or_404
-from django.http import Http404, HttpResponseBadRequest
+from django.http import Http404
 from django.conf import settings
-from django.db.models import Case, Count, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
-from django.db import IntegrityError
+from django.db.models import Q
+from django.db import transaction
 from django.utils.functional import cached_property
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
 from django.core.cache import cache
@@ -39,7 +38,6 @@ from submission.serializers import SubmissionSubmitSerializer, SubmissionBasicSe
 from userprofile.models import UserProfile as Profile
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
 
-
 from helpers.custom_pagination import Page100Pagination, Page50Pagination, Page10Pagination
 
 import logging
@@ -59,6 +57,7 @@ __all__ = [
 
     ### Participants within Contest
     'ContestParticipationListView', 'ContestParticipationDetailView',
+    'ContestParticipationActView',
     'ContestParticipantListView',
 ]
 
@@ -456,7 +455,7 @@ class ContestSubmissionListView(generics.ListAPIView):
         # @duplicate submission.views L101
         # We are filtering by second-precision, but submission with
         # subtime HH:mm:ss.001 which is greater than HH:mm:ss.000
-        # would not be included in the queryset 
+        # would not be included in the queryset
         # A workaround is to add .999ms the datetimes, basically a way of "rounding"
         # But let's leave it out for now
         if date_before is not None:
@@ -581,6 +580,7 @@ class ContestParticipationListView(generics.ListAPIView):
     """
     serializer_class = ContestParticipationSerializer
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = Page100Pagination
 
     """
         Staff that has access to Contest can see list of Participations
@@ -593,10 +593,11 @@ class ContestParticipationListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = self.get_contest().users
+        request = self.request
 
-        username = self.request.query_params.get('user')
-        if username is not None:
-            queryset = queryset.filter(user__user__username=username)
+        search = request.query_params.get('search')
+        if search is not None:
+            queryset = queryset.filter(user__user__username__startswith=search)
 
         virtual = self.request.query_params.get('virtual')
         if virtual is not None:
@@ -607,13 +608,91 @@ class ContestParticipationListView(generics.ListAPIView):
             elif virtual == 'VIRTUAL':
                 queryset = queryset.filter(virtual__gt=0)
             else:
-                raise Http404()
+                queryset = ContestParticipation.objects.none()
+        
+        if 'organizations[]' in request.query_params:
+            org_slugs = request.query_params.getlist('organizations[]')
+            include_none = ('' in org_slugs)
+            q = Q(organization__slug__in=org_slugs)
+            if include_none: q |= Q(organization=None)
+
+            queryset = queryset.filter(q)
 
         is_disqualified = self.request.query_params.get('is_disqualified')
         if is_disqualified is not None:
             queryset = queryset.filter(is_disqualified=is_disqualified)
 
-        return queryset.all()
+        return queryset.select_related().all()
+
+class ContestParticipationActView(views.APIView):
+    """
+        ADMIN ONLY:
+        Participations Act View for Contest `key`
+    """
+    serializer_class = ContestParticipationSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    """
+        Staff that has access to Contest execute actions to modify Participations
+    """
+    def get_contest(self):
+        contest = get_object_or_404(Contest, key=self.kwargs['key'])
+        if not contest.is_accessible_by(self.request.user):
+            raise Http404()
+        return contest
+    
+    @cached_property
+    def contest(self):
+        return self.get_contest()
+
+    def get_queryset(self):
+        return self.contest.users.filter()
+    
+    ACTION_SET_ORGS = 'set-org'
+    ACTION_DISQUALIFY = 'disqualify'
+    ACTION_UNDISQUALIFY = 'undisqualify'
+    ACTION_DELETE = 'delete'
+
+    AVAILABLE_ACTIONS = [
+        ACTION_SET_ORGS, ACTION_DISQUALIFY, ACTION_UNDISQUALIFY, ACTION_DELETE
+    ]
+    
+    def post(self, request, key):
+        act = request.data.get('action')
+        data = request.data.get('data')
+        if act not in ContestParticipationActView.AVAILABLE_ACTIONS:
+            return Response({
+                'message': "Invalid 'action' value",
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        part_ids = data.get('participations', [])
+        parts = self.get_queryset().filter(id__in=part_ids)
+        if not parts.exists():
+            return Response({
+                'message': "Could not find some participations."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if act == ContestParticipationActView.ACTION_SET_ORGS:
+            org_slug = data.get('organization', '').upper()
+            org = Organization.objects.filter(slug=org_slug)
+            if not org.exists():
+                return Response({
+                    'message': f"Could not find organization(slug={org_slug})."
+                }, status=status.HTTP_404_NOT_FOUND)
+            else:
+                org = org.first()
+            parts.update(organization=org)
+        elif act == ContestParticipationActView.ACTION_DISQUALIFY:
+            with transaction.atomic():
+                for part in parts: part.set_disqualified(True)
+        elif act == ContestParticipationActView.ACTION_UNDISQUALIFY:
+            with transaction.atomic():
+                for part in parts: part.set_disqualified(False)
+        elif act == ContestParticipationActView.ACTION_DELETE:
+            parts.delete()
+
+        self.contest.clear_scoreboard_cache()
+        return Response({ 'message': "Success" }, status=status.HTTP_200_OK)
 
 
 class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -639,6 +718,30 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
         queryset = self.get_contest().users.all()
         return queryset
 
+    def get_object(self, *args, **kwargs):
+        return super().get_object(*args, **kwargs)
+
+    def patch(self, *args, **kwargs):
+        return self.put(*args, **kwargs)
+
+    def put(self, request, key, pk):
+        obj = self.get_object()
+        user = request.user
+        part = self.get_object()
+
+        if "organization" in request.data:
+            org = Organization.objects.filter(slug=request.data.get("organization"))
+            if not org.exists():
+                raise Http404()
+            org = org.first()
+            # TODO: Should we check if user can modify org here?
+            part.organization = org
+
+        part.save()
+        return Response(
+            ContestParticipationDetailSerializer(part).data,
+            status=status.HTTP_200_OK
+        )
 
 class ContestParticipantListView(generics.ListAPIView):
     serializer_class = ProfileSerializer
@@ -686,16 +789,14 @@ class ContestParticipantListView(generics.ListAPIView):
         return queryset
 
     def get(self, request, key):
-        if request.query_params.get('view_full', False) not in ['true', '1']:
-            view_full = '0'
-        else:
-            view_full = '1'
+        view_full = request.query_params.get('view_full', False) in ['true', '1']
 
         # Cache is
-        if view_full == '1':
+        if view_full:
             contest = self.contest
-            # cache_duration = c.scoreboard_cache_duration
-            cache_duration = max( int( (contest.end_time - contest.start_time).total_seconds() ), 120 ) ## Extra 5 mins
+            # cache_duration = contest.scoreboard_cache_duration
+            # cache_duration = max( int( (contest.end_time - contest.start_time).total_seconds() ), 60 ) # seconds
+            cache_duration = 120
             cache_disabled = (cache_duration == 0)
             cache_key = contest.participants_cache_key
             data = None

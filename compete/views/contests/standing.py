@@ -92,7 +92,7 @@ def contest_standing_view(request, key):
         # now = timezone.now()
 
         corgs = Organization.objects.filter(id__in=contest.users\
-                    .annotate(org=F('user__display_organization'))\
+                    .annotate(org=F('organization'))\
                     .exclude(org=None)\
                     .values_list('org', flat=True).order_by('org').distinct())
         org_data = OrganizationBasicSerializer(corgs, many=True).data

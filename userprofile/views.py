@@ -6,10 +6,11 @@ from rest_framework import generics, mixins, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
+from organization.models import Organization
 from .models import UserProfile
 from .serializers import UserProfileSerializer, UserProfileBasicSerializer
 
-class UserProfileDetail(generics.RetrieveAPIView):
+class UserProfileDetail(generics.RetrieveUpdateAPIView):
     """
         Return requested User Profile
     """
@@ -19,10 +20,34 @@ class UserProfileDetail(generics.RetrieveAPIView):
     lookup_field = 'username'
 
     def get_object(self):
-        return get_object_or_404(self.get_queryset(), user__username=self.kwargs.get('username'))
-
+        request = self.request
+        user = request.user
+        method = request.method
+        if method == 'GET' or user.is_superuser:
+            return get_object_or_404(self.get_queryset(), user__username=self.kwargs.get('username'))
+        raise PermissionDenied()
+        
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs,)
+    
+    def put(self, *args, **kwargs):
+        return self.patch(*args, **kwargs)
+    
+    def patch(self, request, username):
+        # profile = self.get_object()
+
+        # if 'organization' in request.data:
+        #     org_slug = request.data.get('organization')
+        #     org = Organization.objects.filter(slug=org_slug)
+        #     if not org.exists(): 
+        #         return Response({
+        #             'message': f"Not found org(slug={org_slug})"
+        #         }, status=status.HTTP_400_BAD_REQUEST)
+        #     org = org.first()
+        #     profile.display_organization = org
+        #     profile.save()
+
+        return super().patch(request, username)
 
 class SelfProfileDetail(generics.RetrieveUpdateAPIView):
     """
