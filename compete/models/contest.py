@@ -459,7 +459,7 @@ class Contest(models.Model):
         return self.is_editable_by(user)
 
     """
-        User can see contest details
+        Check if user can access contest in general
     """
     def is_accessible_by(self, user):
         # Unauthenticated users can only see visible, non-private contests
@@ -485,6 +485,12 @@ class Contest(models.Model):
             return True
 
         return False
+    
+    """
+        Check is user can access contest after it started
+    """
+    def is_accessible_at_start_time_by(self, user):
+        return self.started and self.is_accessible_by(user)
 
     """
         Check if user is currently participating the contest (virtual or live)
