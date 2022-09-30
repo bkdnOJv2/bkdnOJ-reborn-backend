@@ -142,40 +142,46 @@ def add_file_response(request, response, url_path, file_path, file_object=None):
             with file_object.open(file_path, 'rb') as f:
                 response.content = f.read()
 
-def __problem_x_file(request, shortname, path, url_path, storage, content_type='application/octet-stream', skip_perm_check=False):
-    problem = shortname
-    obj = get_object_or_404(Problem, shortname=problem)
+def __problem_x_file(request, shortname, path, url_path, storage, content_type='application/octet-stream', perm_type='access'):
+    problem_code = shortname
+    problem = get_object_or_404(Problem, shortname=problem_code)
 
     from compete.models import Contest
     ckey = request.GET.get('contest', None)
     contest = Contest.objects.filter(key=ckey)
 
-    if not skip_perm_check and not obj.is_accessible_by(request.user, contest=contest.first()):
-        raise Http404()
+    if perm_type == 'edit':
+        if not problem.is_editable_by(request.user):
+            raise Http404()
+    else:
+        if not problem.is_accessible_by(request.user, contest=contest.first()):
+            raise Http404()
 
-    problem_dir = storage.path(problem)
+    problem_dir = storage.path(problem_code)
     if os.path.commonpath(
-        (storage.path(os.path.join(problem, path)), problem_dir)
+        (storage.path(os.path.join(problem_code, path)), problem_dir)
     ) != problem_dir:
         raise Http404()
 
     response = HttpResponse()
     try:
-        add_file_response(request, response, url_path, os.path.join(problem, path), storage)
+        add_file_response(request, response, url_path, os.path.join(problem_code, path), storage)
     except IOError:
         raise Http404()
 
     response['Content-Type'] = content_type
     return response
 
-
-def problem_data_file(request, shortname, path, **kwargs):
+# api_view decorator has auth middleware to set request.user
+@api_view(['GET'])
+def problem_data_file(request, shortname, path):
     if hasattr(settings, 'BKDNOJ_PROBLEM_DATA_INTERNAL'):
         url_path = '%s/%s/%s' % (settings.BKDNOJ_PROBLEM_DATA_INTERNAL, shortname, path)
     else:
         url_path = None
-    return __problem_x_file(request, shortname, path, url_path, problem_data_storage, 'application/octet-stream', **kwargs)
+    return __problem_x_file(request, shortname, path, url_path, problem_data_storage, 'application/octet-stream', 'edit')
 
+# api_view decorator has auth middleware to set request.user
 @api_view(['GET'])
 def problem_pdf_file(request, shortname, path):
     return __problem_x_file(request, shortname, path, None, problem_pdf_storage, 'application/pdf')

@@ -15,16 +15,14 @@ class JudgeBasicSerializer(serializers.ModelSerializer):
         fields = ['id', 'name',]
 
 class JudgeSerializer(serializers.ModelSerializer):
-    problems = serializers.SlugRelatedField(
-        queryset=Problem.objects.all(), many=True, slug_field="shortname",
-        required=False,
-    )
     runtimes = serializers.StringRelatedField(many=True, required=False)
 
     class Meta:
         model = Judge
-        fields = ['id', 'name', 'auth_key', 'online', 'is_blocked', 'description',
-                'load', 'ping', 'problems', 'runtimes', 'start_time']
+        fields = [
+            'id', 'name', 'auth_key', 'online', 'is_blocked',
+            'load', 'ping', 'runtimes', 'start_time',
+        ]
         extra_kwargs = {
             'auth_key': {'write_only': True},
             'start_time': {'read_only': True},

@@ -202,9 +202,12 @@ class Problem(TimeStampedModel):
     if user.is_superuser: #or user.has_perm("problem.see_all_problems"):
         return True
 
-    # Given contest, if user still have participation in that contest
+    ## Given contest, if user still have participation in that contest
+    # NOTE we have yet to implement virtual participation, ignore above
+    # NOTE 2022/09/30: problem data is only accessible after contest started, need time additional check
     if contest != None:
-        if contest.is_accessible_by(user):
+        ## Hotfix20220930
+        if contest.is_accessible_at_start_time_by(user):
             return True
         # if contest.is_editable_by(user):
         #     return True

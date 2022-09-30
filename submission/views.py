@@ -206,22 +206,30 @@ class SubmissionRejudgeView(views.APIView):
             status=status.HTTP_200_OK
         )
 
-class SubmissionResultView(views.APIView):
+class SubmissionResultView(generics.ListAPIView):
     """
         Return a list of test case results for that submission
     """
+    serializer_class = SubmissionTestCaseSerializer
     permission_classes = []
 
+    def get_submission(self):
+        user = self.request.user
+
+        contest_key = self.request.query_params.get('contest', None)
+        contest = Contest.objects.filter(key=contest_key).first()
+        try:
+            sub = Submission.objects.get(pk=self.kwargs['pk'])
+        except Submission.DoesNotExist:
+            raise Http404()
+        if sub.can_see_detail(user, contest):
+            return sub
+        raise PermissionDenied
+
     def get_queryset(self):
-        return SubmissionTestCase.objects.filter(
-            submission=self.kwargs['pk'])
+        return self.get_submission().test_cases.all()
 
-    def get(self, request, pk):
-        submission = get_object_or_404(Submission, pk=pk)
-        serial = SubmissionResultSerializer(submission)
-        return Response(serial.data, status=status.HTTP_200_OK)
-
-class SubmissionResultTestCaseView(views.APIView):
+class SubmissionResultTestCaseView(generics.RetrieveAPIView):
     """
         Return a specific case with number `case_num`
         that belongs to submission `pk`
@@ -230,8 +238,23 @@ class SubmissionResultTestCaseView(views.APIView):
     serializer_class = SubmissionTestCaseSerializer
     permission_classes = []
 
-    def get(self, request, pk, case_num):
-        Qfilter = Q(submission=pk) & Q(case=case_num)
-        inst = get_object_or_404(SubmissionTestCase, Qfilter)
-        serial = SubmissionTestCaseSerializer(inst)
-        return Response(serial.data, status=status.HTTP_200_OK)
+    def get_submission(self):
+        user = self.request.user
+
+        contest_key = self.request.query_params.get('contest', None)
+        contest = Contest.objects.filter(key=contest_key).first()
+        try:
+            sub = Submission.objects.get(pk=self.kwargs['pk'])
+        except Submission.DoesNotExist:
+            raise Http404()
+        if sub.can_see_detail(user, contest):
+            return sub
+        raise PermissionDenied
+    
+    def get_object(self):
+        sub = self.get_submission()
+        casenum = self.kwargs['case_num']
+        try:
+            return sub.test_cases.get(case=casenum)
+        except SubmissionTestCase.DoesNotExist:
+            raise Http404()
