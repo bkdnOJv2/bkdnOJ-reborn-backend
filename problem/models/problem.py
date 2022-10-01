@@ -207,10 +207,15 @@ class Problem(TimeStampedModel):
     # NOTE 2022/09/30: problem data is only accessible after contest started, need time additional check
     if contest != None:
         ## Hotfix20220930
+        prob_in_contest = contest.problems.filter(shortname=self.shortname).exists()
+        if not prob_in_contest:
+            return False
+
         if contest.is_accessible_at_start_time_by(user):
             return True
-        # if contest.is_editable_by(user):
-        #     return True
+        ## end Hotfix20220930
+        if contest.is_editable_by(user):
+            return True
 
         # from compete.models import ContestParticipation
         # cps = ContestParticipation.objects.filter(contest=contest, user=user.profile).all()
