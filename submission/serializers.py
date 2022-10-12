@@ -51,7 +51,13 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
     problem = ProblemBriefSerializer(read_only=True)
     language = serializers.CharField(source='language.name')
     language_ace = serializers.CharField(source='language.ace')
-    source = serializers.CharField(source='source.source')
+
+    source = serializers.SerializerMethodField()
+    def get_source(self, submission):
+        if self.context.get('is_source_visible'): 
+            return submission.source.source
+        return None
+
     test_cases = SubmissionTestCaseSerializer(many=True)
 
     judged_on = JudgeBasicSerializer(read_only=True)

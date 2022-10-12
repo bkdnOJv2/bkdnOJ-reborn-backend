@@ -179,35 +179,70 @@ class Submission(models.Model):
 
   abort.alters_data = True
 
-  def can_see_detail(self, user, contest=None):
-    if not user.is_authenticated:
-      return False
-
-    if not self.problem.is_accessible_by(user, contest):
-      return False
-
-    profile = user.profile
-    source_visibility = self.problem.submission_visibility_mode
-
-    ## Overwrite FOLLOW because we haven't set up this yet
-    if source_visibility == SubmissionSourceAccess.FOLLOW:
-        source_visibility = SubmissionSourceAccess.ONLY_OWN
-
-    if contest!=None and contest.is_editable_by(user):
+  """ 
+    A user can see source code iff:
+    - That user can edit the problem
+    - That user can edit the contest
+    - Problem.submission_visibility_mode?
+      + Yes if Always
+      + No if Hidden
+      + Yes if Follow, OnlyOwn and user is the author
+      + Yes if Solved and user is the author or user has solved
+  """
+  def can_see_source(self, user, contest=None):
+    # NOTE: should do can see detail check already
+    if contest != None and contest.is_editable_by(user):
       return True
+
     if self.problem.is_editable_by(user):
       return True
 
+    source_visibility = self.problem.submission_visibility_mode
+
+    # NOTE: Overwrite FOLLOW because we haven't set up this yet
+    if source_visibility == SubmissionSourceAccess.FOLLOW:
+      source_visibility = SubmissionSourceAccess.ONLY_OWN
+
     if user.has_perm('submission.view_all_submission') or user.is_superuser:
       return True
+
     elif source_visibility == SubmissionSourceAccess.HIDDEN:
       return False
-    elif self.user_id == profile.id: # Themself
-      return True
+
+    elif source_visibility == SubmissionSourceAccess.ONLY_OWN: 
+      if not user.is_authenticated: return False
+      return self.user_id == user.profile.id # Themself
+
     elif source_visibility == SubmissionSourceAccess.ALWAYS:
       return True
-    elif source_visibility == SubmissionSourceAccess.SOLVED and \
-        self.problem.submission_set.filter(user_id=profile.id, result='AC').exists():
+
+    elif source_visibility == SubmissionSourceAccess.SOLVED:
+      if not user.is_authenticated: return False
+      if self.problem.submission_set.filter(user_id=user.profile.id, result='AC').exists():
+        return True
+
+    return False
+
+  """
+    A user can see detail of a submission meaning they can view
+    results, verdict, testcases.
+
+    A user can see submission's **statuses** iff:
+    - If that user can access the problem (via contest). Access Problem checks: 
+      + Can edit contest?
+      + Can edit problem?
+      + Is problem public?
+      + Is problem org-private and user in org? 
+    - If that user can view all submissions OR user is the author
+  """
+  def can_see_detail(self, user, contest=None):
+    if not self.problem.is_accessible_by(user, contest):
+      return False
+
+    if user.has_perm('submission.view_all_submission') or user.is_superuser:
+      return True
+
+    elif user.is_authenticated and self.user_id == user.profile.id: # Themself
       return True
 
     return False
