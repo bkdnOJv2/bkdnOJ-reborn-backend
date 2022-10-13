@@ -10,7 +10,7 @@ from django.db.models import Q
 from rest_framework import views, generics, status, permissions
 from rest_framework.response import Response
 
-from .serializers import SubmissionSerializer, SubmissionTestCaseSerializer, \
+from .serializers import SubmissionSerializer, SubmissionTestCaseDetailSerializer, \
     SubmissionDetailSerializer, SubmissionResultSerializer, SubmissionBasicSerializer
 from .models import Submission, SubmissionTestCase
 from problem.models import Problem
@@ -248,7 +248,7 @@ class SubmissionResultTestCaseView(generics.RetrieveAPIView):
         that belongs to submission `pk`
     """
     queryset = SubmissionTestCase.objects.none()
-    serializer_class = SubmissionTestCaseSerializer
+    serializer_class = SubmissionTestCaseDetailSerializer
     permission_classes = []
 
     def get_submission(self):

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from submission.models import Submission, SubmissionSource, SubmissionTestCase
 
-from userprofile.serializers import UserProfileSerializer, UserProfileSerializer
+from userprofile.serializers import UserProfileBaseSerializer
 from problem.serializers import ProblemBriefSerializer, ProblemBasicSerializer
 from judger.restful.serializers import JudgeBasicSerializer, LanguageSerializer
 
@@ -36,7 +36,32 @@ class SubmissionSerializer(serializers.ModelSerializer):
 class SubmissionTestCaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubmissionTestCase
-        exclude = ['submission',]
+        exclude = ['id', 'submission', 'batch', 'output', 'feedback', 'extended_feedback']
+
+class SubmissionTestCaseDetailSerializer(serializers.ModelSerializer):
+    input_partial = serializers.SerializerMethodField()
+    def get_input_partial(self, sub_case):
+        return None # TODO: add implementation
+
+    answer_partial = serializers.SerializerMethodField()
+    def get_answer_partial(self, sub_case):
+        return None # TODO: add implementation
+    
+    feedback = serializers.SerializerMethodField()
+    def get_feedback(self, sub_case):
+        return None # TODO: add implementation
+
+    extended_feedback = serializers.SerializerMethodField()
+    def get_extended_feedback(self, sub_case):
+        return None # TODO: add implementation
+
+    output = serializers.SerializerMethodField()
+    def get_output(self, sub_case):
+        return None # TODO: add implementation
+
+    class Meta:
+        model = SubmissionTestCase
+        exclude = ['submission', 'batch']
 
 class SubmissionResultSerializer(serializers.ModelSerializer):
     test_cases = SubmissionTestCaseSerializer(many=True, read_only=True)
@@ -47,8 +72,8 @@ class SubmissionResultSerializer(serializers.ModelSerializer):
         ]
 
 class SubmissionDetailSerializer(serializers.ModelSerializer):
-    user = UserProfileSerializer(read_only=True)
-    problem = ProblemBriefSerializer(read_only=True)
+    user = UserProfileBaseSerializer(read_only=True)
+    problem = ProblemBasicSerializer(read_only=True)
     language = serializers.CharField(source='language.name')
     language_ace = serializers.CharField(source='language.ace')
 
@@ -58,9 +83,12 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
             return submission.source.source
         return None
 
-    test_cases = SubmissionTestCaseSerializer(many=True)
-
-    judged_on = JudgeBasicSerializer(read_only=True)
+    # judged_on = JudgeBasicSerializer(read_only=True)
+    judged_on = serializers.SerializerMethodField()
+    def get_judged_on(self, sub):
+        if self.context['request'].user.is_staff:
+            return JudgeBasicSerializer(sub.judged_on).data
+        return None
 
     contest_object = serializers.SerializerMethodField()
     def get_contest_object(self, sub):
@@ -70,18 +98,17 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Submission
-        fields = ("id", "date", "time", "memory", "points", "status", "result",
-            "error", "current_testcase", "batch", "case_points", "case_total",
+        fields = (
+            "id", "date", "time", "memory", "points", "status", "result",
+            "error", "current_testcase", "case_total",
             "judged_date", "rejudged_date",
-
             "contest_object",
-
-            "is_pretested", "locked_after",
             "user", "problem", "language", "language_ace",
-            "source",
-            "judged_on", "contest_object",
 
-            'test_cases',
+            "judged_on", 
+            "source",
+
+            #"batch", "case_points", "locked_after", "is_pretested", 
         )
 
 class SubmissionBasicSerializer(serializers.HyperlinkedModelSerializer):
