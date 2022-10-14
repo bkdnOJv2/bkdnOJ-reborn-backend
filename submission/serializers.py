@@ -77,6 +77,12 @@ class SubmissionDetailSerializer(serializers.ModelSerializer):
     language = serializers.CharField(source='language.name')
     language_ace = serializers.CharField(source='language.ace')
 
+    error = serializers.SerializerMethodField()
+    def get_error(self, submission):
+        if self.context.get('is_source_visible'): 
+            return submission.error
+        return None
+
     source = serializers.SerializerMethodField()
     def get_source(self, submission):
         if self.context.get('is_source_visible'): 

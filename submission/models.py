@@ -239,13 +239,16 @@ class Submission(models.Model):
     if not self.problem.is_accessible_by(user, contest):
       return False
 
-    if user.has_perm('submission.view_all_submission') or user.is_superuser:
-      return True
+    # NOTE: We allow status of submission to be viewed and hide source code/error
+    return True
 
-    elif user.is_authenticated and self.user_id == user.profile.id: # Themself
-      return True
+    # if user.has_perm('submission.view_all_submission') or user.is_superuser:
+    #   return True
 
-    return False
+    # elif user.is_authenticated and self.user_id == user.profile.id: # Themself
+    #   return True
+
+    # return False
 
   def update_contest(self):
     try:

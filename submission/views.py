@@ -249,7 +249,7 @@ class SubmissionResultTestCaseView(generics.RetrieveAPIView):
     """
     queryset = SubmissionTestCase.objects.none()
     serializer_class = SubmissionTestCaseDetailSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAdminUser]
 
     def get_submission(self):
         user = self.request.user
