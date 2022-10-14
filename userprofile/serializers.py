@@ -107,7 +107,15 @@ class UserProfileBasicSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(UserProfileBasicSerializer):
     user = UserSerializer(required=False, read_only=True)
     username = serializers.CharField(read_only=True)
-    avatar = serializers.CharField(read_only=True)
+
+    avatar = serializers.SerializerMethodField()
+    def get_avatar(self, userprofile):
+        request = self.context.get('request')
+        photo_url = userprofile.avatar
+        if photo_url is None:
+            return None
+        return request.build_absolute_uri(photo_url.url)
+
     # language = LanguageBasicSerializer()
 
     organization = serializers.SerializerMethodField()

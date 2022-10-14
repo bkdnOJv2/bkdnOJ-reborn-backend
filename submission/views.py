@@ -1,3 +1,4 @@
+from functools import cached_property
 from django.http import Http404
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
 from django.conf import settings
@@ -9,7 +10,7 @@ from django.db.models import Q
 from rest_framework import views, generics, status, permissions
 from rest_framework.response import Response
 
-from .serializers import SubmissionSerializer, SubmissionTestCaseSerializer, \
+from .serializers import SubmissionSerializer, SubmissionTestCaseDetailSerializer, \
     SubmissionDetailSerializer, SubmissionResultSerializer, SubmissionBasicSerializer
 from .models import Submission, SubmissionTestCase
 from problem.models import Problem
@@ -163,9 +164,17 @@ class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SubmissionDetailSerializer
     permission_classes = []
 
-    def get_object(self, *args, **kwargs):
-        sub = super().get_object(*args)
+    @cached_property
+    def submission(self, *args):
+        return super().get_object(*args)
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['is_source_visible'] = self.submission.can_see_source(self.request.user)
+        return context
+
+    def get_object(self, *args, **kwargs):
+        sub = self.submission
         user = self.request.user
 
         contest_key = self.request.query_params.get('contest', None)
@@ -210,7 +219,6 @@ class SubmissionResultView(generics.ListAPIView):
     """
         Return a list of test case results for that submission
     """
-    serializer_class = SubmissionTestCaseSerializer
     permission_classes = []
 
     def get_submission(self):
@@ -228,6 +236,11 @@ class SubmissionResultView(generics.ListAPIView):
 
     def get_queryset(self):
         return self.get_submission().test_cases.all()
+    
+    def get(self, request, pk):
+        submission = self.get_submission()
+        serial = SubmissionResultSerializer(submission)
+        return Response(serial.data, status=status.HTTP_200_OK)
 
 class SubmissionResultTestCaseView(generics.RetrieveAPIView):
     """
@@ -235,8 +248,8 @@ class SubmissionResultTestCaseView(generics.RetrieveAPIView):
         that belongs to submission `pk`
     """
     queryset = SubmissionTestCase.objects.none()
-    serializer_class = SubmissionTestCaseSerializer
-    permission_classes = []
+    serializer_class = SubmissionTestCaseDetailSerializer
+    permission_classes = [permissions.IsAdminUser]
 
     def get_submission(self):
         user = self.request.user

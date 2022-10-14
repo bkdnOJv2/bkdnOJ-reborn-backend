@@ -8,9 +8,16 @@ from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = os.getenv('DEBUG').lower() in ['true', '1']
-ALLOWED_HOSTS = ['1509.ddns.net', 'localhost', '127.0.0.1']
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+DEBUG = os.getenv('DJANGO_DEBUG').lower() in ['true', '1']
+
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+def get_extra_allowed_host():
+    return os.getenv('DJANGO_ALLOWED_HOST')
+
+if get_extra_allowed_host():
+    ALLOWED_HOSTS.append(get_extra_allowed_host())
 
 # Application definition -------------------------------
 INSTALLED_APPS = [
@@ -166,16 +173,21 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 300 * 1024*1024
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS
+## ==================================== CORS
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL=True
 # CORS_ALLOWED_ORIGINS = [
 #     'http://localhost:3000', 'http://1509.dns.net:3000',
 # ]
 CSRF_COOKIE_HTTPONLY = False
-CSRF_TRUSTED_ORIGINS = ['http://1509.ddns.net:3000', 'http://localhost:3000']
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000', 'https://localhost:3000'
+]
+if get_extra_allowed_host():
+    CSRF_TRUSTED_ORIGINS.append(f"http://{get_extra_allowed_host()}:3000")
+    CSRF_TRUSTED_ORIGINS.append(f"https://{get_extra_allowed_host()}:3000")
 
-# REST Framework settings
+## ==================================== REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'helpers.custom_pagination.PageCountPagination',
     # 'DEFAULT_PAGINATION_CLASS': 'helpers.custom_pagination.PageNumberPaginationWithoutCount',
@@ -191,13 +203,13 @@ REST_FRAMEWORK = {
     ),
 }
 
-# SimpleJWT Settings
+## ==================================== SimpleJWT settings
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
-# LOGGING
+## ==================================== Loggings
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -218,21 +230,28 @@ LOGGING = {
     },
 }
 
-# CACHING
+## ==================================== Caching
+def get_redis_address():
+    redis_host = os.getenv('REDIS_HOST')
+    if redis_host is None: redis_host = 'localhost'
+
+    redis_port = os.getenv('REDIS_PORT')
+    if redis_port is None: redis_port = '6379'
+    return f"redis://{redis_host}:{redis_port}"
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379',
+        'LOCATION': get_redis_address(),
     }
 }
 
-## Celery -------------------------------------------
-CELERY_BROKER_URL = 'redis://localhost:6379'
-CELERY_BROKER_URL_SECRET = 'redis://localhost:6379'
-result_backend = 'redis://localhost:6379'
-# CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+## ==================================== Celery 
+CELERY_BROKER_URL = get_redis_address()
+CELERY_BROKER_URL_SECRET = CELERY_BROKER_URL
+result_backend = CELERY_BROKER_URL
 
-## --------- Site settings
+## ==================================== Site settings
 DEFAULT_USER_TIME_ZONE = 'Asia/Ho_Chi_Minh'
 DEFAULT_USER_LANGUAGE = 'PY3'
 
@@ -295,7 +314,7 @@ VNOJ_ORG_PP_STEP = 0.95
 VNOJ_ORG_PP_ENTRIES = 100
 VNOJ_ORG_PP_SCALE = 1
 
-## --------------------------------------------------
+## -------------------------------------------------- Unused V
 EVENT_DAEMON_USE = False
 EVENT_DAEMON_POST = 'ws://localhost:9997/'
 EVENT_DAEMON_GET = 'ws://localhost:9996/'
@@ -303,10 +322,20 @@ EVENT_DAEMON_POLL = '/channels/'
 EVENT_DAEMON_KEY = None
 EVENT_DAEMON_AMQP_EXCHANGE = 'bkdnoj-events'
 EVENT_DAEMON_SUBMISSION_KEY = '6Sdmkx^%pk@GsifDfXcwX*Y7LRF%RGT8vmFpSxFBT$fwS7trc8raWfN#CSfQuKApx&$B#Gh2L7p%W!Ww'
+## -------------------------------------------------- Unused ^
 
-# -- Judger Bridge
-BRIDGED_JUDGE_ADDRESS = [('localhost', 9999)]
+## ==================================== Judger bridge
+def get_bridged_judge_address():
+    bridged_host=os.getenv('BKDNOJ_JUDGE_ADDRESS')
+    if bridged_host is None: bridged_host = 'localhost'
+
+    bridged_port=os.getenv('BKDNOJ_JUDGE_PORT')
+    if bridged_port is None: bridged_port = 9999
+    return [(bridged_host, bridged_port)]
+
+BRIDGED_JUDGE_ADDRESS = get_bridged_judge_address()
 BRIDGED_JUDGE_PROXIES = None
+
 BRIDGED_DJANGO_ADDRESS = [('localhost', 9998)]
 BRIDGED_DJANGO_CONNECT = None
 
