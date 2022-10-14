@@ -56,6 +56,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     ##
+    'django.middleware.gzip.GZipMiddleware',
 ]
 
 # =================================== Django Debug Toolbar
@@ -331,6 +332,7 @@ def get_bridged_judge_address():
 
     bridged_port=os.getenv('BKDNOJ_JUDGE_PORT')
     if bridged_port is None: bridged_port = 9999
+    else: bridged_port = int(bridged_port)
     return [(bridged_host, bridged_port)]
 
 BRIDGED_JUDGE_ADDRESS = get_bridged_judge_address()
