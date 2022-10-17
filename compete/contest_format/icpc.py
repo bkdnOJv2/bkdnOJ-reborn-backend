@@ -86,8 +86,7 @@ class ICPCContestFormat(DefaultContestFormat):
                 # Frozen and sub_time after frozen
                 is_frozen_sub = (participation.is_frozen and time >= frozen_time)
 
-                sub_time = time - participation.start
-                sub_time = sub_time.total_seconds()
+                sub_time = dt_seconds
 
                 frozen_sub_time = sub_time
                 frozen_points = 0
@@ -124,7 +123,7 @@ class ICPCContestFormat(DefaultContestFormat):
                                 frozen_sub_time = subs.aggregate(time=Max('submission__date'))['time']
                                 frozen_sub_time = from_database_time(frozen_sub_time)
                                 # number of minutes from start to last submission
-                                frozen_sub_time = int((frozen_sub_time - participation.start).total_seconds() // 60)
+                                frozen_sub_time = (frozen_sub_time - participation.start).total_seconds()
                     else:
                         # Not acceptted in anyway, points == frozen_points == 0
                         tries = subs.count()

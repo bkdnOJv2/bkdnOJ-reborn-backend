@@ -161,7 +161,7 @@ class Submission(models.Model):
     if self.contest_object is None or not self.contest_object.enable_frozen:
       return False
 
-    if self.user.owner == user or self.can_see_detail(user):
+    if self.user.owner == user:
       return False
 
     if self.date < self.contest_object.frozen_time:
@@ -189,8 +189,9 @@ class Submission(models.Model):
       + Yes if Follow, OnlyOwn and user is the author
       + Yes if Solved and user is the author or user has solved
   """
-  def can_see_source(self, user, contest=None):
+  def can_see_source(self, user):
     # NOTE: should do can see detail check already
+    contest = self.contest_object
     if contest != None and contest.is_editable_by(user):
       return True
 
@@ -229,27 +230,37 @@ class Submission(models.Model):
     results, verdict, testcases.
 
     A user can see submission's **statuses** iff:
-    - If that user can access the problem (via contest). Access Problem checks: 
-      + Can edit contest?
-      + Can edit problem?
+    - If that user can view all submissions OR user is the author (always see their results)
+    - If contest is None, user can see if results if they can access problem
+    - If there is contest. Access Problem checks: 
+      + Can edit contest? Y if Y
+      + Can view contest? Y if not frozen
+      + Can edit problem? Y if Y
       + Is problem public?
       + Is problem org-private and user in org? 
-    - If that user can view all submissions OR user is the author
   """
-  def can_see_detail(self, user, contest=None):
-    if not self.problem.is_accessible_by(user, contest):
+  def can_see_detail(self, user):
+    if user.has_perm('submission.view_all_submission') or user.is_superuser:
+      return True
+
+    if user.is_authenticated and self.user_id == user.profile.id: # Themself
+      return True
+
+    contest = self.contest_object
+
+    if contest is None:
+      return self.problem.is_accessible_by(user)
+    
+    if not contest.is_accessible_by(user):
+      return False
+    
+    if not contest.problems.filter(id=self.problem.id).exists():
       return False
 
-    # NOTE: We allow status of submission to be viewed and hide source code/error
-    return True
-
-    # if user.has_perm('submission.view_all_submission') or user.is_superuser:
-    #   return True
-
-    # elif user.is_authenticated and self.user_id == user.profile.id: # Themself
-    #   return True
-
-    # return False
+    if contest.is_editable_by(user):
+      return True
+    
+    return not self.is_frozen_to(user)
 
   def update_contest(self):
     try:

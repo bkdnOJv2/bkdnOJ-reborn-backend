@@ -176,11 +176,7 @@ class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_object(self, *args, **kwargs):
         sub = self.submission
         user = self.request.user
-
-        contest_key = self.request.query_params.get('contest', None)
-        contest = Contest.objects.filter(key=contest_key).first()
-
-        if sub.can_see_detail(user, contest):
+        if sub.can_see_detail(user):
             return sub
         raise PermissionDenied
 
