@@ -389,7 +389,11 @@ def contest_participation_add_many(request, key):
             contest.save()
 
         ## Delete participants cache
-        cache.delete(contest.participants_cache_key)
+        # cache.delete(contest.participants_cache_key)
+        cache.delete_many([ 
+            contest.participants_cache_key,
+            key_contest_registered_ids(contest)
+        ])
 
         return Response({}, status=status.HTTP_204_NO_CONTENT)
 

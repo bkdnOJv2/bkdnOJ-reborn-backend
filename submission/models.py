@@ -218,6 +218,7 @@ class Submission(models.Model):
 
     elif source_visibility == SubmissionSourceAccess.SOLVED:
       if not user.is_authenticated: return False
+      if self.user_id == user.profile.id: return True
       if self.problem.submission_set.filter(user_id=user.profile.id, result='AC').exists():
         return True
 

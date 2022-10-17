@@ -21,6 +21,8 @@ from problem.serializers import ProblemInContestSerializer, ProblemBasicSerializ
 from submission.serializers import SubmissionSerializer, SubmissionDetailSerializer
 from .models import Contest, ContestProblem, ContestSubmission, ContestParticipation, Rating
 
+from compete.utils import contest_registered_ids
+
 __all__ = [
     'ContestSerializer',
     'PastContestBriefSerializer', 'ContestBriefSerializer',
@@ -68,7 +70,6 @@ class PastContestBriefSerializer(serializers.ModelSerializer):
             'user_count',
         ]
 
-from compete.utils import contest_registered_ids
 
 class ContestBriefSerializer(serializers.ModelSerializer):
     spectate_allow = serializers.SerializerMethodField()
@@ -309,10 +310,13 @@ class ContestDetailUserSerializer(ContestBriefSerializer):
     class Meta:
         model = Contest
         fields = [
-            'id', 'spectate_allow', 'register_allow', 'is_registered',
-            'authors', 'organizations', 'tags',
+            # 'id', 
+            'spectate_allow', 'register_allow', 'is_registered',
+            'authors', 'organizations', 
+            # 'tags',
             'published', 'is_visible', 'is_organization_private',
             'key', 'name', 'description', 'start_time', 'end_time',
+            'points_precision',
 
             'problems',
             'scoreboard_cache_duration',
