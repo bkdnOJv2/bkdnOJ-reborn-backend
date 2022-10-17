@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.db import transaction
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
 from django.core.cache import cache
 
@@ -118,6 +119,23 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
         if contest.is_editable_by(user):
             return ContestDetailAdminSerializer
         return ContestDetailUserSerializer
+    
+    def get(self, request, key):
+        if request.query_params.get('description'):
+            contest = self.get_object()
+            updated_recently = False
+            if (timezone.now() - contest.modified).total_seconds() < 3*60:
+                updated_recently = True
+            if updated_recently:
+                return Response({
+                    "updated_recently": updated_recently,
+                    "description": contest.description,
+                }, status=status.HTTP_200_OK)
+            return Response({
+                "updated_recently": False,
+            }, status=status.HTTP_200_OK)
+        else:
+            return super().get(request, key)
 
     def put(self, *args, **kwargs):
         return self.patch(*args, **kwargs)
