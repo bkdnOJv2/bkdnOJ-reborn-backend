@@ -1,9 +1,11 @@
+from functools import lru_cache as cache
 from django.conf import settings
 
 from rest_framework import serializers
 from submission.models import Submission, SubmissionSource, SubmissionTestCase
 
 from userprofile.serializers import UserProfileBaseSerializer
+from compete.models import ContestParticipation
 from problem.serializers import ProblemBriefSerializer, ProblemBasicSerializer
 from judger.restful.serializers import JudgeBasicSerializer, LanguageSerializer
 
@@ -19,6 +21,39 @@ class SubmissionSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source='user.owner.username')
     problem = ProblemBasicSerializer(read_only=True)
     language = serializers.CharField(source='language.name')
+
+    is_frozen = serializers.SerializerMethodField()
+    @cache
+    def get_is_frozen(self, obj):
+        user = self.context['request'].user
+        return not obj.can_see_detail(user)
+
+    def _get_result(self, obj, key, default=None):
+        if self.get_is_frozen(obj):
+            return default
+        return getattr(obj, key, default)
+
+    time = serializers.SerializerMethodField()
+    def get_time(self, cs):
+        return self._get_result(cs, 'time')
+
+    memory = serializers.SerializerMethodField()
+    def get_memory(self, cs):
+        return self._get_result(cs, 'memory')
+
+    status = serializers.SerializerMethodField()
+    def get_status(self, cs):
+        return self._get_result(cs, 'status', 'FR')
+
+    result = serializers.SerializerMethodField()
+    def get_result(self, cs):
+        return self._get_result(cs, 'result', 'FR')
+
+    points = serializers.SerializerMethodField()
+    def get_points(self, cs):
+        if self.get_is_frozen(cs):
+            return None
+        return cs.points
 
     contest_object = serializers.SerializerMethodField()
     def get_contest_object(self, sub):
