@@ -1,7 +1,8 @@
 from django.http import Http404
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, views, response, status
+from rest_framework import generics, views, response, status, permissions
 
+from django.core.exceptions import PermissionDenied, ValidationError
 from problem.models import TestCase, ProblemTestProfile, Problem
 from problem.serializers import TestCaseSerializer
 
@@ -14,9 +15,13 @@ class TestCaseListView(generics.ListCreateAPIView):
     """
     pagination_class = None
     serializer_class = TestCaseSerializer
+    permission_classes = [permissions.IsAdminUser]
 
     def get_queryset(self):
         problem = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
+        if not problem.is_editable_by(self.request.user):
+            raise PermissionDenied
+        
         probprofile, _ = ProblemTestProfile.objects.prefetch_related('cases').get_or_create(problem=problem)
         queryset = probprofile.cases
         return queryset
@@ -47,12 +52,16 @@ class TestCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
         Return a detailed view of the requested TestCase
     """
     serializer_class = TestCaseSerializer
+    permission_classes = [permissions.IsAdminUser]
 
     def get_queryset(self):
-        shortname = self.kwargs['shortname']
-        queryset = TestCase.objects.filter(test_profile__problem__shortname=shortname)
+        problem = get_object_or_404(Problem, shortname=self.kwargs['shortname'])
+        if not problem.is_editable_by(self.request.user):
+            raise PermissionDenied
+        
+        probprofile, _ = ProblemTestProfile.objects.prefetch_related('cases').get_or_create(problem=problem)
+        queryset = probprofile.cases
         return queryset
-
 
     def get(self, request, shortname, pk):
         case = self.get_object()

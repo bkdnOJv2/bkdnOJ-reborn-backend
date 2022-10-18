@@ -65,7 +65,9 @@ class ContestProblem(models.Model):
 
     def expensive_recompute_stats(self, force_update=False):
         contest = self.contest
-        queryset = self.submissions.prefetch_related('submission')
+        liveparts = contest.users.filter(virtual=0).values_list('user_id', flat=True)
+        queryset = self.submissions.prefetch_related('submission', 'submission_user').\
+                    filter(submission__user__in=liveparts)
 
         totals = queryset.values_list('submission__user').distinct().count()
         ## ContestSubmission.points >= ContestProblem.points AND result = 'AC'
@@ -78,8 +80,10 @@ class ContestProblem(models.Model):
         if should_refresh:
             queryset = queryset.filter(submission__date__lt=contest.frozen_time)
             self.frozen_attempted_count = queryset.values_list('submission__user').distinct().count()
-            self.frozen_solved_count = queryset.filter(points__gte=self.points, submission__result='AC').\
-                                        values_list('submission__user').distinct().count()
+            self.frozen_solved_count = queryset.filter(
+                points__gte=self.points,
+                submission__result='AC',
+            ).values_list('submission__user').distinct().count()
         else:
             if not contest.is_frozen_time:
                 self.frozen_attempted_count = totals
