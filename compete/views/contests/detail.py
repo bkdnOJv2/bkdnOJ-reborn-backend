@@ -36,7 +36,6 @@ from problem.models import Problem
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, SubmissionBasicSerializer
 
-from userprofile.models import UserProfile as Profile
 from userprofile.serializers import UserProfileBasicSerializer as ProfileSerializer
 
 from helpers.custom_pagination import Page100Pagination, Page50Pagination, Page10Pagination
@@ -743,7 +742,6 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
         return self.put(*args, **kwargs)
 
     def put(self, request, key, pk):
-        obj = self.get_object()
         user = request.user
         part = self.get_object()
 

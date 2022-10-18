@@ -275,6 +275,9 @@ BKDNOJ_PROBLEM_DATA_IN_FILE_EXT         = ('.in',  '.input',  '.inp', '.i', )
 BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT        = ('.out', '.output', '.ans', '.a', )
 BKDNOJ_PROBLEM_ACCEPTABLE_CONFIG_EXT = set(['.ini', '.conf'])
 
+# Problem.TestCase settings
+BKDNOJ_TESTCASE_PREVIEW_LENGTH = 500
+
 # Limit the length of line in problem.ini config file while create problem via archive upload
 BKDNOJ_PROBLEM_CONFIG_TOKEN_LENGTH = 2**16
 

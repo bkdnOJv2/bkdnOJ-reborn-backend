@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from rest_framework import serializers
 from submission.models import Submission, SubmissionSource, SubmissionTestCase
 
@@ -38,26 +40,35 @@ class SubmissionTestCaseSerializer(serializers.ModelSerializer):
         model = SubmissionTestCase
         exclude = ['id', 'submission', 'batch', 'output', 'feedback', 'extended_feedback']
 
+def trim_til_length(txt, lng):
+    if txt is None: return txt
+
+    if lng < 1: lng = 1
+    lim = lng+3
+    if len(txt) >= lim:
+        txt = txt[:lng-3] + '...'
+    return txt
+
 class SubmissionTestCaseDetailSerializer(serializers.ModelSerializer):
     input_partial = serializers.SerializerMethodField()
     def get_input_partial(self, sub_case):
-        return None # TODO: add implementation
+        return sub_case.submission.problem.get_case_partial(sub_case.case)[0]
 
     answer_partial = serializers.SerializerMethodField()
     def get_answer_partial(self, sub_case):
-        return None # TODO: add implementation
+        return sub_case.submission.problem.get_case_partial(sub_case.case)[1]
     
     feedback = serializers.SerializerMethodField()
     def get_feedback(self, sub_case):
-        return None # TODO: add implementation
+        return trim_til_length(sub_case.feedback, settings.BKDNOJ_TESTCASE_PREVIEW_LENGTH)
 
     extended_feedback = serializers.SerializerMethodField()
     def get_extended_feedback(self, sub_case):
-        return None # TODO: add implementation
+        return trim_til_length(sub_case.extended_feedback, settings.BKDNOJ_TESTCASE_PREVIEW_LENGTH)
 
     output = serializers.SerializerMethodField()
     def get_output(self, sub_case):
-        return None # TODO: add implementation
+        return trim_til_length(sub_case.output, settings.BKDNOJ_TESTCASE_PREVIEW_LENGTH)
 
     class Meta:
         model = SubmissionTestCase

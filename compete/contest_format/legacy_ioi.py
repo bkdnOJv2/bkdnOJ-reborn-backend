@@ -93,7 +93,7 @@ class LegacyIOIContestFormat(DefaultContestFormat):
         for problem_id, time, points in frozen_queryset:
             frozen_time = from_database_time(time)
             frozen_points = points
-            print(points)
+            # print(points)
 
             if self.config['cumtime']:
                 dt = int((frozen_time - participation.start).total_seconds() // 60)

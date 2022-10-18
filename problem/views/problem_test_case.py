@@ -56,5 +56,4 @@ class TestCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get(self, request, shortname, pk):
         case = self.get_object()
-        print(case)
         return response.Response(TestCaseSerializer(case).data)

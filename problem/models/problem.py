@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 import errno
+import zipfile as zf
 from django.utils.translation import gettext_lazy as _
 
 import shutil
@@ -255,6 +256,32 @@ class Problem(TimeStampedModel):
     #    return True
     ## ================= is_editable_by END
     return False
+  
+  @lru_cache
+  def get_case_partial(self, case_no):
+    output_limit = settings.BKDNOJ_TESTCASE_PREVIEW_LENGTH + 3
+    test_profile = self.test_profile
+    if test_profile.zipfile is None:
+      return (None, None)
+
+    test_case = test_profile.cases.filter(order=case_no-1)
+    if not test_case.exists():
+      return (None, None)
+    test_case = test_case.first()
+    incontent, anscontent = '', ''
+    try:
+      with zf.ZipFile(test_profile.zipfile, 'r') as zipfile:
+        with zipfile.open(test_case.input_file, 'r') as infile:
+          incontent = infile.read(output_limit)
+          if len(incontent) == output_limit:
+            incontent = incontent[:-3]+b'...'
+        with zipfile.open(test_case.output_file, 'r') as ansfile:
+          anscontent = ansfile.read(output_limit)
+          if len(anscontent) == output_limit:
+            anscontent = anscontent[:-3]+b'...'
+    except:
+      raise
+    return (incontent, anscontent)
 
   @classmethod
   def get_public_problems(cls):

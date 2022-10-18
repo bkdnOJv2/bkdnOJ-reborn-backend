@@ -424,9 +424,8 @@ class ContestSubmissionSerializer(serializers.ModelSerializer):
     is_frozen = serializers.SerializerMethodField()
     @cache
     def get_is_frozen(self, obj):
-        # return self.context['should_freeze_result']
         user = self.context['request'].user
-        return obj.submission.is_frozen_to(user)
+        return not obj.submission.can_see_detail(user)
 
     def _get_result(self, obj, key, default=None):
         if self.get_is_frozen(obj):

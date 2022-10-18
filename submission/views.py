@@ -247,13 +247,14 @@ class SubmissionResultTestCaseView(generics.RetrieveAPIView):
     def get_submission(self):
         user = self.request.user
 
-        contest_key = self.request.query_params.get('contest', None)
-        contest = Contest.objects.filter(key=contest_key).first()
         try:
-            sub = Submission.objects.get(pk=self.kwargs['pk'])
+            sub = Submission.objects.select_related(
+                'problem', 'problem__test_profile', 'contest_object', 'user'
+            ).get(pk=self.kwargs['pk'])
         except Submission.DoesNotExist:
             raise Http404()
-        if sub.can_see_detail(user, contest):
+        
+        if user.has_perm("problem.see_all_testcase") or sub.problem.is_editable_by(user):
             return sub
         raise PermissionDenied
     

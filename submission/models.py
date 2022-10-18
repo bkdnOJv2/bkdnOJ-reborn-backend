@@ -198,16 +198,15 @@ class Submission(models.Model):
     if self.problem.is_editable_by(user):
       return True
 
-    source_visibility = self.problem.submission_visibility_mode
+    if user.has_perm('submission.view_all_submission') or user.is_superuser:
+      return True
 
+    source_visibility = self.problem.submission_visibility_mode
     # NOTE: Overwrite FOLLOW because we haven't set up this yet
     if source_visibility == SubmissionSourceAccess.FOLLOW:
       source_visibility = SubmissionSourceAccess.ONLY_OWN
 
-    if user.has_perm('submission.view_all_submission') or user.is_superuser:
-      return True
-
-    elif source_visibility == SubmissionSourceAccess.HIDDEN:
+    if source_visibility == SubmissionSourceAccess.HIDDEN:
       return False
 
     elif source_visibility == SubmissionSourceAccess.ONLY_OWN: 
@@ -236,8 +235,8 @@ class Submission(models.Model):
       + Can edit contest? Y if Y
       + Can view contest? Y if not frozen
       + Can edit problem? Y if Y
-      + Is problem public?
-      + Is problem org-private and user in org? 
+      + Can access problem? Y if Y
+      + Otherwise N
   """
   def can_see_detail(self, user):
     if user.has_perm('submission.view_all_submission') or user.is_superuser:
@@ -253,14 +252,13 @@ class Submission(models.Model):
     
     if not contest.is_accessible_by(user):
       return False
-    
-    if not contest.problems.filter(id=self.problem.id).exists():
-      return False
 
     if contest.is_editable_by(user):
       return True
-    
-    return not self.is_frozen_to(user)
+
+    if contest.enable_frozen and self.date >= contest.frozen_time:
+      return False
+    return True
 
   def update_contest(self):
     try:
