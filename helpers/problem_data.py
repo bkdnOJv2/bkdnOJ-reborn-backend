@@ -3,6 +3,7 @@ import os
 import re
 
 import yaml
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
@@ -262,6 +263,7 @@ class ProblemDataCompiler(object):
     yml_file = '%s/init.yml' % self.problem.shortname
     try:
       init = self.make_init()
+      init['wall_time_factor'] = 1
       if init:
         init = yaml.safe_dump(init)
     except ProblemDataError as e:

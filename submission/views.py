@@ -219,14 +219,11 @@ class SubmissionResultView(generics.ListAPIView):
 
     def get_submission(self):
         user = self.request.user
-
-        contest_key = self.request.query_params.get('contest', None)
-        contest = Contest.objects.filter(key=contest_key).first()
         try:
             sub = Submission.objects.get(pk=self.kwargs['pk'])
         except Submission.DoesNotExist:
             raise Http404()
-        if sub.can_see_detail(user, contest):
+        if sub.can_see_detail(user):
             return sub
         raise PermissionDenied
 
