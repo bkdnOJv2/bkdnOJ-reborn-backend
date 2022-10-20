@@ -31,7 +31,7 @@ class ProblemTestProfileListView(generics.ListAPIView):
     """
         Return a List of Problem Test Profiles
     """
-    queryset = ProblemTestProfile.objects.all()
+    queryset = ProblemTestProfile.objects.none()
     serializer_class = ProblemTestProfileSerializer
     permission_classes = [permissions.IsAdminUser]
 

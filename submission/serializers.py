@@ -66,6 +66,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
         fields = (
             "id", "date", "time", "memory", "points", "status", "result",
             "user", "problem", "language", "contest_object",
+            "is_frozen",
             #"judged_on", "judged_date", "rejudged_date", "case_points", "case_total",
         )
         read_only_fields = ('id',)

@@ -137,7 +137,7 @@ class ContestProblemRejudgeView(views.APIView):
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if not contest.is_testable_by(user):
+        if not contest.is_editable_by(user):
             raise PermissionDenied
         return contest
 
@@ -157,7 +157,7 @@ class ContestProblemRejudgeView(views.APIView):
     def get(self, request, key, shortname):
         contest = self.get_contest()
         cproblem = get_object_or_404(contest.contest_problems, problem__shortname=shortname)
-        problem = cproblem.problem
+        # problem = cproblem.problem
         queryset = Submission.objects.filter(contest__in=cproblem.submissions.all())
         if not queryset.exists():
             return Response({
@@ -208,7 +208,7 @@ class ContestRecomputeStandingView(views.APIView):
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
         user = self.request.user
-        if not contest.is_testable_by(user):
+        if not contest.is_editable_by(user):
             raise PermissionDenied
         return contest
     
@@ -279,15 +279,16 @@ def contest_participate_view(request, key):
     else:
         SPECTATE = ContestParticipation.SPECTATE
         LIVE = ContestParticipation.LIVE
+        part_type = SPECTATE if contest.is_testable_by(user) else LIVE
         try:
             participation = ContestParticipation.objects.get(
                 contest=contest, user=profile,
-                virtual=(SPECTATE if contest.is_testable_by(user) else LIVE),
+                virtual=part_type,
             )
         except ContestParticipation.DoesNotExist:
             participation = ContestParticipation.objects.create(
                 contest=contest, user=profile,
-                virtual=(SPECTATE if contest.is_testable_by(user) else LIVE),
+                virtual=part_type,
                 real_start=timezone.now(),
             )
         else:
@@ -330,6 +331,10 @@ def contest_leave_view(request, key):
     return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 
+"""
+    Add Many Participations to Contest. This should be an Act method, 
+    but we implem'd this way before the Act convention. Oh well :)
+"""
 @api_view(['POST'])
 def contest_participation_add_many(request, key):
     contest = get_object_or_404(Contest, key=key)

@@ -2,6 +2,7 @@ from functools import lru_cache as cache
 
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -306,6 +307,10 @@ class ContestDetailUserSerializer(ContestBriefSerializer):
                     'shortname': p.problem.shortname,
                 })
         return data
+    
+    updated_recently = serializers.SerializerMethodField()
+    def get_updated_recently(self, contest):
+        return (timezone.now() - contest.modified).total_seconds() < 40
 
     class Meta:
         model = Contest
@@ -325,6 +330,8 @@ class ContestDetailUserSerializer(ContestBriefSerializer):
 
             'is_rated', 'rating_floor', 'rating_ceiling',
             'user_count',
+
+            'updated_recently',
         ]#'__all__'
         optional_fields = ['is_registered', 'spectate_allow', 'register_allow']
         lookup_field = 'key'
@@ -357,6 +364,10 @@ class ContestDetailAdminSerializer(ContestBriefSerializer):
                     'shortname': p.problem.shortname,
                 })
         return data
+    
+    updated_recently = serializers.SerializerMethodField()
+    def get_updated_recently(self, contest):
+        return (timezone.now() - contest.modified).total_seconds() < 40
 
     def to_internal_value(self, data):
         ## Users

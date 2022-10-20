@@ -18,6 +18,7 @@ from rest_framework_simplejwt.serializers import TokenVerifySerializer
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 from .serializers import MyTokenObtainPairSerializer, RegisterSerializer
+from helpers.permissions import IsNotAuthenticated
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
@@ -25,6 +26,13 @@ class MyTokenObtainPairView(TokenObtainPairView):
 from rest_framework_simplejwt.tokens import AccessToken
 from .serializers import UserDetailSerializer
 
+"""
+    Token verify view, receives a JWT token and
+    verify if that token is valid. If token is 
+    valid, returns the corresponding user.
+    Basically a debug view that shares the same
+    functionality as WhoAmI
+"""
 class MyTokenVerifyView(TokenVerifyView):
     serializer_class = TokenVerifySerializer
 
@@ -50,6 +58,11 @@ class MyTokenVerifyView(TokenVerifyView):
             raise InvalidToken(e.args[0])
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
+"""
+    If not authenticated, returns {"user": null}
+    Look for JWT token at Authentication header and
+    return the identity of that user
+"""
 class WhoAmI(views.APIView):
     def get(self, request, format=None):
         if request.user.is_authenticated:
@@ -64,12 +77,18 @@ class WhoAmI(views.APIView):
         return Response({'user' : None}, status=status.HTTP_200_OK)
 
 
-from helpers.permissions import IsNotAuthenticated
+"""
+    Register new account, enforces lowercase alphanum username
+"""
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (IsNotAuthenticated,)
     serializer_class = RegisterSerializer
 
+"""
+    SignOut user, should invalidate their current JWT
+    (but not implem yet)
+"""
 class SignOutView(views.APIView):
     def get(self, request, format=None):
         # TODO: Invalidate token
@@ -83,6 +102,9 @@ from rest_framework import permissions, generics, filters
 from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer
 from helpers.custom_pagination import Page50Pagination
 
+"""
+    List all users in the system. Only staff above can access.
+"""
 class UserList(generics.ListCreateAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAdminUser]
@@ -132,6 +154,19 @@ class UserList(generics.ListCreateAPIView):
 
         return qs
 
+"""
+    Act view for User model. Only staff above can call.
+    We define Act view as a view that receives `act` payload.
+    {
+        "method": method_name,
+        "data": {
+            affected_object_class_1: [...],
+            affected_object_class_2: [...],
+        }
+    }
+    The purpose of this view is to optimize command/query that
+    is applied on a list of objects.
+"""
 class ActOnUsersView(views.APIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAdminUser]
@@ -199,6 +234,12 @@ file_format = {
     }
 }
 
+"""
+    Receives a CSV file (formdata, key=file) with format as 
+    described (call OPTIONS for more info).
+    Generate a list of users based on values described.
+    Only staff above can call.
+"""
 @api_view(['OPTIONS', 'POST'])
 def generate_user_from_file(request):
     def badreq(msg):
@@ -213,7 +254,6 @@ def generate_user_from_file(request):
         if request.FILES.get('file') == None:
             return badreq({"detail": "No file named 'file' attached."})
 
-        line_no = 0
         file = request.FILES['file'].read().decode(file_format['config']['encoding'])
         reader = csv.DictReader(io.StringIO(file))
 
@@ -274,9 +314,14 @@ def generate_user_from_file(request):
         writer.writerows(many_data)
         return Response(output.getvalue(), status=status.HTTP_201_CREATED)
 
+"""
+    Get a certain user, based on `username`.
+    Only staff above can call.
+    Only admin can make changes to that user.
+"""
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserDetailSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAdminUser]
     lookup_field = 'username'
 
     def get_queryset(self):
@@ -285,8 +330,6 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         method = self.request.method
         if method == 'GET':
-            if not user.is_staff:
-                raise PermissionDenied()
             if not user.is_superuser:
                 qs = qs.filter(is_superuser=False)
         else:
@@ -296,6 +339,11 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
 
 from django.shortcuts import get_object_or_404
 
+"""
+    Reset password view.
+    Only user modifies their password.
+    Otherwise only superuser may change.
+"""
 @api_view(['POST'])
 def reset_password(request, username):
     user = get_object_or_404(User, username=username)
@@ -317,12 +365,17 @@ def reset_password(request, username):
     user.save()
     return Response({}, status=status.HTTP_204_NO_CONTENT)
 
-
+"""
+    Get perms group. Unused.
+"""
 class GroupList(generics.ListCreateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAdminUser]
 
+"""
+    Get certain perm group. Unused.
+"""
 class GroupDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
@@ -332,6 +385,9 @@ from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse
 
+"""
+    Get CSRF. Unused
+"""
 @ensure_csrf_cookie
 def get_csrf(request):
     raise NotImplementedError

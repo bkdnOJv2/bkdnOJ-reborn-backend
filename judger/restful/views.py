@@ -20,7 +20,6 @@ class JudgeDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get_object(self):
-        method = self.request.method
         user = self.request.user
         if not user.is_superuser:
             raise PermissionDenied

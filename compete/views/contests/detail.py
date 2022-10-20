@@ -69,7 +69,6 @@ class ContestDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'key'
     permission_classes = []
 
-    @lru_cache
     def get_object(self):
         user = self.request.user
 
@@ -654,7 +653,7 @@ class ContestParticipationActView(views.APIView):
     """
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
-        if not contest.is_accessible_by(self.request.user):
+        if not contest.is_editable_by(self.request.user):
             raise Http404()
         return contest
     
@@ -721,7 +720,6 @@ class ContestParticipationDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_contest(self):
         contest = get_object_or_404(Contest, key=self.kwargs['key'])
-        user = self.request.user
         method = self.request.method
         if method == 'GET':
             if not contest.is_accessible_by(self.request.user):

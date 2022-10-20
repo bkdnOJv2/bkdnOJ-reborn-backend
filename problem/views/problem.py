@@ -275,6 +275,9 @@ __prob_attrib_2_confkey = {
 
 @api_view(['POST'])
 def create_problem_from_archive(request):
+  if not request.user.is_staff:
+    raise PermissionDenied
+
   archive = request.FILES.get('archive')
   if archive == None:
     return Response({'detail': "No zip file with key can be found."},

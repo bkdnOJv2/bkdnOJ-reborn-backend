@@ -30,29 +30,28 @@ class SubmissionListView(generics.ListAPIView):
         query_params = self.request.query_params
         user = self.request.user
         org = self.request.query_params.get('org', None)
-        qs = None
 
         if org:
             org = Organization.objects.filter(slug=org).first()
             if org and org.id in user.profile.member_of_org_with_ids:
                 if self.request.query_params.get('recursive'):
                     probs = Problem.get_org_visible_problems(org, True)
-                    contests = Contest.get_org_visible_contests(org, True)
+                    # contests = Contest.get_org_visible_contests(org, True)
                 else:
                     probs = Problem.get_org_visible_problems(org)
-                    contests = Contest.get_org_visible_contests(org)
+                    # contests = Contest.get_org_visible_contests(org)
             else:
                 return Submission.objects.none()
         else:
             probs = Problem.get_visible_problems(user)
-            contests = Contest.get_visible_contests(user)
+            # contests = Contest.get_visible_contests(user)
 
         queryset = Submission.objects.prefetch_related(
             'problem', 'user', 'user__user', 'language', 'contest_object',
             'contest', 'contest__participation'
         ).filter(
-            Q(contest_object=None, problem_id__in=probs) |
-            Q(contest_object_id__in=contests, contest__participation__virtual=ContestParticipation.LIVE)
+            Q(contest_object=None, problem_id__in=probs) 
+            # | Q(contest_object_id__in=contests, contest__participation__virtual=ContestParticipation.LIVE)
         )
 
         ## Query Params
@@ -176,8 +175,13 @@ class SubmissionDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_object(self, *args, **kwargs):
         sub = self.submission
         user = self.request.user
-        if sub.can_see_detail(user):
-            return sub
+        method = self.request.method
+        if method == 'GET':
+            if sub.can_see_detail(user):
+                return sub
+        else:
+            if user.is_superuser:
+                return sub
         raise PermissionDenied
 
 class SubmissionRejudgeView(views.APIView):
@@ -197,7 +201,8 @@ class SubmissionRejudgeView(views.APIView):
 
     def post(self, request, pk):
         sub = self.get_object(pk)
-        if not sub.problem.is_editable_by(request.user):
+        if not request.user.has_perm("submission.rejudge") and \
+            not sub.problem.is_editable_by(request.user):
             raise PermissionDenied()
         try:
             sub.judge(force_judge=True, rejudge=True)

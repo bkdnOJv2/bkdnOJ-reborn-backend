@@ -430,7 +430,7 @@ class Contest(models.Model):
     """
         User can edit Contest details
     """
-    def is_editable_by(self, user):
+    def is_editable_by(self, user): # TODO: we should figure out how to cache and invalidate cache this
         if not user.is_authenticated:
             return False
 
@@ -451,7 +451,7 @@ class Contest(models.Model):
     """
         User can test Contest
     """
-    def is_testable_by(self, user):
+    def is_testable_by(self, user): # TODO: we should figure out how to cache and invalidate cache this
         if not user.is_authenticated:
             return False
         if user.is_superuser or user.profile.id in self.tester_ids:
@@ -461,7 +461,7 @@ class Contest(models.Model):
     """
         Check if user can access contest in general
     """
-    def is_accessible_by(self, user):
+    def is_accessible_by(self, user): # TODO: we should figure out how to cache and invalidate cache this
         # Unauthenticated users can only see visible, non-private contests
         if not user.is_authenticated:
             if self.published and self.is_visible:

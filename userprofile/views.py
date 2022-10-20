@@ -16,7 +16,9 @@ class UserProfileDetail(generics.RetrieveUpdateAPIView):
     """
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
-    permission_classes = []
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
     lookup_field = 'username'
 
     def get_object(self):

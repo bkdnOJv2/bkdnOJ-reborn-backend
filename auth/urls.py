@@ -12,7 +12,7 @@ from .views import MyTokenObtainPairView, MyTokenVerifyView, SignOutView, \
 from auth.views import ActOnUsersView
 
 urlpatterns = [
-    path('csrf/', get_csrf, name='get-csrf'),
+    # path('csrf/', get_csrf, name='get-csrf'),
 
     path('sign-in/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('sign-in/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -29,6 +29,6 @@ urlpatterns = [
     path('user/<str:username>/', UserDetail.as_view(), name='user-detail'),
     path('user/<str:username>/reset-password/', reset_password, name='user-detail-reset-password'),
 
-    path('group/', GroupList.as_view(), name='group-list'),
-    path('group/<int:pk>/', GroupDetail.as_view(), name='group-detail'),
+    # path('group/', GroupList.as_view(), name='group-list'),
+    # path('group/<int:pk>/', GroupDetail.as_view(), name='group-detail'),
 ]

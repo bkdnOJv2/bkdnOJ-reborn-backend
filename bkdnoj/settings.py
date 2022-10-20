@@ -202,6 +202,27 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'helpers.renderer.BrowsableAPIRendererWithoutForms',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'bkdnoj.throttling.BkdnojThrottling',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/min', 
+        # Anon = not logged in, only browsing + standing
+        'user': '800/min', 
+        # Estimate upper bound of #req of 1 user (participating contest):
+        # non_stop_browsing=120 + open_tabs*polling_per_min=15*3 + ((sub_modal_polling_per_min=20 + recent_sub_polling_per_min=12)*sub_max=3) + standing_polling_per_min=2 (cache_scoreboard = 30s)
+        # 120               + 45                            + (20+12)*3             + 2
+        # 263
+        # One account should only be shared to at most 3 real users: Upper bound #req of one team is: 263*3 = 789 req
+        # So 800 is a safe threshold. But isn't 800 too much?
+
+        # Estimate lower bound of #req of 1 user (participating contest):
+        # One user SHOULD open at least 2 tab (Standing + Submitting + user_journey)
+        # non_stop_browsing=120 + submitting_non_stop_per_min=20+12 + standing=3
+        # 155
+        # One team (3 people) is: 155 * 3 = 465 req
+    }
 }
 
 ## ==================================== SimpleJWT settings
