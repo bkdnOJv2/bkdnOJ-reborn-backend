@@ -1,5 +1,25 @@
 # User-custom files
 uwsgi.ini
+test/
+
+# Media
+app/media/avatar/*
+!app/media/avatar/default.png
+
+app/media/org_avatar/*
+!app/media/org_avatar/default.png
+
+app/media/problem_data/*
+!app/media/problem_data/HELLO
+!app/media/problem_data/APLUSB
+
+app/media/problem_pdf/*
+!app/media/problem_pdf/HELLO
+!app/media/problem_pdf/APLUSB
+
+# HTML CSS JS and web build
+app/react_app/*
+app/static/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

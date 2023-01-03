@@ -1,0 +1,14 @@
+archive: APLUSB.zip
+test_cases:
+- in: New folder/1.in
+  out: New folder/1.out
+  points: 1
+- in: New folder/2.in
+  out: New folder/2.out
+  points: 1
+- in: New folder/3.in
+  out: New folder/3.out
+  points: 1
+- in: New folder/4.in
+  out: New folder/4.out
+  points: 1

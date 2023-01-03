@@ -1,0 +1,6 @@
+archive: p1-A.zip
+wall_time_factor: 1
+test_cases:
+- in: 1_1.in
+  out: 1_1.out
+  points: 1
