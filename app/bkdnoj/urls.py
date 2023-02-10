@@ -1,14 +1,12 @@
+"""
+    URLs for bkdnOJ app
+"""
+
 from django.contrib import admin
-from django.urls import path, include, re_path
+from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
-
-from rest_framework import routers
-from rest_framework.urlpatterns import format_suffix_patterns
-
-from auth.views import UserList, UserDetail, GroupList, GroupDetail
-from django.views.generic import TemplateView
 
 urlpatterns = [
     path('', include('bkdnoj.static_urls')),
@@ -28,13 +26,20 @@ urlpatterns = [
     ])),
 ]
 
+
 def loader_io(request):
+    """
+        For DEBUG only. Returns loader_io key so it can do cloud-based api "benchmark"
+    """
     return HttpResponse('loaderio-e932291bca6cb4c5ef455de0ed45c6ed', content_type="text/plain")
 
+
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.MEDIA_URL,
+                          document_root=settings.MEDIA_ROOT)
     urlpatterns += [path('__debug__', include('debug_toolbar.urls'))]
-    urlpatterns += [path('loaderio-e932291bca6cb4c5ef455de0ed45c6ed/', loader_io, name='loader-io-view')]
+    urlpatterns += [path('loaderio-e932291bca6cb4c5ef455de0ed45c6ed/',
+                         loader_io, name='loader-io-view')]
 # urlpatterns += [
 #     # ReactApp
 #     re_path(r'^(?!api/).*', TemplateView.as_view(template_name='index.html')),

@@ -1,18 +1,24 @@
+"""
+    User choices (dmoj legacy)
+"""
+
 from collections import defaultdict
 from operator import itemgetter
-
 import pytz
-from django.utils.translation import gettext_lazy as _
+
 
 def make_timezones():
+    """
+        All supported timezones
+    """
     data = defaultdict(list)
-    for tz in pytz.all_timezones:
-        if '/' in tz:
-            area, loc = tz.split('/', 1)
+    for timezone in pytz.all_timezones:
+        if '/' in timezone:
+            area, loc = timezone.split('/', 1)
         else:
-            area, loc = 'Other', tz
+            area, loc = 'Other', timezone
         if not loc.startswith('GMT'):
-            data[area].append((tz, loc))
+            data[area].append((timezone, loc))
     return sorted(data.items(), key=itemgetter(0))
 
 
