@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from .views import MyTokenObtainPairView, MyTokenVerifyView, SignOutView, \
-    UserList, UserDetail, get_csrf, WhoAmI, generate_user_from_file, reset_password
+    UserList, UserDetail, WhoAmI, generate_user_from_file, reset_password
 
 
 urlpatterns = [

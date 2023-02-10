@@ -5,33 +5,28 @@
 import csv
 import io
 import django_filters
-from django.middleware.csrf import get_token
+from django.core.exceptions import PermissionDenied
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+from django.db import transaction
+from django.utils.crypto import get_random_string
 from django.shortcuts import get_object_or_404
-from rest_framework_simplejwt.tokens import AccessToken
-from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
-from helpers.custom_pagination import Page50Pagination
-from helpers.timezone import datetime_from_z_timestring
-from .serializers import UserSerializer, UserDetailSerializer, GroupSerializer, 
-    MyTokenObtainPairSerializer, RegisterSerializer
-from django.http import HttpResponse, HttpResponseNotFound
-from helpers.permissions import IsNotAuthenticated
+from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenVerifySerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenVerifyView
 from rest_framework import permissions, generics, filters, status, views
-from rest_framework.validators import ValidationError
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
-from django.core.exceptions import PermissionDenied
-from django.utils.crypto import get_random_string
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
-from django.db import transaction
-
+from helpers.permissions import IsNotAuthenticated
+from helpers.custom_pagination import Page50Pagination
+from helpers.timezone import datetime_from_z_timestring
 from userprofile.models import UserProfile
 from organization.models import Organization
+from .serializers import UserDetailSerializer, GroupSerializer, \
+    MyTokenObtainPairSerializer, RegisterSerializer
 User = get_user_model()
 
 
@@ -45,7 +40,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
 class MyTokenVerifyView(TokenVerifyView):
     """
         Token verify view, receives a JWT token and
-        verify if that token is valid. If token is 
+        verify if that token is valid. If token is
         valid, returns the corresponding user.
         Basically a debug view that shares the same
         functionality as WhoAmI
@@ -82,7 +77,7 @@ class WhoAmI(views.APIView):
         return the identity of that user
     """
 
-    def get(self, request, format=None):
+    def get(self, request, fmat=None):
         """
             GET method
         """
@@ -113,7 +108,10 @@ class SignOutView(views.APIView):
         (but not implem yet)
     """
 
-    def get(self, request, format=None):
+    def get(self, request, fmat=None):
+        """
+            GET method (TODO: should be POST though!)
+        """
         # TODO: Invalidate token
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -238,7 +236,7 @@ class ActOnUsersView(views.APIView):
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-file_format = {
+FILE_FORMAT = {
     'user_attributes': {
         'username': {
             'required': True,
@@ -265,7 +263,7 @@ file_format = {
 @api_view(['OPTIONS', 'POST'])
 def generate_user_from_file(request):
     """
-        Receives a CSV file (formdata, key=file) with format as 
+        Receives a CSV file (formdata, key=file) with format as
         described (call OPTIONS for more info).
         Generate a list of users based on values described.
         Only staff above can call.
@@ -273,79 +271,78 @@ def generate_user_from_file(request):
 
     def badreq(msg):
         return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
     user = request.user
     if not user.is_staff:
         raise PermissionDenied
 
     if request.method == 'OPTIONS':
-        return Response(file_format, status=status.HTTP_200_OK)
-    else:
-        if request.FILES.get('file') == None:
-            return badreq({"detail": "No file named 'file' attached."})
+        return Response(FILE_FORMAT, status=status.HTTP_200_OK)
 
-        file = request.FILES['file'].read().decode(
-            file_format['config']['encoding'])
-        reader = csv.DictReader(io.StringIO(file))
+    if request.FILES.get('file') is None:
+        return badreq({"detail": "No file named 'file' attached."})
 
-        many_data = [line for line in reader]
+    file = request.FILES['file'].read().decode(
+        FILE_FORMAT['config']['encoding'])
+    reader = csv.DictReader(io.StringIO(file))
 
-        with transaction.atomic():
-            for i in range(len(many_data)):
-                data = many_data[i]
-                pwd = None
-                if 'password' in data.keys():
-                    pwd = data['password']
-                else:
-                    pwd = get_random_string(length=16)
-                data['password'] = data['password_confirm'] = pwd
-                many_data[i] = data
+    many_data = list(reader)
 
-            ser = RegisterSerializer(data=many_data, many=True)
-            if not ser.is_valid():
-                return badreq({'detail': "Cannot create some users.", 'errors': ser.errors})
+    with transaction.atomic():
+        for i, data in enumerate(many_data):
+            pwd = None
+            if 'password' in data.keys():
+                pwd = data['password']
+            else:
+                pwd = get_random_string(length=16)
+            data['password'] = data['password_confirm'] = pwd
+            many_data[i] = data
 
-            users = ser.save()
+        ser = RegisterSerializer(data=many_data, many=True)
+        if not ser.is_valid():
+            return badreq({'detail': "Cannot create some users.", 'errors': ser.errors})
 
-            # Post value assignment
-            profiledata = {}
-            for i in range(len(many_data)):
-                data = many_data[i]
-                profiledatapoint = {}
-                if 'display_name' in data:
-                    profiledatapoint['display_name'] = data['display_name']
-                if 'organization' in data:
-                    orgslug = data['organization'].upper()
-                    try:
-                        org = Organization.objects.get(slug=orgslug)
-                        profiledatapoint['organization'] = org
-                    except Organization.DoesNotExist:
-                        data['organization'] = ''
-                        profiledatapoint['organization'] = None
-                profiledata[data['username']] = profiledatapoint
+        users = ser.save()
 
-            for user in users:
-                profile, _ = UserProfile.objects.get_or_create(user=user)
-                profiledatapoint = profiledata[user.username]
-                if profiledatapoint.get('display_name', False):
-                    profile.username_display_override = profiledatapoint.get(
-                        'display_name')
-                if profiledatapoint.get('organization', False):
-                    profile.organizations.add(
-                        profiledatapoint.get('organization'))
-                    profile.display_organization = profiledatapoint.get(
-                        'organization')
-                profile.first_name = user.first_name
-                profile.last_name = user.last_name
-                profile.save()
+        # Post value assignment
+        profiledata = {}
+        for i, data in enumerate(many_data):
+            profiledatapoint = {}
+            if 'display_name' in data:
+                profiledatapoint['display_name'] = data['display_name']
+            if 'organization' in data:
+                orgslug = data['organization'].upper()
+                try:
+                    org = Organization.objects.get(slug=orgslug)
+                    profiledatapoint['organization'] = org
+                except Organization.DoesNotExist:
+                    data['organization'] = ''
+                    profiledatapoint['organization'] = None
+            profiledata[data['username']] = profiledatapoint
 
-        for data in many_data:
-            data.pop('password_confirm', None)
+        for user in users:
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profiledatapoint = profiledata[user.username]
+            if profiledatapoint.get('display_name', False):
+                profile.username_display_override = profiledatapoint.get(
+                    'display_name')
+            if profiledatapoint.get('organization', False):
+                profile.organizations.add(
+                    profiledatapoint.get('organization'))
+                profile.display_organization = profiledatapoint.get(
+                    'organization')
+            profile.first_name = user.first_name
+            profile.last_name = user.last_name
+            profile.save()
 
-        output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=many_data[0].keys())
-        writer.writeheader()
-        writer.writerows(many_data)
-        return Response(output.getvalue(), status=status.HTTP_201_CREATED)
+    for data in many_data:
+        data.pop('password_confirm', None)
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=many_data[0].keys())
+    writer.writeheader()
+    writer.writerows(many_data)
+    return Response(output.getvalue(), status=status.HTTP_201_CREATED)
 
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -383,18 +380,18 @@ def reset_password(request, username):
     if (not request.user.is_superuser) or (not user != request.user):
         raise PermissionDenied()
 
-    pw = request.data.get('password', None)
-    pw2 = request.data.get('password', None)
-    if pw is None or pw2 is None:
+    password = request.data.get('password', None)
+    password2 = request.data.get('password', None)
+    if password is None or password2 is None:
         return Response({
             'detail': "'password' and 'password_confirm' cannot be empty."
         }, status=status.HTTP_400_BAD_REQUEST)
-    if pw != pw2:
+    if password != password2:
         return Response({
             'detail': "'password' and 'password_confirm' must not be different."
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    user.set_password(pw)
+    user.set_password(password)
     user.save()
     return Response({}, status=status.HTTP_204_NO_CONTENT)
 
