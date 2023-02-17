@@ -11,11 +11,18 @@ else
     COMPO="app/$COMPO"
 fi
 
+ERRONLY=$2
+if [ ERRONLY != "--errors-only" ]; then
+    ERRONLY=""
+fi
+
 echo_cyan "LINT" "bkdnOJ.v2 $COMPO..."
 
 pylint --output-format=colorized \
-    --load-plugins pylint_django \
     --django-settings-module=bkdnoj.settings \
+    --load-plugins pylint_django \
+    --ignore=migrations \
+    --errors-only \
     $COMPO 
 
 deactivate
