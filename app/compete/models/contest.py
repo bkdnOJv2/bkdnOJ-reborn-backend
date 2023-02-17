@@ -27,23 +27,27 @@ __all__ = ['Contest', 'ContestTag']
 
 from .rating import Rating
 
+
 class MinValueOrNoneValidator(MinValueValidator):
     def compare(self, a, b):
         return a is not None and b is not None and super().compare(a, b)
 
 
 class ContestTag(models.Model):
-    color_validator = RegexValidator('^#(?:[A-Fa-f0-9]{3}){1,2}$', _('Invalid colour.'))
+    color_validator = RegexValidator(
+        '^#(?:[A-Fa-f0-9]{3}){1,2}$', _('Invalid colour.'))
 
     name = models.CharField(
         max_length=20, verbose_name=_('tag name'),
-        unique=True, db_index=True, #unique implies db_index=True
+        unique=True, db_index=True,  # unique implies db_index=True
         validators=[RegexValidator(r'^[a-z-]+$',
                     message=_('Lowercase letters and hyphens only.'))
                     ]
     )
-    color = models.CharField(max_length=7, verbose_name=_('tag colour'), validators=[color_validator])
-    description = models.TextField(verbose_name=_('tag description'), blank=True)
+    color = models.CharField(max_length=7, verbose_name=_(
+        'tag colour'), validators=[color_validator])
+    description = models.TextField(
+        verbose_name=_('tag description'), blank=True)
 
     def __str__(self):
         return self.name
@@ -58,7 +62,8 @@ class ContestTag(models.Model):
                 r, g, b = [ord(bytes.fromhex(i * 2)) for i in self.color[1:]]
             else:
                 r, g, b = [i for i in bytes.fromhex(self.color[1:])]
-            cache[self.color] = '#000' if 299 * r + 587 * g + 144 * b > 140000 else '#fff'
+            cache[self.color] = '#000' if 299 * r + \
+                587 * g + 144 * b > 140000 else '#fff'
         return cache[self.color]
 
     class Meta:
@@ -77,43 +82,47 @@ class Contest(models.Model):
     )
     # ---------------------
     key = models.CharField(max_length=20, verbose_name=_('contest identifier'),
-        unique=True, db_index=True, #unique implies db_index=True
-        validators=[
-            RegexValidator('^[a-z][a-z0-9\-_]+$',
-               _('Contest identifier must starts with a letter, contains only letters (lowercase), digits, and dashes.')),
-            MinLengthValidator(4),
-        ]
+                           unique=True, db_index=True,  # unique implies db_index=True
+                           validators=[
+        RegexValidator('^[a-z][a-z0-9\-_]+$',
+                           _('Contest identifier must starts with a letter, contains only letters (lowercase), digits, and dashes.')),
+        MinLengthValidator(4),
+    ]
     )
-    name = models.CharField(max_length=100, verbose_name=_('contest name'), db_index=True)
+    name = models.CharField(max_length=100, verbose_name=_(
+        'contest name'), db_index=True)
 
     description = models.TextField(verbose_name=_('description'), blank=True)
-    problems = models.ManyToManyField(Problem, verbose_name=_('problems'), through='ContestProblem')
+    problems = models.ManyToManyField(
+        Problem, verbose_name=_('problems'), through='ContestProblem')
 
-    start_time = models.DateTimeField(verbose_name=_('start time'), db_index=True)
+    start_time = models.DateTimeField(
+        verbose_name=_('start time'), db_index=True)
     end_time = models.DateTimeField(verbose_name=_('end time'), db_index=True)
-    time_limit = models.DurationField(verbose_name=_('time limit'), blank=True, null=True)
+    time_limit = models.DurationField(
+        verbose_name=_('time limit'), blank=True, null=True)
 
     locked_after = models.DateTimeField(
         verbose_name=_('contest lock'), null=True, blank=True,
         help_text=_('Prevent submissions from this contest '
                     'from being rejudged after this date.'))
 
-    ## Visibility/Accessibility
+    # Visibility/Accessibility
     authors = models.ManyToManyField(Profile, help_text=_('These users will be able to edit the contest.'),
                                      related_name='authors+')
     collaborators = models.ManyToManyField(Profile,
-        help_text=_('These users will be able to edit the contest, '
-                    'but will not be listed as authors.'),
-        related_name='collaborators+', blank=True)
+                                           help_text=_('These users will be able to edit the contest, '
+                                                       'but will not be listed as authors.'),
+                                           related_name='collaborators+', blank=True)
     reviewers = models.ManyToManyField(Profile,
-        help_text=_('These users will be able to view the contest, '
-                    'but not edit it.'),
-        blank=True, related_name='reviewers+')
-
+                                       help_text=_('These users will be able to view the contest, '
+                                                   'but not edit it.'),
+                                       blank=True, related_name='reviewers+')
 
     published = models.BooleanField(
         verbose_name=_('contest published'), default=False,
-        help_text=_('Allow users beside authors, collaborators, reviewers to see the contest'),
+        help_text=_(
+            'Allow users beside authors, collaborators, reviewers to see the contest'),
     )
 
     is_visible = models.BooleanField(
@@ -121,28 +130,30 @@ class Contest(models.Model):
         help_text=_('Allow contest data to be viewed by anyone'),
     )
 
-    ## Private contestants/organizations
+    # Private contestants/organizations
     is_private = models.BooleanField(
         verbose_name=_('private to specific users'), default=False
     )
     private_contestants = models.ManyToManyField(Profile,
-        blank=True, verbose_name=_('private contestants'),
-        help_text=_('If private, only these users may register to the contest'),
-        related_name='private_contestants+'
-    )
+                                                 blank=True, verbose_name=_('private contestants'),
+                                                 help_text=_(
+                                                     'If private, only these users may register to the contest'),
+                                                 related_name='private_contestants+'
+                                                 )
 
     is_organization_private = models.BooleanField(
         verbose_name=_('private to organizations'), default=False)
     organizations = models.ManyToManyField(Organization,
-        blank=True, verbose_name=_('organizations'),
-        help_text=_('If private, only these organizations may register to the contest')
-    )
+                                           blank=True, verbose_name=_('organizations'),
+                                           help_text=_(
+                                               'If private, only these organizations may register to the contest')
+                                           )
 
     banned_users = models.ManyToManyField(Profile,
-        verbose_name=_('Banned users'), blank=True,
-        help_text=_('Bans the selected users from joining this contest.'))
+                                          verbose_name=_('Banned users'), blank=True,
+                                          help_text=_('Bans the selected users from joining this contest.'))
 
-    ## Scoreboard
+    # Scoreboard
     scoreboard_cache_duration = models.PositiveIntegerField(
         verbose_name=_('scoreboard cache timeout'),
         default=0,
@@ -163,11 +174,11 @@ class Contest(models.Model):
         help_text=_('Scoreboard visibility through the duration of the contest')
     )
 
-    ## Freezing
+    # Freezing
     enable_frozen = models.BooleanField(
         verbose_name=_("enable contest freezing"),
         help_text=_("Enable scoreboard/submission freezing, "
-            "stop showing actual results after 'frozen_time'."),
+                    "stop showing actual results after 'frozen_time'."),
         default=True, db_index=True,
     )
     frozen_time = models.DateTimeField(
@@ -182,7 +193,7 @@ class Contest(models.Model):
         default=False,
     )
 
-    ## Rating
+    # Rating
     is_rated = models.BooleanField(
         verbose_name=_('contest rated'), help_text=_('Whether this contest can be rated.'),
         default=False
@@ -234,8 +245,8 @@ class Contest(models.Model):
     # )
 
     tags = models.ManyToManyField(ContestTag,
-        verbose_name=_('contest tags'), blank=True, related_name='contests'
-    )
+                                  verbose_name=_('contest tags'), blank=True, related_name='contests'
+                                  )
 
     # summary = models.TextField(blank=True, verbose_name=_('contest summary'),
     #                            help_text=_('Plain-text, shown in meta description tag, e.g. for social media.'))
@@ -255,23 +266,28 @@ class Contest(models.Model):
                     'module. Leave empty to use None. Exact format depends on the contest format '
                     'selected.')
     )
-    user_count = models.IntegerField(verbose_name=_('the amount of live participants'), default=0)
+    user_count = models.IntegerField(verbose_name=_(
+        'the amount of live participants'), default=0)
 
     points_precision = models.IntegerField(
         verbose_name=_('precision points'), default=3,
         validators=[MinValueValidator(0), MaxValueValidator(10)],
         help_text=_('Number of digits to round points to.'))
 
-    modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
-    standing_date = models.DateTimeField(verbose_name=_('standing date'), null=True, auto_now_add=True)
+    modified = models.DateTimeField(verbose_name=_(
+        'modified date'), null=True, auto_now=True)
+    standing_date = models.DateTimeField(verbose_name=_(
+        'standing date'), null=True, auto_now_add=True)
     standing_outdated_reason = models.CharField(verbose_name=_('standing outdated reason'),
-        max_length=255, blank=True, default='', help_text=_('reason for why Standing is outdated'))
+                                                max_length=255, blank=True, default='', help_text=_('reason for why Standing is outdated'))
 
-    STANDING_RELATED_FIELDS = ['frozen_time', 'format_name', 'points_precision', 'format_config', 'banned_users']
+    STANDING_RELATED_FIELDS = ['frozen_time', 'format_name',
+                               'points_precision', 'format_config', 'banned_users']
+
     def __init__(self, *args, **kwargs):
         super(Contest, self).__init__(*args, **kwargs)
 
-        ## BUG: `getattr`` cause a recursion with 'format_config' and 'banned_users', might be mutability issue
+        # BUG: `getattr`` cause a recursion with 'format_config' and 'banned_users', might be mutability issue
         # for field in Contest.STANDING_RELATED_FIELDS:
         #     setattr(self, f"__{field}", getattr(self, field, None))
 
@@ -290,19 +306,19 @@ class Contest(models.Model):
     @cached_property
     def author_ids(self):
         return Contest.authors.through.objects.filter(contest=self).\
-                values_list('userprofile_id', flat=True)
+            values_list('userprofile_id', flat=True)
 
     @cached_property
     def editor_ids(self):
         return self.author_ids.union(
-            Contest.collaborators.through.objects.filter(contest=self).\
+            Contest.collaborators.through.objects.filter(contest=self).
             values_list('userprofile_id', flat=True)
         )
 
     @cached_property
     def tester_ids(self):
         return Contest.reviewers.through.objects.filter(contest=self).\
-                values_list('userprofile_id', flat=True)
+            values_list('userprofile_id', flat=True)
 
     @cached_property
     def can_join(self):
@@ -315,7 +331,7 @@ class Contest(models.Model):
     def show_scoreboard(self):
         # if not self.can_join:
         #     return False
-        if (self.scoreboard_visibility in \
+        if (self.scoreboard_visibility in
                 (self.SCOREBOARD_AFTER_CONTEST, self.SCOREBOARD_AFTER_PARTICIPATION) and
                 not self.ended):
             return False
@@ -324,6 +340,7 @@ class Contest(models.Model):
     """
         Check if user can see the normal scoreboard
     """
+
     def can_see_scoreboard(self, user):
         if self.can_see_full_scoreboard(user):
             return True
@@ -332,26 +349,27 @@ class Contest(models.Model):
     """
         See full scoreboard means: Seeing pass the frozen, or hidden scoreboard
     """
+
     def can_see_full_scoreboard(self, user):
         if not self.published:
             return False
 
-        ## Scoreboard is private, or frozen then only added users can see, check for them
+        # Scoreboard is private, or frozen then only added users can see, check for them
         if not self.show_scoreboard or self.is_frozen:
             if not user.is_authenticated:
                 return False
 
-            ### TODO check for perms
-            ## Only reveal hidden scoreboard to editors
+            # TODO check for perms
+            # Only reveal hidden scoreboard to editors
             if user.is_superuser or user.profile.id in self.editor_ids:
                 return True
 
-            ## Admin of orgs
+            # Admin of orgs
             if self.is_organization_private and \
-                Organization.exists_pair_of_ancestor_descendant(user.profile.admin_of.all(), self.organizations.all()):
-                    return True
+                    Organization.exists_pair_of_ancestor_descendant(user.profile.admin_of.all(), self.organizations.all()):
+                return True
 
-            ## And added individuals
+            # And added individuals
             # if self.view_contest_scoreboard.filter(user__id=user.profile.id).exists():
             #     return True
 
@@ -398,7 +416,8 @@ class Contest(models.Model):
         return self.enable_frozen and self.is_frozen_time
 
     def set_standing_outdated_reason(self, reasons):
-        Contest.objects.filter(id=self.id).update(standing_outdated_reason=(', '.join(reasons))[:255])
+        Contest.objects.filter(id=self.id).update(
+            standing_outdated_reason=(', '.join(reasons))[:255])
 
     def append_standing_outdated_reason(self, new_reasons):
         reasons = self.standing_outdated_reason.split(', ')
@@ -412,7 +431,8 @@ class Contest(models.Model):
         # Schedule recomputing job after editting Contest Problems list
         from compete.tasks import recompute_standing
         async_status = recompute_standing.delay(self.id)
-        Contest.objects.filter(id=self.id).update(standing_date=self.modified, standing_outdated_reason='')
+        Contest.objects.filter(id=self.id).update(
+            standing_date=self.modified, standing_outdated_reason='')
         self.clear_cache()
 
     def update_user_count(self):
@@ -430,7 +450,9 @@ class Contest(models.Model):
     """
         User can edit Contest details
     """
-    def is_editable_by(self, user): # TODO: we should figure out how to cache and invalidate cache this
+
+    # TODO: we should figure out how to cache and invalidate cache this
+    def is_editable_by(self, user):
         if not user.is_authenticated:
             return False
 
@@ -451,7 +473,9 @@ class Contest(models.Model):
     """
         User can test Contest
     """
-    def is_testable_by(self, user): # TODO: we should figure out how to cache and invalidate cache this
+
+    # TODO: we should figure out how to cache and invalidate cache this
+    def is_testable_by(self, user):
         if not user.is_authenticated:
             return False
         if user.is_superuser or user.profile.id in self.tester_ids:
@@ -461,7 +485,9 @@ class Contest(models.Model):
     """
         Check if user can access contest in general
     """
-    def is_accessible_by(self, user): # TODO: we should figure out how to cache and invalidate cache this
+
+    # TODO: we should figure out how to cache and invalidate cache this
+    def is_accessible_by(self, user):
         # Unauthenticated users can only see visible, non-private contests
         if not user.is_authenticated:
             if self.published and self.is_visible:
@@ -485,16 +511,18 @@ class Contest(models.Model):
             return True
 
         return False
-    
+
     """
         Check is user can access contest after it started
     """
+
     def is_accessible_at_start_time_by(self, user):
         return self.started and self.is_accessible_by(user)
 
     """
         Check if user is currently participating the contest (virtual or live)
     """
+
     def is_in_contest(self, user):
         # Check if user still have parts in the contest
         # We checks this because later we have to take care of Virtual Participations
@@ -506,18 +534,20 @@ class Contest(models.Model):
                 return False
 
             participation = self.users.filter(user=user.profile).last()
-            if participation and not participation.ended: return True
+            if participation and not participation.ended:
+                return True
         return False
 
     """
         Check if user is has already completed participating in the contest
     """
+
     def has_completed_contest(self, user):
         if user.is_authenticated:
             participation = self.users.filter(user=user.profile).last()
-            if participation and participation.ended: return True
+            if participation and participation.ended:
+                return True
         return False
-
 
     def is_registerable_by(self, user):
         if not user.is_authenticated:
@@ -560,14 +590,15 @@ class Contest(models.Model):
             return cls.get_public_contests()
 
         queryset = cls.objects.only('key', 'name', 'format_name', 'is_rated', 'published', 'is_visible',
-                    'is_private', 'is_organization_private', 'start_time', 'end_time', 'time_limit',
-                    'enable_frozen', 'frozen_time', 'user_count').filter()
+                                    'is_private', 'is_organization_private', 'start_time', 'end_time', 'time_limit',
+                                    'enable_frozen', 'frozen_time', 'user_count').filter()
 
-        if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')): # superuser included
-            q=Q(published=True) & (
+        if not (user.has_perm('compete.see_private_contest') or user.has_perm('compete.edit_all_contest')):  # superuser included
+            q = Q(published=True) & (
                 Q(is_visible=True) |
                 Q(is_private=True, private_contestants=user.profile) |
-                Q(is_organization_private=True, organizations__in=user.profile.member_of_org_with_ids)
+                Q(is_organization_private=True,
+                  organizations__in=user.profile.member_of_org_with_ids)
             )
 
             q |= Q(authors=user.profile)
@@ -580,23 +611,26 @@ class Contest(models.Model):
     @classmethod
     def get_org_visible_contests(cls, org, recursive=False):
         queryset = cls.objects.only('key', 'name', 'format_name', 'is_rated', 'published', 'is_visible',
-                    'is_private', 'is_organization_private', 'start_time', 'end_time', 'time_limit',
-                    'enable_frozen', 'frozen_time', 'user_count').filter()
+                                    'is_private', 'is_organization_private', 'start_time', 'end_time', 'time_limit',
+                                    'enable_frozen', 'frozen_time', 'user_count').filter()
 
         if recursive:
             q = (
                 Q(published=True, is_organization_private=True) & (
-                    Q(organizations__id=org.id) | Q(organizations__id__in=org.get_ancestors().values_list('id', flat=True))
+                    Q(organizations__id=org.id) | Q(
+                        organizations__id__in=org.get_ancestors().values_list('id', flat=True))
                 )
             )
         else:
-            q = Q(published=True, is_organization_private=True) & Q(organizations__id=org.id)
+            q = Q(published=True, is_organization_private=True) & Q(
+                organizations__id=org.id)
 
         return queryset.filter(q).distinct()
 
     def rate(self):
         with transaction.atomic():
-            Rating.objects.filter(contest__end_time__range=(self.end_time, self._now)).delete()
+            Rating.objects.filter(contest__end_time__range=(
+                self.end_time, self._now)).delete()
             for contest in Contest.objects.filter(
                 is_rated=True, end_time__range=(self.end_time, self._now),
             ).order_by('end_time'):
@@ -610,7 +644,7 @@ class Contest(models.Model):
             prob.save(update_fields=['order'])
             numbering += 1
 
-    ## Clear scoreboard cache
+    # Clear scoreboard cache
     def clear_scoreboard_cache(self):
         keys = []
         for view_mode in ['full', 'froze']:
@@ -618,7 +652,7 @@ class Contest(models.Model):
             keys.append(cache_key)
         cache.delete_many(keys)
 
-    ## cache_keys
+    # cache_keys
     @property
     def participants_cache_key(self):
         cache_key = f"contest-{self.key}-participants-full"
@@ -631,7 +665,7 @@ class Contest(models.Model):
             keys.append(cache_key)
         cache.delete_many(keys)
 
-    ## Django model methods
+    # Django model methods
     def clean(self):
         if self.time_limit != None and self.time_limit.total_seconds() < 0:
             raise ValidationError(
@@ -660,13 +694,13 @@ class Contest(models.Model):
             raise ValidationError('Contest problem label script: %s' % e)
         else:
             if not isinstance(label, str):
-                raise ValidationError('Contest problem label script: script should return a string.')
+                raise ValidationError(
+                    'Contest problem label script: script should return a string.')
 
     def save(self, *args, **kwargs):
         self.clean()
-        cont = super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
         self.clear_scoreboard_cache()
-        return cont
 
     def __str__(self):
         return self.name
@@ -688,4 +722,3 @@ class Contest(models.Model):
         verbose_name = _('contest')
         verbose_name_plural = _('contests')
         ordering = ['-id']
-

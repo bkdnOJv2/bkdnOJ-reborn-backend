@@ -17,6 +17,7 @@ __all__ = [
     'MinValueOrNoneValidator',
 ]
 
+
 class MinValueOrNoneValidator(MinValueValidator):
     def compare(self, a, b):
         return a is not None and b is not None and super().compare(a, b)
@@ -24,12 +25,13 @@ class MinValueOrNoneValidator(MinValueValidator):
 
 class ContestProblem(models.Model):
     problem = models.ForeignKey(Problem,
-        verbose_name=_('problem'), related_name='contests', on_delete=CASCADE)
+                                verbose_name=_('problem'), related_name='contests', on_delete=CASCADE)
     contest = models.ForeignKey(Contest,
-        verbose_name=_('contest'), related_name='contest_problems', on_delete=CASCADE)
+                                verbose_name=_('contest'), related_name='contest_problems', on_delete=CASCADE)
     points = models.IntegerField(verbose_name=_('points'))
     partial = models.BooleanField(default=True, verbose_name=_('partial'))
-    is_pretested = models.BooleanField(default=False, verbose_name=_('is pretested'))
+    is_pretested = models.BooleanField(
+        default=False, verbose_name=_('is pretested'))
 
     order = models.PositiveIntegerField(
         db_index=True, verbose_name=_('order'))
@@ -39,25 +41,30 @@ class ContestProblem(models.Model):
         default=0, null=True, blank=True)
     max_submissions = models.IntegerField(
         validators=[MinValueOrNoneValidator(1, _('Why include a problem you '
-                                                "can't submit to?"))],
+                                                 "can't submit to?"))],
         help_text=_('Maximum number of submissions for this problem, '
                     'or leave blank for no limit.'),
         default=None, null=True, blank=True,
     )
 
     solved_count = models.PositiveIntegerField(default=0,
-        help_text=_("Number of users who has solved this problem"),
-    )
+                                               help_text=_(
+                                                   "Number of users who has solved this problem"),
+                                               )
     attempted_count = models.PositiveIntegerField(default=0,
-        help_text=_("Number of users who has attempted this problem"),
-    )
+                                                  help_text=_(
+                                                      "Number of users who has attempted this problem"),
+                                                  )
     frozen_solved_count = models.PositiveIntegerField(default=0,
-        help_text=_("Number of users who has solved this problem before frozen time"),
-    )
+                                                      help_text=_(
+                                                          "Number of users who has solved this problem before frozen time"),
+                                                      )
     frozen_attempted_count = models.PositiveIntegerField(default=0,
-        help_text=_("Number of users who has attempted this problem before frozen time"),
-    )
-    modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
+                                                         help_text=_(
+                                                             "Number of users who has attempted this problem before frozen time"),
+                                                         )
+    modified = models.DateTimeField(verbose_name=_(
+        'modified date'), null=True, auto_now=True)
 
     @cached_property
     def label(self):
@@ -65,21 +72,25 @@ class ContestProblem(models.Model):
 
     def expensive_recompute_stats(self, force_update=False):
         contest = self.contest
-        liveparts = contest.users.filter(virtual=0).values_list('user_id', flat=True)
+        liveparts = contest.users.filter(
+            virtual=0).values_list('user_id', flat=True)
         queryset = self.submissions.prefetch_related('submission', 'submission_user').\
-                    filter(submission__user__in=liveparts)
+            filter(submission__user__in=liveparts)
 
         totals = queryset.values_list('submission__user').distinct().count()
-        ## ContestSubmission.points >= ContestProblem.points AND result = 'AC'
+        # ContestSubmission.points >= ContestProblem.points AND result = 'AC'
         solves = queryset.filter(points__gte=self.points, submission__result='AC').\
-                    values_list('submission__user').distinct().count()
+            values_list('submission__user').distinct().count()
         self.attempted_count = totals
         self.solved_count = solves
 
-        should_refresh = force_update or (not (contest.modified < self.modified))
+        should_refresh = force_update or (
+            not (contest.modified < self.modified))
         if should_refresh:
-            queryset = queryset.filter(submission__date__lt=contest.frozen_time)
-            self.frozen_attempted_count = queryset.values_list('submission__user').distinct().count()
+            queryset = queryset.filter(
+                submission__date__lt=contest.frozen_time)
+            self.frozen_attempted_count = queryset.values_list(
+                'submission__user').distinct().count()
             self.frozen_solved_count = queryset.filter(
                 points__gte=self.points,
                 submission__result='AC',
@@ -92,9 +103,7 @@ class ContestProblem(models.Model):
         self.save()
 
     def clean(self):
-        try:
-            if self.order is None or int(self.order) < 0: raise
-        except Exception:
+        if self.order is None or int(self.order) < 0:
             raise ValidationError(_("'order' must be a positive integer"))
 
     def save(self, *args, **kwargs):

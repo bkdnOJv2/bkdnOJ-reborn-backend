@@ -25,9 +25,9 @@ class ContestParticipation(models.Model):
     SPECTATE = -1
 
     contest = models.ForeignKey(Contest,
-        verbose_name=_('associated contest'), related_name='users', on_delete=CASCADE)
+                                verbose_name=_('associated contest'), related_name='users', on_delete=CASCADE)
     user = models.ForeignKey(Profile,
-        verbose_name=_('user'), related_name='contest_history', on_delete=CASCADE)
+                             verbose_name=_('user'), related_name='contest_history', on_delete=CASCADE)
     real_start = models.DateTimeField(
         verbose_name=_('start time'), default=timezone.now, db_column='start')
 
@@ -62,7 +62,8 @@ class ContestParticipation(models.Model):
         verbose_name=_('virtual participation id'), default=LIVE,
         help_text=_('0 means non-virtual, otherwise the n-th virtual participation.'))
 
-    modified = models.DateTimeField(verbose_name=_('modified date'), null=True, auto_now=True)
+    modified = models.DateTimeField(verbose_name=_(
+        'modified date'), null=True, auto_now=True)
 
     organization = models.ForeignKey(
         'organization.Organization', verbose_name=_('organization'),
@@ -76,7 +77,8 @@ class ContestParticipation(models.Model):
                 self.score = self.frozen_score = -9999
                 self.cumtime = self.frozen_cumtime = 0
                 self.tiebreaker = self.frozen_tiebreaker = 0
-                self.save(update_fields=['score', 'cumtime', 'tiebreaker', 'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker'])
+                self.save(update_fields=['score', 'cumtime', 'tiebreaker',
+                          'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker'])
     recompute_results.alters_data = True
 
     def set_disqualified(self, disqualified):
@@ -85,8 +87,8 @@ class ContestParticipation(models.Model):
         if self.contest.is_rated and self.contest.ratings.exists():
             self.contest.rate()
         if self.is_disqualified:
-            if self.user.current_contest == self:
-                self.user.remove_contest()
+            # if self.user.current_contest == self: # Unreachable because we abandoned .current_contest
+            #     self.user.remove_contest()
             self.contest.banned_users.add(self.user)
         else:
             self.contest.banned_users.remove(self.user)
@@ -142,7 +144,7 @@ class ContestParticipation(models.Model):
     # ========================== Others
     def save(self, *args, **kwargs):
         self.modified = self._now
-        return super().save(*args, **kwargs);
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         if self.spectate:
