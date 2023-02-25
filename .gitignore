@@ -2,6 +2,8 @@
 uwsgi.ini
 test/
 
+data/
+
 # Media
 app/media/avatar/*
 !app/media/avatar/default.png

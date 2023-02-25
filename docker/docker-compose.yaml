@@ -1,0 +1,69 @@
+version: "3"
+
+services:
+  db:
+    build:
+      context: ..
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Y1c5emRHUDNkeXoxNTM0YWtnbG92ZG9ybGQ=
+      POSTGRES_DB: bkdnoj2
+    volumes:
+      - type: volume
+        source: main-volume
+        target: /var/lib/postgresql/data
+    networks:
+      - main-net
+
+  cache:
+    image: redis
+    restart: always
+    networks:
+      - main-net
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/app/Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: bkdnoj2
+      DB_USER: postgres
+      DB_PASSWORD: Y1c5emRHUDNkeXoxNTM0YWtnbG92ZG9ybGQ=
+      POSTGRES_NAME: bkdnoj2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Y1c5emRHUDNkeXoxNTM0YWtnbG92ZG9ybGQ=
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      DJANGO_SECRET_KEY: oajweoprja6TGHjkotrfghji&^TrghjkyHJK09876ytgfn
+      DJANGO_DEBUG: True
+      DJANGO_ALLOWED_HOST: 1509.ddns.net
+      BKDNOJ_JUDGE_ADDRESS: localhost
+      BKDNOJ_JUDGE_PORT: 9999
+      DJANGO_SETTINGS_MODULE: bkdnoj.settings
+    depends_on:
+      - db
+      - cache
+    ports:
+      - 8000:8000
+    networks:
+      - main-net
+      - default
+  
+networks:
+  main-net:
+
+volumes:
+  main-volume:
+    driver_opts:
+      type: none
+      o: bind
+      device: "${PWD}/../data"
