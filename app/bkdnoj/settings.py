@@ -22,7 +22,7 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-DEBUG = os.getenv('DJANGO_DEBUG').lower() in ['true', '1']
+DEBUG = str(os.getenv('DJANGO_DEBUG')).lower() in ['true', '1']
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 

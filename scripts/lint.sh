@@ -4,25 +4,25 @@ source ./venv/bin/activate
 
 set -e
 
-COMPO=$1
-if [ COMPO = "" ]; then
-    COMPO="app"
+component=$1
+if [ component = "" ]; then
+    component="app"
 else
-    COMPO="app/$COMPO"
+    component="app/$component"
 fi
 
-ERRONLY=$2
-if [ ERRONLY != "--errors-only" ]; then
-    ERRONLY=""
+err_only=$2
+if [ err_only != "--errors-only" ]; then
+    err_only=""
 fi
 
-echo_cyan "LINT" "bkdnOJ.v2 $COMPO..."
+echo_cyan "LINTING" "bkdnOJ.v2 $component..."
 
 pylint --output-format=colorized \
     --django-settings-module=bkdnoj.settings \
     --load-plugins pylint_django \
     --ignore=migrations \
     --errors-only \
-    $COMPO 
+    $component 
 
 deactivate
