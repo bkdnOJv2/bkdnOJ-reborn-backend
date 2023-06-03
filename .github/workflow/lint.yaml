@@ -1,11 +1,16 @@
 name: Linting
 
 on:
-  push: {}
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
 
 jobs:
   lint:
-    runs-on: ubuntu-
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout repository
