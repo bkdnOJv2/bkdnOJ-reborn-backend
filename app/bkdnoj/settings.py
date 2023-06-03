@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-DEBUG = os.getenv('DJANGO_DEBUG').lower() in ['true', '1']
+DEBUG = (os.getenv('DJANGO_DEBUG') or '').lower() in ['true', '1']
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
