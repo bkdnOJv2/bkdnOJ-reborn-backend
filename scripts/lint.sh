@@ -1,7 +1,6 @@
 #!/bin/bash
 # Loads necessaries
 set -e # Exit on error
-source ./venv/bin/activate
 source ./scripts/utils/prettyecho.sh
 
 # Code
@@ -13,7 +12,7 @@ else
     component="app/$component"
 fi
 
-echo_cyan "LINTING" "Errors only mode. Ignoring warnings and bad conventions.."
+echo_cyan "LINTING" "ERRORS ONLY MODE. Ignoring warnings and bad conventions.."
 echo_cyan "LINTING" "bkdnOJ.v2 $component..."
 
 pylint --output-format=colorized \
