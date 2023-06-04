@@ -1,4 +1,8 @@
 #!/bin/bash
+# Loads necessaries
+set -e
+source ./scripts/utils/prettyecho.sh
+
 IMAGE_NAME="bkdnoj-v2/backend"
 
 docker build \
