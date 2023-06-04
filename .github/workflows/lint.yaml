@@ -1,4 +1,4 @@
-name: Linting
+name: Lint
 
 on:
   push:
@@ -26,5 +26,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install pylint==2.15.9 pylint-django==2.5.3 pylint-plugin-utils==0.7 
 
-      - name: Run lint script
+      - name: Linting
         run: bash ./scripts/lint.sh
