@@ -11,4 +11,4 @@ RUN apk add --update \
 RUN apk add git libseccomp libseccomp-dev libffi-dev
 RUN pip install -r requirements.txt
 
-RUN python manage.py migrate
+CMD ["python", "manage.py", "migrate"]
