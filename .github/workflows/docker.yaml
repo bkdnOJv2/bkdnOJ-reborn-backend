@@ -1,0 +1,40 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main-2.0 # temporary main branch before swapping
+      - releases/*
+      - tasks/*
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Determine branch name
+        id: branch
+        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+
+      - name: Build and push Docker image
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_ACCESS_TOKEN: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        run: |
+          echo $DOCKER_ACCESS_TOKEN | docker login -u $DOCKER_USERNAME --password-stdin
+          if [[ "${BRANCH_NAME}" == "releases/"* ]]; then
+            IMAGE_TAG="releases-$(echo ${BRANCH_NAME} | cut -d/ -f2)"
+          elif [[ "${BRANCH_NAME}" == "main-2.0" ]]; then
+            IMAGE_TAG="latest"
+          elif [[ "${BRANCH_NAME}" == "tasks/"* ]]; then
+            IMAGE_TAG="tasks-$(echo ${BRANCH_NAME} | cut -d/ -f2)"
+          else
+            echo "Branch name not supported."
+            exit 1
+          fi
+
+          bash ./scripts/dockerize.sh app $IMAGE_TAG push
