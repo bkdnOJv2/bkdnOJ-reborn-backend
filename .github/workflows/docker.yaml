@@ -5,8 +5,6 @@ on:
     branches:
       - main-2.0 # temporary main branch before swapping
       - releases/*
-  workflow_dispatch:
-    branches:
       - tasks/*
 
 jobs:
@@ -29,11 +27,11 @@ jobs:
         run: |
           echo $DOCKER_ACCESS_TOKEN | docker login -u $DOCKER_USERNAME --password-stdin
           if [[ "${BRANCH_NAME}" == "releases/"* ]]; then
-            IMAGE_TAG="${BRANCH_NAME}"
+            IMAGE_TAG="releases-$(echo ${BRANCH_NAME} | cut -d/ -f2)"
           elif [[ "${BRANCH_NAME}" == "main-2.0" ]]; then
             IMAGE_TAG="latest"
           elif [[ "${BRANCH_NAME}" == "tasks/"* ]]; then
-            IMAGE_TAG="t-$(echo ${BRANCH_NAME} | cut -d/ -f2)_m-$(echo ${{ github.sha }} | cut -c1-7)"
+            IMAGE_TAG="tasks-$(echo ${BRANCH_NAME} | cut -d/ -f2)"
           else
             echo "Branch name not supported."
             exit 1
