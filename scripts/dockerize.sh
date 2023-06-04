@@ -26,12 +26,10 @@ if [[ $IMAGE_TAG == "" ]]; then
     exit 1
 fi
 
-echo "Building: docker build -f ./docker/$IMAGE_DOCKERFILE_SUBDIR/Dockerfile -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} ./app" 
-# docker build \
-#     --progress=plain \
-#     -f ./docker/$IMAGE_DOCKERFILE_SUBDIR/Dockerfile -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} ./app
+docker build \
+    --progress=plain \
+    -f ./docker/$IMAGE_DOCKERFILE_SUBDIR/Dockerfile -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} ./app
 
 if [[ $PUSH_TO_REMOTE == "push" ]]; then
-    echo "Pushing to ${IMAGE_REPOSITORY}:${IMAGE_TAG}"
-    # docker push ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+    docker push ${IMAGE_REPOSITORY}:${IMAGE_TAG}
 fi
