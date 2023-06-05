@@ -223,9 +223,13 @@ class TestCaseSerializer(serializers.ModelSerializer):
 class ProblemTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProblemTag
-        fields = ['id', 'name']
+        fields = ('id', 'name', 'descriptions')
+        extra_kwargs = {
+            'descriptions': {'write_only': True},
+        }
 
 class ProblemTagDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProblemTag
-        fields = ['id', 'name', 'descriptions', 'created', 'modified']
+        fields = ('id', 'name', 'descriptions', 'created', 'modified')
+        read_only_fields = ('created', 'modified')

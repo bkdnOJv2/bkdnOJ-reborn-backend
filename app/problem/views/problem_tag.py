@@ -1,4 +1,5 @@
-from rest_framework import generics, permissions
+from rest_framework import generics
+from django.core.exceptions import PermissionDenied
 from ..models import ProblemTag
 from ..serializers import ProblemTagSerializer, ProblemTagDetailsSerializer
 from helpers.custom_pagination import PageBillionPagination
@@ -17,7 +18,7 @@ class ProblemTagListView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         if not request.user.is_superuser:
-            raise permissions.PermissionDenied("You do not have permission")
+            raise PermissionDenied
         return super().create(request, *args, **kwargs)
 
 
@@ -33,10 +34,10 @@ class ProblemTagDetailsView(generics.RetrieveUpdateDestroyAPIView):
 
     def update(self, request, *args, **kwargs):
         if not request.user.is_superuser:
-            raise permissions.PermissionDenied("You do not have permission")
+            raise PermissionDenied
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         if not request.user.is_superuser:
-            raise permissions.PermissionDenied("You do not have permission")
+            raise PermissionDenied
         return super().destroy(request, *args, **kwargs)
