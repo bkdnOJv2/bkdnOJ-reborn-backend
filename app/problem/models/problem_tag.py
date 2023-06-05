@@ -24,6 +24,7 @@ class ProblemTag(TimeStampedModel):
         help_text=("Problems those carry this tag"),
         blank=True,
         default=[],
+        related_name="tags",
     )
 
     def __str__(self):
