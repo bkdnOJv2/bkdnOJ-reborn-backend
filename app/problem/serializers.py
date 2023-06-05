@@ -7,7 +7,7 @@ from organization.models import Organization
 from organization.serializers import OrganizationSerializer
 
 from userprofile.models import UserProfile
-from .models import Problem, ProblemTestProfile, TestCase
+from .models import Problem, ProblemTestProfile, TestCase, ProblemTag
 
 import logging
 logger = logging.getLogger(__name__)
@@ -219,3 +219,13 @@ class TestCaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestCase
         fields = '__all__'
+
+class ProblemTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProblemTag
+        fields = ['id', 'name']
+
+class ProblemTagDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProblemTag
+        fields = ['id', 'name', 'descriptions', 'created', 'modified']

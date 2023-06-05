@@ -51,6 +51,15 @@ class Page100Pagination(pagination.PageNumberPagination):
             'results': data
         })
 
+class PageBillionPagination(PageCountPagination):
+    page_size = 1_000_000_000
+    def get_paginated_response(self, data):
+        return Response({
+            'count': self.page.paginator.count,
+            'total_pages': self.page.paginator.num_pages,
+            'results': data
+        })
+
 from django.core.cache import cache
 from django.utils.functional import cached_property
 from django.core.paginator import Paginator, Page, PageNotAnInteger
