@@ -61,6 +61,10 @@ urlpatterns = [
         ProblemTestProfileDetailView.as_view(),
         name='problemtestprofile-detail',
     ),
+
+    # Problem Tags
+    path('problem-tags/', ProblemTagListView.as_view(), name='problem-tag_list'),
+    path('problem-tags/<int:pk>/', ProblemTagDetailsView.as_view(), name='problem-tag_details'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
