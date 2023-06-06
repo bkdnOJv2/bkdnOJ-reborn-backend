@@ -200,8 +200,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
-        # 'helpers.renderer.BrowsableAPIRendererWithoutForms',
-        'rest_framework.renderers.BrowsableAPIRenderer',
+        'helpers.renderer.BrowsableAPIRendererWithoutForms',
     ),
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
