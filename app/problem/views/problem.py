@@ -28,6 +28,7 @@ from submission.serializers import SubmissionSubmitSerializer, \
 from organization.models import Organization
 
 from helpers.string_process import ustrip
+from helpers.parsing import query_args as helper_query_args
 
 __all__ = [
   'ProblemListView', 'ProblemDetailView',
@@ -77,26 +78,34 @@ class ProblemListView(generics.ListCreateAPIView):
       if not user.is_authenticated:
         return Problem.get_public_problems()
 
+      queryset = Problem.objects.none()
+
       org = self.request.query_params.get('org', None)
       if org:
         org = Organization.objects.filter(slug=org).first()
 
         if org and org.id in user.profile.member_of_org_with_ids:
-
           if self.request.query_params.get('recursive'):
-            return Problem.get_org_visible_problems(org, True)
-
-          return Problem.get_org_visible_problems(org)
-
+            queryset = Problem.get_org_visible_problems(org, True)
+          else:
+            queryset = Problem.get_org_visible_problems(org)
         else:
-          return Problem.objects.none()
-
+          queryset = Problem.objects.none()
       else:
         if org == '':
-          qs = Problem.get_public_problems()
+          queryset = Problem.get_public_problems()
         else:
-          qs = Problem.get_visible_problems(user)
-        return qs
+          queryset = Problem.get_visible_problems(user)
+      
+      tags = self.request.query_params.get('tags', None)
+      if tags:
+        try:
+          tags = helper_query_args.parse_string_to_list_int(tags, ',')
+        except ValueError as ve:
+          raise ValidationError({ 'tags': ve })
+        queryset = queryset.filter(tags__in=tags).distinct()
+        
+      return queryset
 
   def post(self, request):
       self.check_perms(request)
