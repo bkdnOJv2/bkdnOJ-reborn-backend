@@ -20,7 +20,7 @@ import django_filters.rest_framework
 from problem.validators import problem_data_zip_validator
 from problem.serializers import ProblemBriefSerializer, ProblemSerializer, \
   ProblemTestProfileSerializer
-from problem.models import Problem, ProblemTestProfile
+from problem.models import Problem, ProblemTestProfile, ProblemTag
 
 from submission.models import Submission
 from submission.serializers import SubmissionSubmitSerializer, \
@@ -28,6 +28,7 @@ from submission.serializers import SubmissionSubmitSerializer, \
 from organization.models import Organization
 
 from helpers.string_process import ustrip
+from helpers.parsing import query_args as helper_query_args
 
 __all__ = [
   'ProblemListView', 'ProblemDetailView',
@@ -77,26 +78,47 @@ class ProblemListView(generics.ListCreateAPIView):
       if not user.is_authenticated:
         return Problem.get_public_problems()
 
+      queryset = Problem.objects.none()
+
       org = self.request.query_params.get('org', None)
       if org:
         org = Organization.objects.filter(slug=org).first()
 
         if org and org.id in user.profile.member_of_org_with_ids:
-
           if self.request.query_params.get('recursive'):
-            return Problem.get_org_visible_problems(org, True)
-
-          return Problem.get_org_visible_problems(org)
-
+            queryset = Problem.get_org_visible_problems(org, True)
+          else:
+            queryset = Problem.get_org_visible_problems(org)
         else:
-          return Problem.objects.none()
-
+          queryset = Problem.objects.none()
       else:
         if org == '':
-          qs = Problem.get_public_problems()
+          queryset = Problem.get_public_problems()
         else:
-          qs = Problem.get_visible_problems(user)
-        return qs
+          queryset = Problem.get_visible_problems(user)
+      
+      tags = self.request.query_params.get('tags', None)
+      if tags:
+        try:
+          tags = helper_query_args.parse_string_to_list_int(tags, ',')
+        except ValueError as ve:
+          raise ValidationError({ 'tags': ve })
+        
+        if len(tags) != ProblemTag.objects.only('id').filter(id__in=tags).count():
+          return Problem.objects.none()
+ 
+        for tag in ProblemTag.objects.filter(id__in=tags):
+          queryset = queryset & tag.tagged_problems.all()
+        queryset = queryset.distinct()
+        
+      return queryset
+  
+  def get(self, request):
+    try:
+      return super().get(request)
+    except ValidationError as ve:
+      return Response({ 'detail': str(ve) },
+        status=status.HTTP_400_BAD_REQUEST)
 
   def post(self, request):
       self.check_perms(request)
