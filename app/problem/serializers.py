@@ -12,6 +12,20 @@ from .models import Problem, ProblemTestProfile, TestCase, ProblemTag
 import logging
 logger = logging.getLogger(__name__)
 
+class ProblemTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProblemTag
+        fields = ('id', 'name', 'descriptions')
+        extra_kwargs = {
+            'descriptions': {'write_only': True},
+        }
+
+class ProblemTagDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProblemTag
+        fields = ('id', 'name', 'descriptions', 'created', 'modified')
+        read_only_fields = ('created', 'modified')
+
 class ProblemBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Problem
@@ -35,6 +49,8 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
         if problem.id in context.get('attempted', []):
             return context['attempted'][problem.id]
         return None
+    
+    tags = ProblemTagSerializer(read_only=True, many=True)
 
     class Meta:
         model = Problem
@@ -46,6 +62,7 @@ class ProblemBriefSerializer(serializers.ModelSerializer):
             'partial', 'short_circuit',
             'is_public', 'is_organization_private',
             'time_limit', 'memory_limit', 'created', 'modified',
+            'tags',
         ]
         lookup_field = 'shortname'
         extra_kwargs = {
@@ -219,17 +236,3 @@ class TestCaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestCase
         fields = '__all__'
-
-class ProblemTagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProblemTag
-        fields = ('id', 'name', 'descriptions')
-        extra_kwargs = {
-            'descriptions': {'write_only': True},
-        }
-
-class ProblemTagDetailsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProblemTag
-        fields = ('id', 'name', 'descriptions', 'created', 'modified')
-        read_only_fields = ('created', 'modified')
