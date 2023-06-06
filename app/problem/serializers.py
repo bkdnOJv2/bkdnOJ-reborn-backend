@@ -127,6 +127,8 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 
     allowed_languages = LanguageBasicSerializer(many=True, required=False)
 
+    tags = ProblemTagSerializer(read_only=True, many=True)
+
     def to_internal_value(self, data):
         user_fields = ['authors', 'collaborators', 'reviewers']
         qs = UserProfile.objects.select_related('user')
@@ -182,6 +184,7 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             'points', 'short_circuit', 'partial',
 
             'submission_visibility_mode', 'solved_count', 'attempted_count',
+            'tags'
         ]
         read_only_fields = ['url', ]
         optional_fields = ['allowed_languages', 'collaborators', 'reviewers', 'organizations']
