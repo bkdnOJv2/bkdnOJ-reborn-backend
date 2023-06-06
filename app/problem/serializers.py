@@ -157,6 +157,13 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
             if not o.exists():
                 raise ValidationError(f"Organization'{org_slug}' does not exist.")
             org_ids.append(o.first().id)
+        
+        ## Tags
+        should_set_tags = data.get('tags') is not None
+        if should_set_tags:
+            tag_ids = data.pop('tags', [])
+            if ProblemTag.objects.filter(id__in=tag_ids).count() != len(tag_ids):
+                raise ValidationError({'tags': "Some tags do not exist."})
 
         val_data = super().to_internal_value(data)
 
@@ -166,6 +173,8 @@ class ProblemSerializer(serializers.HyperlinkedModelSerializer):
 
         ## Assign Organization ids
         val_data['organizations'] = org_ids
+        if should_set_tags:
+            val_data['tags'] = tag_ids
         return val_data
 
     class Meta:
