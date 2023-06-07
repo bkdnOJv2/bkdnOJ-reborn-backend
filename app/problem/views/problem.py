@@ -74,28 +74,28 @@ class ProblemListView(generics.ListCreateAPIView):
       return True
 
   def get_queryset(self):
-      user = self.request.user
-      if not user.is_authenticated:
-        return Problem.get_public_problems()
-
       queryset = Problem.objects.none()
 
-      org = self.request.query_params.get('org', None)
-      if org:
-        org = Organization.objects.filter(slug=org).first()
-
-        if org and org.id in user.profile.member_of_org_with_ids:
-          if self.request.query_params.get('recursive'):
-            queryset = Problem.get_org_visible_problems(org, True)
-          else:
-            queryset = Problem.get_org_visible_problems(org)
-        else:
-          queryset = Problem.objects.none()
+      user = self.request.user
+      if not user.is_authenticated:
+        queryset = Problem.get_public_problems()
       else:
-        if org == '':
-          queryset = Problem.get_public_problems()
+        org = self.request.query_params.get('org', None)
+        if org:
+          org = Organization.objects.filter(slug=org).first()
+
+          if org and org.id in user.profile.member_of_org_with_ids:
+            if self.request.query_params.get('recursive'):
+              queryset = Problem.get_org_visible_problems(org, True)
+            else:
+              queryset = Problem.get_org_visible_problems(org)
+          else:
+            queryset = Problem.objects.none()
         else:
-          queryset = Problem.get_visible_problems(user)
+          if org == '':
+            queryset = Problem.get_public_problems()
+          else:
+            queryset = Problem.get_visible_problems(user)
       
       tags = self.request.query_params.get('tags', None)
       if tags:
