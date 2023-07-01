@@ -368,7 +368,7 @@ def get_bridged_django_address():
     if bridged_django_host is None: bridged_django_host = 'localhost'
 
     bridged_django_port=os.getenv('BKDNOJ_DJANGO_PORT')
-    if bridged_django_port is None: bridged_django_port = 9999
+    if bridged_django_port is None: bridged_django_port = 9998
     else: bridged_django_port = int(bridged_django_port)
     return [(bridged_django_host, bridged_django_port)]
 
