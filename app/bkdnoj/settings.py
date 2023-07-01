@@ -200,7 +200,8 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
-        'helpers.renderer.BrowsableAPIRendererWithoutForms',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+        # 'helpers.renderer.BrowsableAPIRendererWithoutForms',
     ),
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -367,3 +368,18 @@ BRIDGED_DJANGO_CONNECT = None
 
 ## --------------------------------------------------
 #from .celery import app as celery_app
+
+## ==================================== AI tags prediction server
+def get_tag_predictor_address():
+    host=os.getenv('BKDNOJ_TAG_PREDICTOR_HOST')
+    if host is None: host = 'localhost'
+
+    port=os.getenv('BKDNOJ_TAG_PREDICTOR_PORT')
+    if port is None: port = 8001
+    else: port = int(port)
+    return f'{host}:{port}'
+
+TAG_PREDICTOR_ADDRESS = get_tag_predictor_address()
+TAG_PREDICTOR_MAX_SUBMISSIONS = 10
+TAG_PREDICTOR_ACCEPT_THRESHOLD = 0.5
+TAG_PREDICTOR_LANGS_COMMON_NAME = ('C++',)
