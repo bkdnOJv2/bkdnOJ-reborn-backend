@@ -363,7 +363,16 @@ def get_bridged_judge_address():
 BRIDGED_JUDGE_ADDRESS = get_bridged_judge_address()
 BRIDGED_JUDGE_PROXIES = None
 
-BRIDGED_DJANGO_ADDRESS = [('localhost', 9998)]
+def get_bridged_django_address():
+    bridged_django_host=os.getenv('BKDNOJ_DJANGO_ADDRESS')
+    if bridged_django_host is None: bridged_django_host = 'localhost'
+
+    bridged_django_port=os.getenv('BKDNOJ_DJANGO_PORT')
+    if bridged_django_port is None: bridged_django_port = 9999
+    else: bridged_django_port = int(bridged_django_port)
+    return [(bridged_django_host, bridged_django_port)]
+
+BRIDGED_DJANGO_ADDRESS = get_bridged_django_address()
 BRIDGED_DJANGO_CONNECT = None
 
 ## --------------------------------------------------
