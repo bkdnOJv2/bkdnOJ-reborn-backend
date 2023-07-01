@@ -65,6 +65,12 @@ urlpatterns = [
     # Problem Tags
     path('problem-tags/', ProblemTagListView.as_view(), name='problem-tag_list'),
     path('problem-tags/<int:pk>/', ProblemTagDetailsView.as_view(), name='problem-tag_details'),
+
+    # Trigger Problem Tagging
+    path('problem/<str:shortname>/auto-tagging',
+        ProblemTriggerTaggingView.as_view(),
+        name='problem-autotag',
+    ),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

@@ -434,6 +434,11 @@ class Problem(TimeStampedModel):
             ## Change instance var to avoid recursion
             self.__original_shortname = self.shortname
             self.save(update_fields=['pdf'])
+  
+
+  def auto_tagging(self):
+    from problem.tasks import tag_problem
+    async_status = tag_problem.delay(self.id)
 
   class Meta:
     ordering = ['-created']
