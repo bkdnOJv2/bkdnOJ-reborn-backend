@@ -1,0 +1,17 @@
+#!/bin/bash
+
+CLBLACK=$(tput setaf 0)
+CLRED=$(tput setaf 1)
+CLGREEN=$(tput setaf 2)
+CLYELLOW=$(tput setaf 3)
+CLLIME_YELLOW=$(tput setaf 190)
+CLPOWDER_BLUE=$(tput setaf 153)
+CLBLUE=$(tput setaf 4)
+CLMAGENTA=$(tput setaf 5)
+CLCYAN=$(tput setaf 6)
+CLWHITE=$(tput setaf 7)
+CLBRIGHT=$(tput bold)
+CLNORMAL=$(tput sgr0)
+CLBLINK=$(tput blink)
+CLREVERSE=$(tput smso)
+CLUNDERLINE=$(tput smul)
