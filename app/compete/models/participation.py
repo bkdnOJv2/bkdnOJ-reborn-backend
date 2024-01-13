@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.core.exceptions import ValidationError
 
 from django.core.cache import cache

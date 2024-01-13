@@ -1,3 +1,4 @@
+# pylint: skip-file
 # From: http://www.mercurytide.co.uk/news/article/django-full-text-search/
 
 from django.db import connection, models

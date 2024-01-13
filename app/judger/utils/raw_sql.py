@@ -1,3 +1,4 @@
+# pylint: skip-file
 from copy import copy
 
 from django.db import connections

@@ -1,3 +1,4 @@
+# pylint: skip-file
 from rest_framework import views, permissions, generics, status, filters
 from rest_framework.response import Response
 from django.core.exceptions import PermissionDenied

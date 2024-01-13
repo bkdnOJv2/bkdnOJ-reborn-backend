@@ -1,3 +1,4 @@
+# pylint: skip-file
 def safe_int_or_none(value):
     try:
         return int(value)

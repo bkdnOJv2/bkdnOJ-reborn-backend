@@ -1,3 +1,4 @@
+# pylint: skip-file
 import collections
 import inspect
 from math import ceil

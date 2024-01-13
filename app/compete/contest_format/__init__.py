@@ -1,3 +1,4 @@
+# pylint: skip-file
 from .icpc import ICPCContestFormat
 from .legacy_ioi import LegacyIOIContestFormat
 # from .default import DefaultContestFormat

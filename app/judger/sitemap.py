@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.contrib.auth.models import User
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse

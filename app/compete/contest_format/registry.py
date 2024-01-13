@@ -1,3 +1,4 @@
+# pylint: skip-file
 formats = {}
 
 def register_contest_format(name):

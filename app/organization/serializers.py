@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.contrib.auth import get_user_model

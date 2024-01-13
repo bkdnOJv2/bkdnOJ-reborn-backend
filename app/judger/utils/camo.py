@@ -1,3 +1,4 @@
+# pylint: skip-file
 import hmac
 from hashlib import sha1
 

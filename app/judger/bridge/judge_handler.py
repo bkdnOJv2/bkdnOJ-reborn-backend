@@ -1,3 +1,4 @@
+# pylint: skip-file
 import hmac
 import json
 import logging

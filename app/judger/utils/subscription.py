@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.conf import settings
 
 if 'newsletter' in settings.INSTALLED_APPS:

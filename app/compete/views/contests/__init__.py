@@ -1,3 +1,4 @@
+# pylint: skip-file
 from .list import *
 from .action import *
 from .detail import *

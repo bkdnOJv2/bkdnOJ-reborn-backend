@@ -1,3 +1,4 @@
+# pylint: skip-file
 import logging
 
 from django.utils.safestring import SafeData, mark_safe

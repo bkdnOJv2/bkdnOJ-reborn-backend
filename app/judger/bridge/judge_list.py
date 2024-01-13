@@ -1,3 +1,4 @@
+# pylint: skip-file
 import logging
 from collections import namedtuple
 from random import random

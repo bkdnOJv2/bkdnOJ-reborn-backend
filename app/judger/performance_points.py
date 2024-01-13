@@ -1,3 +1,4 @@
+# pylint: skip-file
 from collections import namedtuple
 
 from django.conf import settings

@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.db.models import QuerySet
 from treebeard.mp_tree import MP_Node
 

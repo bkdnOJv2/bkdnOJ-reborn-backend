@@ -32,7 +32,7 @@ django-filter==21.1
 django-treebeard==4.5.1
 djangorestframework==3.13.1
 djangorestframework-simplejwt==5.1.0
--e git+https://github.com/DMOJ/judge-server.git@12b42f6171de0f0ac8cd71f74f1b636b5e93fda0#egg=dmoj
+-e git+https://github.com/DMOJ/judge-server.git@bee0ab13d2f35a8fcf34a675de2344e1dca27d2e#egg=dmoj
 executing==0.8.3
 fake-factory==9999.9.9
 Faker==13.11.0

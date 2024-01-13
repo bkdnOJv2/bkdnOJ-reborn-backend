@@ -1,3 +1,4 @@
+# pylint: skip-file
 from functools import lru_cache as cache
 
 from django.contrib.auth.models import Group

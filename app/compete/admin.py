@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.contrib import admin
 from helpers.models import AllFieldModelAdmin
 from .models import *

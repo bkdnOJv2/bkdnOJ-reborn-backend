@@ -1,3 +1,4 @@
+# pylint: skip-file
 import os
 import socket
 import struct

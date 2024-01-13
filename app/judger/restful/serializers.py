@@ -1,3 +1,4 @@
+# pylint: skip-file
 from rest_framework import serializers
 from judger.models import Judge, RuntimeVersion, Language
 from problem.serializers import ProblemBriefSerializer

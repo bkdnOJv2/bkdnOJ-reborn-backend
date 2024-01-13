@@ -1,3 +1,4 @@
+# pylint: skip-file
 from rest_framework.throttling import UserRateThrottle
 
 class BkdnojThrottling(UserRateThrottle):

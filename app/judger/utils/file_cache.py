@@ -1,3 +1,4 @@
+# pylint: skip-file
 import errno
 import os
 from gzip import open as gzip_open

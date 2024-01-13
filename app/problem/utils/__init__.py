@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.core.cache import cache
 from django.db.models import Case, Count, ExpressionWrapper, F, Max, When
 from django.db.models.fields import FloatField

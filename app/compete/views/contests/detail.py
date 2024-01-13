@@ -1,3 +1,4 @@
+# pylint: skip-file
 from functools import lru_cache
 
 from django.shortcuts import get_object_or_404

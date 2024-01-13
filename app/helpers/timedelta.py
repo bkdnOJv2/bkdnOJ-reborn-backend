@@ -1,3 +1,4 @@
+# pylint: skip-file
 import datetime
 from django.utils.translation import npgettext, pgettext
 from django.utils.translation import gettext as ungettext

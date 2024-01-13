@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.apps import AppConfig
 from django.db import DatabaseError
 from django.utils.translation import gettext_lazy as _

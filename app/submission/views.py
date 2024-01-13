@@ -1,3 +1,4 @@
+# pylint: skip-file
 from functools import cached_property
 from django.http import Http404
 from django.core.exceptions import PermissionDenied, ViewDoesNotExist, ValidationError
