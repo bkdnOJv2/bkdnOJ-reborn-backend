@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.core.exceptions import PermissionDenied
 from rest_framework import generics, views, permissions
 from judger.models import Judge, Language

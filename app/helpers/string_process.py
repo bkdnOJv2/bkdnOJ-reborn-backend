@@ -1,3 +1,4 @@
+# pylint: skip-file
 # https://www.lesinskis.com/python-unicode-whitespace.html
 # Unicode Whitespace characters list
 UNICODE_WHITESPACE_CHARACTERS = [

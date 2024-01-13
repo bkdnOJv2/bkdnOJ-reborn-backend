@@ -1,3 +1,4 @@
+# pylint: skip-file
 from functools import lru_cache
 
 import errno

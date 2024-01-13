@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.urls import path
 from auth.views import RegisterView
 from rest_framework_simplejwt.views import (

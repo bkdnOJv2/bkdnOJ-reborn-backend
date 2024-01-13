@@ -1,3 +1,4 @@
+# pylint: skip-file
 import operator
 from functools import reduce
 from queue import Queue

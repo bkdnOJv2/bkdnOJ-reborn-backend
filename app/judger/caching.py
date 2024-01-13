@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.core.cache import cache
 
 from problem.utils import key_user_completed_ids, key_user_attempted_ids

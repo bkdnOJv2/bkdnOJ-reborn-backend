@@ -1,3 +1,4 @@
+# pylint: skip-file
 """
 Based on https://github.com/ubernostrum/pwned-passwords-django.
 

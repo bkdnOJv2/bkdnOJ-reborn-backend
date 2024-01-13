@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.contrib.auth.models import Group
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError

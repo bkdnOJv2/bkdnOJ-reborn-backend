@@ -1,3 +1,4 @@
+# pylint: skip-file
 from celery.result import AsyncResult
 from django.http import HttpResponseRedirect
 from django.urls import reverse

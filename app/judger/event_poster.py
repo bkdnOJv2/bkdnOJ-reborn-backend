@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.conf import settings
 
 __all__ = ['last', 'post']

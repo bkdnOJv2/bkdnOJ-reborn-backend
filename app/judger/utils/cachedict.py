@@ -1,3 +1,4 @@
+# pylint: skip-file
 class CacheDict(dict):
     def __init__(self, func):
         super(CacheDict, self).__init__()

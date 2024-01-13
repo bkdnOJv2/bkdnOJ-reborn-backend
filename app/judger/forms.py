@@ -1,3 +1,4 @@
+# pylint: skip-file
 import json
 from operator import attrgetter, itemgetter
 

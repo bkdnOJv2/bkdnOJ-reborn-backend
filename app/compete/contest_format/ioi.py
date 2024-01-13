@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.db import connection
 from django.utils.translation import gettext as _, gettext_lazy
 

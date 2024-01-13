@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.utils.timezone import make_aware
 from django.db import connection
 

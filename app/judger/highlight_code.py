@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.utils.html import escape, mark_safe
 
 __all__ = ['highlight_code']

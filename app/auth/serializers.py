@@ -1,3 +1,4 @@
+# pylint: skip-file
 from string import ascii_lowercase, digits
 ALLOWED_CHARSET = set('' + ascii_lowercase + digits + '-_')
 

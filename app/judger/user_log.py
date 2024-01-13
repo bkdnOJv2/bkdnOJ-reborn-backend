@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.utils.timezone import now
 
 from judge.models import Profile

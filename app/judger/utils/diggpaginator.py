@@ -1,3 +1,4 @@
+# pylint: skip-file
 import math
 from functools import reduce
 

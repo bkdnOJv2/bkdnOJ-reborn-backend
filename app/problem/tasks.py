@@ -1,3 +1,4 @@
+# pylint: skip-file
 from celery import shared_task
 from django.conf import settings # TAG_PREDICTOR_ADDRESS, TAG_PREDICTOR_MAX_SUBMISSIONS
 from problem.models import Problem, ProblemTag

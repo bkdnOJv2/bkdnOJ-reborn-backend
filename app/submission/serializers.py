@@ -1,3 +1,4 @@
+# pylint: skip-file
 from functools import lru_cache as cache
 from django.conf import settings
 

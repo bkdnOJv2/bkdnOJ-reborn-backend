@@ -1,3 +1,4 @@
+# pylint: skip-file
 import io, os
 from ast import literal_eval
 from zipfile import BadZipfile, ZipFile

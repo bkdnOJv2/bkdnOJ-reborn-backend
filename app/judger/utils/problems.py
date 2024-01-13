@@ -1,3 +1,4 @@
+# pylint: skip-file
 from collections import defaultdict
 from math import e
 

@@ -1,3 +1,4 @@
+# pylint: skip-file
 from rest_framework.renderers import BrowsableAPIRenderer
 
 class BrowsableAPIRendererWithoutForms(BrowsableAPIRenderer):

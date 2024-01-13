@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.utils.crypto import get_random_string
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group

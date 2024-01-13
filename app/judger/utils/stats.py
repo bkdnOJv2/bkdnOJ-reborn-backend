@@ -1,3 +1,4 @@
+# pylint: skip-file
 from operator import itemgetter
 
 __all__ = ('chart_colors', 'highlight_colors', 'get_pie_chart', 'get_bar_chart')

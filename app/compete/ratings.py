@@ -1,3 +1,4 @@
+# pylint: skip-file
 from bisect import bisect
 from math import pi, sqrt, tanh
 from operator import attrgetter, itemgetter

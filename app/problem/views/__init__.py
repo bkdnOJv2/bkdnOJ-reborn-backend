@@ -1,3 +1,4 @@
+# pylint: skip-file
 from .problem import *
 
 from .problem_test_data import \

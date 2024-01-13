@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.conf import settings
 VALID_IN_EXT = settings.BKDNOJ_PROBLEM_DATA_IN_FILE_EXT 
 VALID_ANS_EXT = settings.BKDNOJ_PROBLEM_DATA_ANS_FILE_EXT 

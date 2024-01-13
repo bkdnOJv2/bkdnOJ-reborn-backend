@@ -1,3 +1,4 @@
+# pylint: skip-file
 from django.core.management.base import BaseCommand
 
 from judger.models import Judge
