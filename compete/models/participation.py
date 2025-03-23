@@ -85,8 +85,8 @@ class ContestParticipation(models.Model):
         if self.contest.is_rated and self.contest.ratings.exists():
             self.contest.rate()
         if self.is_disqualified:
-            if self.user.current_contest == self:
-                self.user.remove_contest()
+            # if self.user.current_contest == self:
+            #     self.user.remove_contest()
             self.contest.banned_users.add(self.user)
         else:
             self.contest.banned_users.remove(self.user)
